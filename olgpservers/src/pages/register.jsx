@@ -1,8 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import supabase from "../helper/supabaseClient";
 import { Link } from "react-router-dom";
 
 function Register() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Register";
+  }, []);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");

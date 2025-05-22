@@ -22,7 +22,7 @@ function App() {
           }
         />
         {/* Home */}
-        <Route path="/home" element={<Home />} />
+        <Route path="/" element={<Home />} />
         {/* Register */}
         <Route path="/register" element={<Register />} />
         {/* Login */}

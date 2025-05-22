@@ -6,21 +6,30 @@ import Register from "./pages/register";
 import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
 
-function App() {
-  return;
+import Wrapper from "./helper/wrapper";
 
-  <BrowserRouter>
-    <Routes>
-      <Route path="/" element={<Dashboard />} />
-      {/*Home*/}
-      <Route path="/" element={<Home />} />
-      {/*Register*/}
-      <Route path="/" element={<Register />} />
-      {/*Login*/}
-      <Route path="/" element={<Login />} />
-      {/*Dashboard*/}
-    </Routes>
-  </BrowserRouter>;
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Dashboard */}
+        <Route
+          path="/dashboard"
+          element={
+            <Wrapper>
+              <Dashboard />
+            </Wrapper>
+          }
+        />
+        {/* Home */}
+        <Route path="/home" element={<Home />} />
+        {/* Register */}
+        <Route path="/register" element={<Register />} />
+        {/* Login */}
+        <Route path="/login" element={<Login />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;

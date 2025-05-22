@@ -1,7 +1,16 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
-function home() {
-  return <div>home</div>;
+function Home() {
+  return (
+    <div>
+      <Link to="/register">Register</Link>
+      <br />
+      <Link to="/login">Login</Link>
+      <br />
+      <Link to="/dashboard">Dashboard</Link>
+    </div>
+  );
 }
 
-export default home;
+export default Home;

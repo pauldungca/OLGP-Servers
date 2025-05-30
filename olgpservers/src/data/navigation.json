@@ -1,0 +1,16 @@
+{
+  "navigation": [
+    {
+      "name": "Register",
+      "path": "/register"
+    },
+    {
+      "name": "Login",
+      "path": "/login"
+    },
+    {
+      "name": "Dashboard",
+      "path": "/dashboard"
+    }
+  ]
+}

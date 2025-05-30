@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
+import navigation from "../data/navigation.json";
 
 function Home() {
   useEffect(() => {
@@ -8,11 +9,12 @@ function Home() {
 
   return (
     <div>
-      <Link to="/register">Register</Link>
-      <br />
-      <Link to="/login">Login</Link>
-      <br />
-      <Link to="/dashboard">Dashboard</Link>
+      {navigation.navigation.map((item) => (
+        <div key={item.path}>
+          <Link to={item.path}>{item.name}</Link>
+          <br />
+        </div>
+      ))}
     </div>
   );
 }

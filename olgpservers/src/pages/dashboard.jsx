@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import supabase from "../helper/supabaseClient";
+import supabase from "../utils/supabase";
 import { useNavigate } from "react-router-dom";
 
 function Dashboard() {
@@ -8,12 +8,14 @@ function Dashboard() {
   }, []);
 
   const navigate = useNavigate();
+
   const signout = async () => {
     const { error } = await supabase.auth.signOut();
     if (!error) {
       navigate("/login");
     }
   };
+
   return (
     <div>
       <h2>Dashboard</h2>

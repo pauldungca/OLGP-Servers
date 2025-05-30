@@ -8,6 +8,8 @@ import Dashboard from "./pages/dashboard";
 
 import Wrapper from "./helper/wrapper";
 
+import "../src/assets/styles/index.css";
+
 function App() {
   return (
     <BrowserRouter>

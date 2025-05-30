@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import supabase from "../helper/supabaseClient";
+import supabase from "../utils/supabase";
 import { Link } from "react-router-dom";
 
 function Register() {

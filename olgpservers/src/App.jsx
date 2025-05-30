@@ -1,20 +1,21 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import Home from "./pages/home";
-import Register from "./pages/register";
-import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
+
+// login pages import
+import Login from "./pages/login-pages/login";
+import VerifyOTP from "./pages/login-pages/verifyOTP";
+import ConfirmPassword from "./pages/login-pages/confirmPassword";
 
 import Wrapper from "./helper/wrapper";
 
-import "../src/assets/styles/index.css";
+import "./assets/styles/index.css";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Dashboard */}
         <Route
           path="/dashboard"
           element={
@@ -23,12 +24,9 @@ function App() {
             </Wrapper>
           }
         />
-        {/* Home */}
-        <Route path="/" element={<Home />} />
-        {/* Register */}
-        <Route path="/register" element={<Register />} />
-        {/* Login */}
-        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Login />} />
+        <Route path="/verifyOTP" element={<VerifyOTP />} />
+        <Route path="/confirmPassword" element={<ConfirmPassword />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,0 +1,92 @@
+@font-face {
+  font-family: "Inter-Font";
+  src: url("../fonts/Inter-VariableFont_opsz\,wght.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Inter-Font-Italic";
+  src: url("../fonts/Inter-Italic-VariableFont_opsz\,wght.ttf")
+    format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter-Font", sans-serif;
+  /*background-color: #f0f2f5;*/
+}
+
+.login-card {
+  width: 900px;
+  height: 500px;
+  border-radius: 25px;
+}
+
+.left-section {
+  width: 45%;
+  background: linear-gradient(to bottom right, #3454b4, #596ad9);
+}
+
+.logo {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  border-radius: 50%;
+  padding: 10px;
+}
+
+.right-section {
+  width: 55%;
+}
+
+.btn-login {
+  height: 45px;
+  background-color: #3454b4;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  color: white;
+  width: 100%;
+  transition: background-color 0.2s ease;
+}
+
+.btn-login:hover {
+  background-color: #ffffff;
+  color: #3454b4;
+  border: 2px solid #3454b4;
+}
+
+.btn-verify {
+  height: 45px;
+  background-color: #596ad9;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  color: white;
+  width: 45%;
+  transition: background-color 0.2s ease;
+}
+
+.btn-verify:hover {
+  background-color: #ffffff;
+  color: #596ad9;
+  border: 2px solid #596ad9;
+}
+
+.btn-cancel {
+  height: 45px;
+  width: 45%;
+  border: 1px solid #ccc;
+  background-color: white;
+  border-radius: 4px;
+  font-weight: 500;
+  color: #3454b4;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-cancel:hover {
+  background-color: #f0f0f0;
+}

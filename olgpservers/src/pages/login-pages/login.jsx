@@ -26,13 +26,37 @@ export default function Login() {
     setPasswordVisible((v) => !v); // Toggle password visibility
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle login logic here
+    if (!idNumber || !password) {
+      alert("Please enter both ID number and password.");
+      return;
+    }
+    try {
+      const response = await fetch("http://localhost:4000/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idnumber: idNumber, password }),
+      });
+      const result = await response.json();
+      if (response.ok) {
+        // Login successful, redirect or set auth state
+        alert("Login successful!");
+        // Example: navigate("/dashboard");
+      } else {
+        alert(result.error || "Login failed.");
+      }
+    } catch (err) {
+      alert("Network error: " + err.message);
+    }
   };
 
   const handleForgotPassword = () => {
     navigate("/verifyOTP"); // Navigate to the Verify OTP page
+  };
+
+  const handleCreateAccount = () => {
+    navigate("/createAccoount"); // Navigate to the Create Account page
   };
 
   return (
@@ -52,6 +76,7 @@ export default function Login() {
               alt="Our Lady of Guadalupe Logo"
               className="logo"
             />
+            {/* <button onClick={handleCreateAccount}>Create Account</button> */}
           </div>
 
           {/* Right Section */}

@@ -1,16 +1,20 @@
 {
   "navigation": [
     {
-      "name": "Register",
-      "path": "/register"
-    },
-    {
       "name": "Login",
       "path": "/login"
     },
     {
       "name": "Dashboard",
       "path": "/dashboard"
+    },
+    {
+      "name": "VerifyOTP",
+      "path": "/verifyOTP"
+    },
+    {
+      "name": "ConfirmPassword",
+      "path": "/confirmPassword"
     }
   ]
 }

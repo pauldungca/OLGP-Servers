@@ -33,16 +33,18 @@ export default function Login() {
       return;
     }
     try {
-      const response = await fetch("http://localhost:4000/api/login", {
+      const response = await fetch("http://localhost:5000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idnumber: idNumber, password }),
+        body: JSON.stringify({ idNumber, password }),
       });
       const result = await response.json();
       if (response.ok) {
-        // Login successful, redirect or set auth state
-        alert("Login successful!");
-        // Example: navigate("/dashboard");
+        localStorage.setItem("authToken", result.token);
+        localStorage.setItem("userData", JSON.stringify(result.user));
+
+        // Navigate to dashboard
+        //navigate("/dashboard");
       } else {
         alert(result.error || "Login failed.");
       }
@@ -51,12 +53,16 @@ export default function Login() {
     }
   };
 
-  const handleForgotPassword = () => {
+  /* const handleForgotPassword = () => {
     navigate("/verifyOTP"); // Navigate to the Verify OTP page
   };
 
   const handleCreateAccount = () => {
     navigate("/createAccoount"); // Navigate to the Create Account page
+  }; */
+
+  const handleLoginTest = () => {
+    navigate("/dashboard");
   };
 
   return (
@@ -132,7 +138,7 @@ export default function Login() {
                 ></i>
               </div>
 
-              <div className="mb-4 text-end" style={{ marginTop: -8 }}>
+              {/*<div className="mb-4 text-end" style={{ marginTop: -8 }}>
                 <button
                   type="button"
                   className="text-decoration-none btn btn-link p-0"
@@ -141,9 +147,25 @@ export default function Login() {
                 >
                   Forgot password?
                 </button>
-              </div>
-
-              <button type="submit" className="btn btn-login">
+              </div>*/}
+              {/*<div className="mb-4 text-center">
+                <button
+                  type="button"
+                  className="text-decoration-none btn btn-link p-0"
+                  style={{ fontSize: "0.875rem" }}
+                  onClick={handleCreateAccount}
+                >
+                  Create an account
+                </button>
+              </div>*/
+              /*<button type="submit" className="btn btn-login">
+                Sign in
+              </button>*/}
+              <button
+                type="button"
+                className="btn btn-login"
+                onClick={handleLoginTest}
+              >
                 Sign in
               </button>
             </form>

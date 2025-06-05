@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import supabase from "../utils/supabase";
 import { Navigate } from "react-router-dom";
 
 function Wrapper({ children }) {
@@ -7,24 +6,33 @@ function Wrapper({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setAuthenticated(!!session);
-      setLoading(false);
+    const checkAuthentication = async () => {
+      try {
+        // Check for token in localStorage (or make an API call to verify token)
+        const token = localStorage.getItem("authToken");
+
+        // If you need to verify the token with the backend, you could make an API call here
+        // const response = await verifyTokenAPI(token);
+        // setAuthenticated(response.isValid);
+
+        // For now, just check if token exists
+        setAuthenticated(!!token);
+      } catch (error) {
+        console.error("Authentication check failed:", error);
+        setAuthenticated(false);
+      } finally {
+        setLoading(false);
+      }
     };
-    getSession();
+
+    checkAuthentication();
   }, []);
 
   if (loading) {
     return <div>Loading...</div>;
-  } else {
-    if (authenticated) {
-      return <>{children}</>;
-    }
-    return <Navigate to="/login" />;
   }
+
+  return authenticated ? children : <Navigate to="/" replace />;
 }
 
 export default Wrapper;

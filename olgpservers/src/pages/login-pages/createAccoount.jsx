@@ -1,30 +1,26 @@
 import React, { useState } from "react";
-import supabase from "../../utils/supabase";
 
 export default function CreateAccoount() {
-  const [id, setId] = useState("");
-  const [idnumber, setIdNumber] = useState("");
+  const [idNumber, setIdNumber] = useState(""); // Correct variable name here
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [otp, setOtp] = useState("");
+  const [name, setName] = useState("");
 
-  function generateRandomString(length = 12) {
-    const characters =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
-    const charactersLength = characters.length;
+  React.useEffect(() => {
+    setName("Paul Dungca");
+  }, []);
 
-    for (let i = 0; i < length; i++) {
-      result += characters.charAt(Math.floor(Math.random() * charactersLength));
-    }
-
-    return result;
+  function generateOTP() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!idnumber || !password || !email) {
+    if (!idNumber || !password || !email) {
+      // Consistent use of 'idNumber' here
       setMessage("Please fill in all fields.");
       return;
     } else if (password.length < 8) {
@@ -35,23 +31,17 @@ export default function CreateAccoount() {
       return;
     } else {
       setMessage("Creating account...");
-      const randomStr = generateRandomString();
-      setId(randomStr);
       try {
-        const response = await fetch(
-          "http://localhost:4000/api/create-account",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idnumber, id: randomStr, password, email }),
-          }
-        );
+        const response = await fetch("http://localhost:5000/create-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idNumber, password, email }), // Correct variable name here
+        });
         const result = await response.json();
         if (response.ok) {
           setMessage("Account created!");
           setEmail("");
-          setId("");
-          setIdNumber("");
+          setIdNumber(""); // Correct variable name here
           setPassword("");
         } else {
           setMessage("Error: " + (result.error || "Unknown error"));
@@ -63,12 +53,15 @@ export default function CreateAccoount() {
   };
 
   const sendEmail = async () => {
+    const otpValue = generateOTP();
+    setOtp(otpValue);
+    alert("Your OTP is: " + otpValue);
     setMessage("Sending email...");
     try {
-      const response = await fetch("http://localhost:4000/api/send-email", {
+      const response = await fetch("http://localhost:5000/sendOTP", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, idnumber }),
+        body: JSON.stringify({ email, otp: otpValue, name }),
       });
       const result = await response.json();
       if (response.ok) setMessage("Email sent!");
@@ -85,7 +78,7 @@ export default function CreateAccoount() {
         <input
           type="text"
           placeholder="Id Number"
-          value={idnumber}
+          value={idNumber} // Correct variable name here
           onChange={(e) => setIdNumber(e.target.value.replace(/[^0-9]/g, ""))}
         />
         <input

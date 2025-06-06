@@ -1,13 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import "../assets/styles/components.css";
 import icons from "../helper/icon";
-import { Tooltip } from "antd";
+import {
+  fetchUserRoles,
+  determineUserRole,
+  createNavigationLinks,
+  createNavigationLinkWithSubmenu,
+} from "../assets/scripts/sidebar.js";
 
 export default function Sidebar({ collapsed }) {
-  const navigate = useNavigate();
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [activePage, setActivePage] = useState("dashboard");
+  const [userRoleType, setUserRoleType] = useState();
+  const [userRoles, setUserRoles] = useState({
+    isParishSecretary: false,
+    isAltarServerScheduler: false,
+    isEucharisticMinisterScheduler: false,
+    isLectorCommentatorScheduler: false,
+    isChoirScheduler: false,
+  });
+  const [userID, setUserId] = useState();
+
+  const navigationLinks = createNavigationLinks();
+  const navigationLinkWithSubmenu = createNavigationLinkWithSubmenu(icons);
 
   useEffect(() => {
     const path = window.location.pathname.replace("/", "") || "dashboard";
@@ -16,123 +31,20 @@ export default function Sidebar({ collapsed }) {
     if (path.includes("schedule")) {
       setActiveSubmenu("schedule-submenu");
     }
+
+    const userIdNumber = localStorage.getItem("idNumber");
+    if (userIdNumber) {
+      setUserId(userIdNumber);
+      fetchUserRoles(userIdNumber, setUserRoles, setUserRoleType);
+    } else {
+      setUserId("None");
+      setUserRoleType("None");
+    }
   }, []);
 
   const toggleSubmenu = (menuId) => {
-    const newActiveSubmenu = activeSubmenu === menuId ? null : menuId;
-    setActiveSubmenu(newActiveSubmenu);
+    setActiveSubmenu(activeSubmenu === menuId ? null : menuId);
   };
-
-  function navigationLinks(title, toPage, pageName, icon) {
-    return (
-      <li className="nav-item">
-        {collapsed ? (
-          <Tooltip
-            title={title}
-            placement="right"
-            overlayClassName="sidebar-tooltip"
-            align={{
-              offset: [10, -18], // Adjust horizontal offset
-            }}
-          >
-            <Link
-              to={toPage}
-              className={`nav-link ${activePage === pageName ? "active" : ""}`}
-            >
-              <img src={icon} className="icon" />
-            </Link>
-          </Tooltip>
-        ) : (
-          <Link
-            to={toPage}
-            className={`nav-link ${activePage === pageName ? "active" : ""}`}
-          >
-            <img src={icon} className="icon" />
-            <span>{title}</span>
-          </Link>
-        )}
-      </li>
-    );
-  }
-
-  function navigationLinkWithSubmenu(
-    title,
-    toPage,
-    pageName,
-    icon,
-    submenuItems
-  ) {
-    return (
-      <li className="nav-item has-submenu">
-        <a
-          href="#"
-          className={`nav-link ${activePage === pageName ? "active" : ""}`}
-          onClick={(e) => {
-            e.preventDefault();
-            toggleSubmenu(`${pageName}-submenu`);
-          }}
-        >
-          <img src={icon} className="icon" />
-          {!collapsed && <span>{title}</span>}
-          {collapsed ? (
-            <Tooltip
-              title={title}
-              placement="right"
-              overlayClassName="sidebar-tooltip"
-              align={{ offset: [10, -18] }}
-            >
-              <span></span> {/* Empty span for tooltip positioning */}
-            </Tooltip>
-          ) : null}
-          <img
-            src={icons.arrowLogo}
-            className={`arrow-icon ms-auto ${
-              activeSubmenu === `${pageName}-submenu` ? "rotate" : ""
-            }`}
-            alt="arrow"
-          />
-        </a>
-        <ul
-          className={`submenu ${
-            activeSubmenu === `${pageName}-submenu` ? "open" : ""
-          }`}
-          id={`${pageName}-submenu`}
-        >
-          {submenuItems.map((item, index) => (
-            <li className="nav-item" key={index}>
-              {collapsed ? (
-                <Tooltip
-                  title={item.title}
-                  placement="right"
-                  overlayClassName="sidebar-tooltip"
-                  align={{ offset: [10, -13] }}
-                >
-                  <Link
-                    to={item.to}
-                    className={`nav-link sub-link ${
-                      activePage === item.pageName ? "active" : ""
-                    }`}
-                  >
-                    <img src={item.icon} className="icon" />
-                  </Link>
-                </Tooltip>
-              ) : (
-                <Link
-                  to={item.to}
-                  className={`nav-link sub-link ${
-                    activePage === item.pageName ? "active" : ""
-                  }`}
-                >
-                  <img src={item.icon} className="icon" />
-                  <span>{item.title}</span>
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
-      </li>
-    );
-  }
 
   return (
     <div
@@ -157,7 +69,7 @@ export default function Sidebar({ collapsed }) {
         {!collapsed && (
           <div className="user-details">
             <span className="username">John Doe</span>
-            <span className="user-role">Altar Server Scheduler</span>
+            <span className="user-role">{userRoleType}</span>
           </div>
         )}
       </div>
@@ -172,7 +84,9 @@ export default function Sidebar({ collapsed }) {
           "Dashboard",
           "/dashboard",
           "dashboard",
-          icons.dashboardLogo
+          icons.dashboardLogo,
+          activePage,
+          collapsed
         )}
         {/* Schedule Link with Submenu */}
         {navigationLinkWithSubmenu(
@@ -193,14 +107,20 @@ export default function Sidebar({ collapsed }) {
               pageName: "view-schedule",
               icon: icons.viewScheduleLogo,
             },
-          ]
+          ],
+          activePage,
+          activeSubmenu,
+          collapsed,
+          toggleSubmenu
         )}
         {/* Notifications Link */}
         {navigationLinks(
           "Notifications",
           "/notification",
           "notification",
-          icons.notificationLogo
+          icons.notificationLogo,
+          activePage,
+          collapsed
         )}
 
         {/* Department Link */}
@@ -208,7 +128,9 @@ export default function Sidebar({ collapsed }) {
           "Department",
           "/department",
           "department",
-          icons.departmentLogo
+          icons.departmentLogo,
+          activePage,
+          collapsed
         )}
 
         {/* Department Settings Link */}
@@ -216,19 +138,35 @@ export default function Sidebar({ collapsed }) {
           "Department Settings",
           "/department-settings",
           "department-settings",
-          icons.departmentSettingsLogo
+          icons.departmentSettingsLogo,
+          activePage,
+          collapsed
         )}
 
         {/* Settings Section */}
         {!collapsed && <br />}
         <li className="nav-section nav-section-full">SETTINGS</li>
-        <hr className="nav-divider-collapsed" />
+        {collapsed && <hr className="nav-divider-collapsed" />}
 
         {/* Account Link */}
-        {navigationLinks("Account", "/account", "account", icons.accountLogo)}
+        {navigationLinks(
+          "Account",
+          "/account",
+          "account",
+          icons.accountLogo,
+          activePage,
+          collapsed
+        )}
 
         {/* Logout Link */}
-        {navigationLinks("Logout", "/logout", "logout", icons.logoutLogo)}
+        {navigationLinks(
+          "Logout",
+          "/logout",
+          "logout",
+          icons.logoutLogo,
+          activePage,
+          collapsed
+        )}
       </ul>
     </div>
   );

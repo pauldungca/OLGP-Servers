@@ -5,11 +5,9 @@ export default function Logout() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Clear session data (e.g., tokens) from localStorage and sessionStorage
-    localStorage.removeItem("authToken"); // Assuming "authToken" stores the token
-    sessionStorage.removeItem("authToken");
+    localStorage.clear();
+    sessionStorage.clear();
 
-    // Redirect to the homepage after logout
     navigate("/"); // Redirect to login page ("/")
   }, [navigate]);
 

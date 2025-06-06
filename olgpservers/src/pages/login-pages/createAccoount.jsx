@@ -32,11 +32,25 @@ export default function CreateAccoount() {
       });
   }
 
+  function defineUserType(idNumber, usertype) {
+    return supabase
+      .from("user-type")
+      .insert([{ idNumber, usertype }])
+      .then(({ data, error }) => {
+        if (error) {
+          throw new Error(error.message);
+        }
+        return data;
+      })
+      .catch((err) => {
+        throw new Error("User type definition failed: " + err.message);
+      });
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!idNumber || !password || !email) {
-      // Consistent use of 'idNumber' here
       setMessage("Please fill in all fields.");
       return;
     } else if (password.length < 8) {
@@ -49,12 +63,14 @@ export default function CreateAccoount() {
       setMessage("Creating account...");
       try {
         await createAccount(idNumber, password, email);
+        await defineUserType(idNumber, 2);
         setMessage("Account created!");
         setEmail("");
         setIdNumber("");
         setPassword("");
       } catch (err) {
         setMessage("Network error: " + err.message);
+        console.log("Error creating account:", err);
       }
     }
   };

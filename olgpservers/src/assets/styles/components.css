@@ -103,10 +103,14 @@
 }
 
 .user-role {
-  font-size: 0.85rem;
+  font-size: 10px;
   font-weight: 300;
   color: #ffffff;
-  white-space: nowrap;
+  white-space: normal; /* Changed from nowrap to normal */
+  word-break: break-word;
+  display: block; /* Each role will be on its own line */
+  line-height: 1.3;
+  margin-top: 2px;
 }
 
 .sidebar.collapsed .user-details,
@@ -297,7 +301,8 @@
 }
 
 .sidebar.collapsed .nav-divider-collapsed {
-  display: block;
+  display: block !important;
+  border-bottom: 2px solid rgba(255, 255, 255);
 }
 
 .submenu {

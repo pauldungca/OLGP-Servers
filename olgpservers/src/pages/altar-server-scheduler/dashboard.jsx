@@ -8,21 +8,27 @@ export default function Dashboard() {
     localStorage.getItem("sidebar-collapsed") === "true"
   );
 
+  const [idNumber, setIdNumber] = useState("");
+
   const toggleSidebar = () => {
     const newCollapsed = !collapsed;
     setCollapsed(newCollapsed);
     localStorage.setItem("sidebar-collapsed", newCollapsed.toString());
 
-    // Find the hamburger icon and toggle the rotated class
     const hamburgerIcon = document.getElementById("hamburgerIcon");
     if (hamburgerIcon) {
       hamburgerIcon.classList.toggle("rotated", newCollapsed);
     }
   };
 
-  // Update document title when Dashboard is loaded
   useEffect(() => {
     document.title = "OLGP Servers | Dashboard";
+    const storedIdNumber = localStorage.getItem("idNumber");
+    if (storedIdNumber) {
+      setIdNumber(storedIdNumber);
+    } else {
+      setIdNumber("No ID found");
+    }
   }, []);
 
   return (
@@ -39,6 +45,7 @@ export default function Dashboard() {
           <h2>Welcome to the Dashboard</h2>
           <p>
             This is your main dashboard page where you can manage your content.
+            <h4>{idNumber}</h4>
           </p>
         </main>
 

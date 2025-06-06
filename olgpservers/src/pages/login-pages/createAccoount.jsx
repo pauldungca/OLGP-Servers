@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { supabase } from "../../utils/supabase.js";
 
 export default function CreateAccoount() {
   const [idNumber, setIdNumber] = useState(""); // Correct variable name here
@@ -14,6 +15,21 @@ export default function CreateAccoount() {
 
   function generateOTP() {
     return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  function createAccount(idNumber, password, email) {
+    return supabase
+      .from("authentication")
+      .insert([{ idNumber, password, email }])
+      .then(({ data, error }) => {
+        if (error) {
+          throw new Error(error.message);
+        }
+        return data;
+      })
+      .catch((err) => {
+        throw new Error("Account creation failed: " + err.message);
+      });
   }
 
   const handleSubmit = async (e) => {
@@ -32,20 +48,11 @@ export default function CreateAccoount() {
     } else {
       setMessage("Creating account...");
       try {
-        const response = await fetch("http://localhost:5000/create-account", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idNumber, password, email }), // Correct variable name here
-        });
-        const result = await response.json();
-        if (response.ok) {
-          setMessage("Account created!");
-          setEmail("");
-          setIdNumber(""); // Correct variable name here
-          setPassword("");
-        } else {
-          setMessage("Error: " + (result.error || "Unknown error"));
-        }
+        await createAccount(idNumber, password, email);
+        setMessage("Account created!");
+        setEmail("");
+        setIdNumber("");
+        setPassword("");
       } catch (err) {
         setMessage("Network error: " + err.message);
       }

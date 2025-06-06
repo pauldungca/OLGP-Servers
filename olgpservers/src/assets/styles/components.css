@@ -1,5 +1,5 @@
 /* General Styles */
-body {
+* {
   font-family: "Inter", sans-serif;
   margin: 0;
   overflow: hidden;
@@ -449,40 +449,30 @@ footer::before {
   }
 }
 
-.sidebar:not(.collapsed) .custom-tooltip {
-  display: none !important;
-}
+.sidebar-tooltip {
+  max-width: 300px;
 
-.sidebar.collapsed .custom-tooltip {
-  display: block !important;
-}
+  .ant-tooltip-inner {
+    background-color: #273f87;
+    color: white;
+    border-radius: 8px;
+    box-shadow: none;
+    padding: 12px 16px;
+    font-size: 16px;
+    min-width: 140px;
 
-.custom-tooltip {
-  font-family: "Inter", sans-serif;
-  --bs-tooltip-bg: #273f87;
-  --bs-tooltip-color: #ffffff;
-  background-color: var(--bs-tooltip-bg);
-  color: var(--bs-tooltip-color);
-  padding: 0.5em 1em;
-  border-radius: 0.3em;
-  font-size: 0.95em;
-  z-index: 9999;
-  box-shadow: none;
-}
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
 
-.sidebar.collapsed .flex-grow-1 .custom-tooltip,
-.sidebar.collapsed .custom-tooltip {
-  display: block;
-}
+    line-height: 1.5;
 
-.sidebar.collapsed .nav-divider-collapsed {
-  display: block !important;
-  border: none;
-  border-top: 2px solid #ffffff;
-  margin: 10px 16px;
-  opacity: 1;
-}
+    width: max-content;
+    max-width: 100%;
+  }
 
-.sidebar:not(.collapsed) .nav-divider-collapsed {
-  display: none !important;
+  .ant-tooltip-arrow::before {
+    background-color: #273f87;
+  }
 }

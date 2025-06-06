@@ -8,30 +8,32 @@ function Wrapper({ children }) {
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
-        // Check for token in localStorage (or make an API call to verify token)
+        // Check for token in localStorage
         const token = localStorage.getItem("authToken");
 
-        // If you need to verify the token with the backend, you could make an API call here
+        // Here, you can also verify the token by calling an API if needed
         // const response = await verifyTokenAPI(token);
         // setAuthenticated(response.isValid);
 
-        // For now, just check if token exists
+        // If token exists, consider the user authenticated
         setAuthenticated(!!token);
       } catch (error) {
         console.error("Authentication check failed:", error);
         setAuthenticated(false);
       } finally {
-        setLoading(false);
+        setLoading(false); // Set loading to false after the check is done
       }
     };
 
     checkAuthentication();
   }, []);
 
+  // Show a loading message while checking for authentication
   if (loading) {
     return <div>Loading...</div>;
   }
 
+  // If authenticated, render the children (protected routes)
   return authenticated ? children : <Navigate to="/" replace />;
 }
 

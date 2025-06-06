@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../utils/supabase.js";
 
 import images from "../../helper/images";
 
@@ -26,43 +27,46 @@ export default function Login() {
     setPasswordVisible((v) => !v); // Toggle password visibility
   };
 
+  const login = async (idNumber, password) => {
+    try {
+      const { data, error } = await supabase
+        .from("authentication")
+        .select("*")
+        .eq("idNumber", idNumber)
+        .eq("password", password)
+        .single();
+
+      if (error || !data) {
+        return { error: "Invalid credentials" };
+      }
+
+      return { user: data, token: data.token };
+    } catch (err) {
+      return { error: "Error during login: " + err.message };
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!idNumber || !password) {
       alert("Please enter both ID number and password.");
       return;
     }
-    try {
-      const response = await fetch("http://localhost:5000/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idNumber, password }),
-      });
-      const result = await response.json();
-      if (response.ok) {
-        localStorage.setItem("authToken", result.token);
-        localStorage.setItem("userData", JSON.stringify(result.user));
 
-        // Navigate to dashboard
-        //navigate("/dashboard");
-      } else {
-        alert(result.error || "Login failed.");
-      }
-    } catch (err) {
-      alert("Network error: " + err.message);
+    const result = await login(idNumber, password);
+
+    if (result.error) {
+      alert(result.error);
+    } else {
+      localStorage.setItem("authToken", result.token);
+      localStorage.setItem("userData", JSON.stringify(result.user));
+      alert("Login successful!");
+      navigate("/dashboard");
     }
-  };
-
-  /* const handleForgotPassword = () => {
-    navigate("/verifyOTP"); // Navigate to the Verify OTP page
   };
 
   const handleCreateAccount = () => {
     navigate("/createAccoount"); // Navigate to the Create Account page
-  }; */
-
-  const handleLoginTest = () => {
-    navigate("/dashboard");
   };
 
   return (
@@ -148,7 +152,7 @@ export default function Login() {
                   Forgot password?
                 </button>
               </div>*/}
-              {/*<div className="mb-4 text-center">
+              <div className="mb-4 text-center">
                 <button
                   type="button"
                   className="text-decoration-none btn btn-link p-0"
@@ -157,15 +161,11 @@ export default function Login() {
                 >
                   Create an account
                 </button>
-              </div>*/
-              /*<button type="submit" className="btn btn-login">
+              </div>
+              {/*<button type="submit" className="btn btn-login">
                 Sign in
               </button>*/}
-              <button
-                type="button"
-                className="btn btn-login"
-                onClick={handleLoginTest}
-              >
+              <button type="submit" className="btn btn-login">
                 Sign in
               </button>
             </form>

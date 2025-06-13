@@ -1,0 +1,87 @@
+import React from "react";
+import { Table, Button } from "antd";
+
+const CustomTable = ({ data, loading, onViewDetails }) => {
+  const columns = [
+    {
+      title: "Member ID",
+      dataIndex: "idNumber",
+      width: 150, // Fixed width
+      ellipsis: true, // Truncate long text
+    },
+    {
+      title: "Name",
+      dataIndex: "firstName", // Corrected to firstName for sorting
+      width: 200, // Fixed width
+      sorter: (a, b) =>
+        `${a.firstName} ${a.lastName}`.localeCompare(
+          `${b.firstName} ${b.lastName}`
+        ),
+      render: (_, record) => `${record.firstName} ${record.lastName}`,
+      ellipsis: true,
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      showSorterTooltip: { target: "full-header" },
+      filters: [
+        {
+          text: "Apprentice",
+          value: "Apprentice",
+        },
+        {
+          text: "Certified",
+          value: "Certified",
+        },
+      ],
+      width: 100,
+      onFilter: (value, record) => record.status.indexOf(value) === 0,
+      sorter: (a, b) => a.status.length - b.status.length,
+      sortDirections: ["descend"],
+    },
+    {
+      title: "Action",
+      width: 150, // Fixed width
+      render: (_, record) => (
+        <Button
+          type="primary"
+          size="middle"
+          style={{
+            backgroundColor: "#4169E1",
+            borderColor: "#4169E1",
+            width: "120px", // Fixed button width
+          }}
+          onClick={() => onViewDetails(record)}
+        >
+          View Details
+        </Button>
+      ),
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        width: "fit-content",
+        maxWidth: "100%",
+        overflowX: "auto",
+      }}
+    >
+      <Table
+        columns={columns}
+        dataSource={data}
+        loading={loading}
+        pagination={{ pageSize: 10 }}
+        scroll={{ y: 400 }}
+        bordered
+        showSorterTooltip
+        style={{
+          minWidth: "600px",
+          width: "auto",
+        }}
+      />
+    </div>
+  );
+};
+
+export default CustomTable;

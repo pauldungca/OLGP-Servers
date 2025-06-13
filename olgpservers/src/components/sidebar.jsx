@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
 import "../assets/styles/components.css";
 import icons from "../helper/icon";
 import {
   fetchUserRoles,
-  determineUserRole,
   createNavigationLinks,
   createNavigationLinkWithSubmenu,
 } from "../assets/scripts/sidebar.js";
@@ -12,21 +13,34 @@ export default function Sidebar({ collapsed }) {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [activePage, setActivePage] = useState("dashboard");
   const [userRoleType, setUserRoleType] = useState();
-  const [userRoles, setUserRoles] = useState({
+  const [, setUserRoles] = useState({
     isParishSecretary: false,
     isAltarServerScheduler: false,
     isEucharisticMinisterScheduler: false,
     isLectorCommentatorScheduler: false,
     isChoirScheduler: false,
   });
-  const [userID, setUserId] = useState();
+  const [, setUserId] = useState();
 
-  const navigationLinks = createNavigationLinks();
-  const navigationLinkWithSubmenu = createNavigationLinkWithSubmenu(icons);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const navigationLinks = createNavigationLinks(navigate);
+  const navigationLinkWithSubmenu = createNavigationLinkWithSubmenu(
+    icons,
+    navigate
+  );
 
   useEffect(() => {
     const path = window.location.pathname.replace("/", "") || "dashboard";
-    setActivePage(path);
+
+    if (path.startsWith("members") || path.startsWith("membersList")) {
+      setActivePage("members");
+    } else if (path.includes("schedule")) {
+      setActivePage("schedule");
+      setActiveSubmenu("schedule-submenu");
+    } else {
+      setActivePage(path);
+    }
 
     if (path.includes("schedule")) {
       setActiveSubmenu("schedule-submenu");
@@ -40,7 +54,7 @@ export default function Sidebar({ collapsed }) {
       setUserId("None");
       setUserRoleType("None");
     }
-  }, []);
+  }, [location]);
 
   const toggleSubmenu = (menuId) => {
     setActiveSubmenu(activeSubmenu === menuId ? null : menuId);
@@ -88,6 +102,7 @@ export default function Sidebar({ collapsed }) {
           activePage,
           collapsed
         )}
+
         {/* Schedule Link with Submenu */}
         {navigationLinkWithSubmenu(
           "Schedule",
@@ -123,11 +138,11 @@ export default function Sidebar({ collapsed }) {
           collapsed
         )}
 
-        {/* Department Link */}
+        {/* Members Link */}
         {navigationLinks(
-          "Department",
-          "/department",
-          "department",
+          "Members",
+          "/members",
+          "members",
           icons.departmentLogo,
           activePage,
           collapsed

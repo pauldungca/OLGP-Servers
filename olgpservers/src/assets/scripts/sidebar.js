@@ -1,5 +1,4 @@
 import { supabase } from "../../utils/supabase";
-import { Link } from "react-router-dom";
 import { Tooltip } from "antd";
 
 // Role-related functions
@@ -8,7 +7,7 @@ export const fetchUserRoles = async (userId, setUserRoles, setUserRoleType) => {
     const { data, error } = await supabase
       .from("user-type")
       .select(
-        `parish-secretary, altar-server-scheduler, eucharistic-minister-scheduler`
+        `parish-secretary, altar-server-scheduler, eucharistic-minister-scheduler, choir-scheduler, lector-commentator`
       )
       .eq("idNumber", userId)
       .single();
@@ -30,6 +29,8 @@ export const fetchUserRoles = async (userId, setUserRoles, setUserRoleType) => {
       isAltarServerScheduler: data["altar-server-scheduler"] === 1,
       isEucharisticMinisterScheduler:
         data["eucharistic-minister-scheduler"] === 1,
+      isLectorCommentatorScheduler: data["lector-commentator"] === 1,
+      isChoirScheduler: data["choir-scheduler"] === 1,
     };
 
     setUserRoles(roles);
@@ -47,6 +48,9 @@ export const determineUserRole = (roles) => {
   if (roles.isAltarServerScheduler) activeRoles.push("Altar Server Scheduler");
   if (roles.isEucharisticMinisterScheduler)
     activeRoles.push("Eucharistic Minister Scheduler");
+  if (roles.isLectorCommentatorScheduler)
+    activeRoles.push("Lector Commentator Scheduler");
+  if (roles.isChoirScheduler) activeRoles.push("Choir Scheduler");
 
   if (activeRoles.length === 0) {
     return "None";
@@ -57,8 +61,7 @@ export const determineUserRole = (roles) => {
   }
 };
 
-// Navigation components factory
-export const createNavigationLinks = () => {
+export const createNavigationLinks = (navigate) => {
   return function navigationLinks(
     title,
     toPage,
@@ -76,28 +79,28 @@ export const createNavigationLinks = () => {
             overlayClassName="sidebar-tooltip"
             align={{ offset: [10, -18] }}
           >
-            <Link
-              to={toPage}
+            <button
+              onClick={() => navigate(toPage)}
               className={`nav-link ${activePage === pageName ? "active" : ""}`}
             >
               <img src={icon} className="icon" alt={title} />
-            </Link>
+            </button>
           </Tooltip>
         ) : (
-          <Link
-            to={toPage}
-            className={`nav-link ${activePage === pageName ? "active" : ""}`}
+          <button
+            onClick={() => navigate(toPage)}
+            className={`button-link ${activePage === pageName ? "active" : ""}`}
           >
             <img src={icon} className="icon" alt={title} />
             <span>{title}</span>
-          </Link>
+          </button>
         )}
       </li>
     );
   };
 };
 
-export const createNavigationLinkWithSubmenu = (icons) => {
+export const createNavigationLinkWithSubmenu = (icons, navigate) => {
   return function navigationLinkWithSubmenu(
     title,
     toPage,
@@ -111,9 +114,9 @@ export const createNavigationLinkWithSubmenu = (icons) => {
   ) {
     return (
       <li className="nav-item has-submenu">
-        <a
-          href="#"
-          className={`nav-link ${activePage === pageName ? "active" : ""}`}
+        <button
+          //onClick={() => navigate("#")}
+          className={`button-link ${activePage === pageName ? "active" : ""}`}
           onClick={(e) => {
             e.preventDefault();
             toggleSubmenu(`${pageName}-submenu`);
@@ -138,7 +141,7 @@ export const createNavigationLinkWithSubmenu = (icons) => {
             }`}
             alt="arrow"
           />
-        </a>
+        </button>
         <ul
           className={`submenu ${
             activeSubmenu === `${pageName}-submenu` ? "open" : ""
@@ -154,25 +157,25 @@ export const createNavigationLinkWithSubmenu = (icons) => {
                   overlayClassName="sidebar-tooltip"
                   align={{ offset: [10, -13] }}
                 >
-                  <Link
-                    to={item.to}
+                  <button //item.to
+                    onClick={() => navigate(item.to)}
                     className={`nav-link sub-link ${
                       activePage === item.pageName ? "active" : ""
                     }`}
                   >
                     <img src={item.icon} className="icon" alt={item.title} />
-                  </Link>
+                  </button>
                 </Tooltip>
               ) : (
-                <Link
-                  to={item.to}
+                <button
+                  onClick={() => navigate(item.to)}
                   className={`nav-link sub-link ${
                     activePage === item.pageName ? "active" : ""
                   }`}
                 >
                   <img src={item.icon} className="icon" alt={item.title} />
                   <span>{item.title}</span>
-                </Link>
+                </button>
               )}
             </li>
           ))}

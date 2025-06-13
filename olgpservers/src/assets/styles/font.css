@@ -1,0 +1,12 @@
+@font-face {
+  font-family: "Inter-Font";
+  src: url("../fonts/Inter-VariableFont_opsz\,wght.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+  font-family: "Inter-Font", sans-serif;
+  margin: 0;
+  padding: 0;
+}

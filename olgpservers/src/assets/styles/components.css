@@ -2,7 +2,14 @@
 * {
   font-family: "Inter", sans-serif;
   margin: 0;
+  /*overflow: hidden;*/
+}
+
+html,
+body {
   overflow: hidden;
+  height: 100%;
+  margin: 0;
 }
 
 .thin-text {
@@ -284,6 +291,7 @@
   flex-grow: 1;
   min-height: calc(100vh - 120px);
   overflow-y: auto;
+  height: 100%;
 }
 
 .nav-section,
@@ -394,15 +402,16 @@
   transition: none;
 }
 
+/* Footer styling */
 footer {
-  position: relative;
   padding: 1rem 1rem 1rem 1.5rem;
-  margin: 0 auto;
+  margin: 0;
   font-size: 1rem;
   font-weight: 600;
   text-align: left;
   width: 100%;
   box-sizing: border-box;
+  border-top: 2px solid #273f87;
 }
 
 footer::before {
@@ -410,7 +419,7 @@ footer::before {
   position: absolute;
   top: 0;
   left: 1.5rem;
-  width: 94%;
+  right: 1rem;
   height: 2px;
   background-color: #273f87;
 }
@@ -480,4 +489,53 @@ footer::before {
   .ant-tooltip-arrow::before {
     background-color: #273f87;
   }
+}
+
+.button-link {
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  margin: 4px 0;
+  white-space: nowrap;
+  background-color: transparent;
+  border: none; /* Reset default button border */
+  cursor: pointer; /* Ensure pointer cursor */
+  width: 100%; /* Match nav-link width */
+  text-align: left; /* Align text like nav-link */
+  font-family: inherit; /* Match font */
+  font-size: inherit; /* Match font size */
+}
+
+.button-link:hover,
+.button-link:focus, /* Add focus state for accessibility */
+.button-link.active {
+  background-color: #0a2471;
+  color: white;
+  outline: none; /* Remove default focus outline */
+}
+
+.button-link span {
+  color: white;
+}
+
+.button-link img.icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+/* Collapsed state styles to match nav-link */
+.sidebar.collapsed .button-link {
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.sidebar.collapsed .button-link img.icon {
+  width: 30px;
+  height: 30px;
 }

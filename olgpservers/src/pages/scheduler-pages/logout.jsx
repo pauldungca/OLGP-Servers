@@ -14,7 +14,6 @@ export default function Logout() {
   return (
     <div>
       <h2>Logging out...</h2>
-      {/* You can also show a spinner or loading message here */}
     </div>
   );
 }

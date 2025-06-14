@@ -15,12 +15,16 @@ export default function MembersList() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [filteredMembers, setFilteredMembers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const membersData = await fetchAltarServerMembers();
         setMembers(membersData);
+        setFilteredMembers(membersData);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -31,6 +35,24 @@ export default function MembersList() {
 
     fetchData();
   }, []);
+
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (query === "") {
+      setFilteredMembers(members);
+    } else {
+      const filtered = members.filter(
+        (member) =>
+          member.firstName.toLowerCase().includes(query.toLowerCase()) ||
+          member.lastName.toLowerCase().includes(query.toLowerCase()) ||
+          member.status.toLowerCase().includes(query.toLowerCase()) ||
+          member.idNumber.toString().includes(query)
+      );
+      setFilteredMembers(filtered);
+    }
+  };
 
   const handleViewDetails = (record) => {
     console.log("View details for:", record);
@@ -44,6 +66,19 @@ export default function MembersList() {
           <h3>MEMBERS</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
+              items={[
+                {
+                  title: (
+                    <Link to="/members" className="breadcrumb-item">
+                      Department
+                    </Link>
+                  ),
+                },
+                {
+                  title: "Members",
+                  className: "breadcrumb-item-active",
+                },
+              ]}
               separator={
                 <img
                   src={icon.chevronIcon}
@@ -55,16 +90,7 @@ export default function MembersList() {
                 />
               }
               className="customized-breadcrumb"
-            >
-              <Breadcrumb.Item>
-                <Link to="/members" className="breadcrumb-item">
-                  Department
-                </Link>
-              </Breadcrumb.Item>
-              <Breadcrumb.Item className="breadcrumb-item-active">
-                Members
-              </Breadcrumb.Item>
-            </Breadcrumb>
+            />
           </div>
           <div className="header-line"></div>
         </div>
@@ -75,9 +101,10 @@ export default function MembersList() {
             type="text"
             className="form-control"
             placeholder="Search Members"
+            value={searchQuery}
+            onChange={handleSearchChange}
           />
           <button className="btn">Search</button>
-          {/* Add Member & Import Member Buttons */}
           <button className="btn btn-blue">
             <img src={icon.addUserIcon} alt="Add Icon" className="icon-btn" />
             Add Member
@@ -93,12 +120,11 @@ export default function MembersList() {
         </div>
         <div className="table-container">
           <CustomTable
-            data={members}
+            data={filteredMembers}
             loading={loading}
             onViewDetails={handleViewDetails}
           />
         </div>
-        {/* Export and Print Buttons */}
         <div className="action-buttons">
           <DropDownButton />
           <button className="btn btn-blue">
@@ -107,7 +133,9 @@ export default function MembersList() {
           </button>
         </div>
       </div>
-      <Footer />
+      <div>
+        <Footer />
+      </div>
     </div>
   );
 }

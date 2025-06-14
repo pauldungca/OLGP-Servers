@@ -6,13 +6,13 @@ const CustomTable = ({ data, loading, onViewDetails }) => {
     {
       title: "Member ID",
       dataIndex: "idNumber",
-      width: 150, // Fixed width
-      ellipsis: true, // Truncate long text
+      width: 150,
+      ellipsis: true,
     },
     {
       title: "Name",
-      dataIndex: "firstName", // Corrected to firstName for sorting
-      width: 200, // Fixed width
+      dataIndex: "firstName",
+      width: 200,
       sorter: (a, b) =>
         `${a.firstName} ${a.lastName}`.localeCompare(
           `${b.firstName} ${b.lastName}`
@@ -41,7 +41,7 @@ const CustomTable = ({ data, loading, onViewDetails }) => {
     },
     {
       title: "Action",
-      width: 150, // Fixed width
+      width: 150,
       render: (_, record) => (
         <Button
           type="primary"
@@ -49,7 +49,7 @@ const CustomTable = ({ data, loading, onViewDetails }) => {
           style={{
             backgroundColor: "#4169E1",
             borderColor: "#4169E1",
-            width: "120px", // Fixed button width
+            width: "120px",
           }}
           onClick={() => onViewDetails(record)}
         >
@@ -71,7 +71,7 @@ const CustomTable = ({ data, loading, onViewDetails }) => {
         columns={columns}
         dataSource={data}
         loading={loading}
-        pagination={{ pageSize: 10 }}
+        pagination={{ pageSize: 5 }}
         scroll={{ y: 400 }}
         bordered
         showSorterTooltip

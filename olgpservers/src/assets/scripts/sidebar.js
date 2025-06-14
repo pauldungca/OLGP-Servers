@@ -81,7 +81,9 @@ export const createNavigationLinks = (navigate) => {
           >
             <button
               onClick={() => navigate(toPage)}
-              className={`nav-link ${activePage === pageName ? "active" : ""}`}
+              className={`button-link ${
+                activePage === pageName ? "active" : ""
+              }`}
             >
               <img src={icon} className="icon" alt={title} />
             </button>
@@ -157,9 +159,9 @@ export const createNavigationLinkWithSubmenu = (icons, navigate) => {
                   overlayClassName="sidebar-tooltip"
                   align={{ offset: [10, -13] }}
                 >
-                  <button //item.to
+                  <button
                     onClick={() => navigate(item.to)}
-                    className={`nav-link sub-link ${
+                    className={`button-link sub-link ${
                       activePage === item.pageName ? "active" : ""
                     }`}
                   >
@@ -169,7 +171,7 @@ export const createNavigationLinkWithSubmenu = (icons, navigate) => {
               ) : (
                 <button
                   onClick={() => navigate(item.to)}
-                  className={`nav-link sub-link ${
+                  className={`button-link sub-link ${
                     activePage === item.pageName ? "active" : ""
                   }`}
                 >

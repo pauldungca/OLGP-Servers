@@ -1,5 +1,5 @@
 import React from "react";
-import "../assets/styles/components.css";
+import "../assets/styles/header.css";
 
 export default function Header({ toggleSidebar }) {
   return (

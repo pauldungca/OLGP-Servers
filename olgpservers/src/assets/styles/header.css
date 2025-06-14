@@ -1,27 +1,43 @@
-.member-header {
-  color: #0a2471;
-  padding: 1rem;
+/* Topbar */
+.topbar {
+  background-color: #0a2471;
+  color: white;
+  padding: 10px 16px;
   display: flex;
+  justify-content: space-between;
   align-items: center;
 }
 
-.header-text-with-line {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-
-.header-text-with-line h3 {
-  margin: 0;
+.hamburger {
+  background-color: transparent;
+  border: none;
+  color: white;
   font-size: 1.5rem;
-  font-weight: 600;
-  color: #0a2471;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: visible;
 }
 
-.header-line {
-  height: 2px;
-  background-color: #0a2471;
-  width: 100%;
-  margin-top: 0.5rem;
-  opacity: 0.8;
+/* Rotation when collapsed */
+#hamburgerIcon {
+  transition: transform 0.3s ease-in-out;
+  display: inline-block;
+  transform: rotate(0deg);
+}
+
+#hamburgerIcon.rotated {
+  transform: rotate(180deg);
+}
+
+#hamburgerIcon.rotated.rotated {
+  transform: rotate(360deg);
+}
+
+@media (max-width: 768px) {
+  .hamburger {
+    visibility: hidden;
+  }
 }

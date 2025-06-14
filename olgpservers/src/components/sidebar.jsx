@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import "../assets/styles/components.css";
+import "../assets/styles/sidebar.css";
+//import "../assets/styles/components.css";
 import icons from "../helper/icon";
 import {
   fetchUserRoles,

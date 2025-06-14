@@ -6,9 +6,9 @@ import {
   isAltarServerScheduler,
   isLectorCommentatorScheduler,
 } from "../../assets/scripts/member";
-import Footer from "../../components/footer";
 import "../../assets/styles/member.css";
-import "../../assets/styles/header.css";
+
+import Footer from "../../components/footer";
 
 export default function Member() {
   const [idNumber, setIdNumber] = useState("");
@@ -62,10 +62,6 @@ export default function Member() {
               department: "Lector Commentator",
               parish: "Our Lady of Guadalupe Parish",
               idNumber: idNumber,
-              onClick: () => {
-                // Add your click handler here
-                console.log("Lector Commentator clicked");
-              },
             })}
         </div>
       </div>

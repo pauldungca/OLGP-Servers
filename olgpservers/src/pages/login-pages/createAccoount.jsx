@@ -6,7 +6,7 @@ export default function CreateAccoount() {
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
-  const [otp, setOtp] = useState("");
+  const [, setOtp] = useState("");
   const [name, setName] = useState("");
 
   React.useEffect(() => {
@@ -32,11 +32,43 @@ export default function CreateAccoount() {
       });
   }
 
+  async function defineUserType(
+    idNumber,
+    roles = {
+      parishSecretary: 0,
+      altarScheduler: 0,
+      ministerScheduler: 0,
+      choirScheduler: 0,
+      lectorScheduler: 0,
+    }
+  ) {
+    try {
+      const { data, error } = await supabase
+        .from("user-type")
+        .insert([
+          {
+            idNumber: idNumber,
+            "parish-secretary": roles.parishSecretary,
+            "altar-server-scheduler": roles.altarScheduler,
+            "eucharistic-minister-scheduler": roles.ministerScheduler,
+            "choir-scheduler": roles.choirScheduler,
+            "lector-commentator": roles.lectorScheduler,
+          },
+        ])
+        .select();
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error("User type creation failed:", err);
+      throw new Error("User type definition failed: " + err.message);
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!idNumber || !password || !email) {
-      // Consistent use of 'idNumber' here
       setMessage("Please fill in all fields.");
       return;
     } else if (password.length < 8) {
@@ -48,13 +80,21 @@ export default function CreateAccoount() {
     } else {
       setMessage("Creating account...");
       try {
-        await createAccount(idNumber, password, email);
+        await createAccount(idNumber, password, email); // for creating an account
+        await defineUserType(idNumber, {
+          parishSecretary: 0,
+          altarScheduler: 0,
+          ministerScheduler: 0,
+          choirScheduler: 0,
+          lectorScheduler: 1,
+        }); // for identifying the user, 1 for a role and 0 for not role
         setMessage("Account created!");
         setEmail("");
         setIdNumber("");
         setPassword("");
       } catch (err) {
         setMessage("Network error: " + err.message);
+        console.log("Error creating account:", err);
       }
     }
   };
@@ -85,7 +125,7 @@ export default function CreateAccoount() {
         <input
           type="text"
           placeholder="Id Number"
-          value={idNumber} // Correct variable name here
+          value={idNumber}
           onChange={(e) => setIdNumber(e.target.value.replace(/[^0-9]/g, ""))}
         />
         <input

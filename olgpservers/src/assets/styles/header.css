@@ -1,0 +1,43 @@
+/* Topbar */
+.topbar {
+  background-color: #0a2471;
+  color: white;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hamburger {
+  background-color: transparent;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: visible;
+}
+
+/* Rotation when collapsed */
+#hamburgerIcon {
+  transition: transform 0.3s ease-in-out;
+  display: inline-block;
+  transform: rotate(0deg);
+}
+
+#hamburgerIcon.rotated {
+  transform: rotate(180deg);
+}
+
+#hamburgerIcon.rotated.rotated {
+  transform: rotate(360deg);
+}
+
+@media (max-width: 768px) {
+  .hamburger {
+    visibility: hidden;
+  }
+}

@@ -1,0 +1,24 @@
+/* Footer styling */
+footer {
+  padding: 1rem 1rem 1rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+  border-top: 2px solid #273f87;
+  /*background-color: #273f87;*/
+  margin-top: auto;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  footer {
+    padding-left: 1.5rem;
+  }
+
+  footer::before {
+    width: calc(100% - 3rem);
+    left: 1.5rem;
+  }
+}

@@ -27,6 +27,10 @@ export default function Login() {
     setPasswordVisible((v) => !v); // Toggle password visibility
   };
 
+  const handleCreateAccount = () => {
+    navigate("/createAccoount"); // Navigate to the Create Account page
+  };
+
   const login = async (idNumber, password) => {
     try {
       const { data, error } = await supabase
@@ -58,15 +62,15 @@ export default function Login() {
     if (result.error) {
       alert(result.error);
     } else {
-      localStorage.setItem("authToken", result.token);
-      localStorage.setItem("userData", JSON.stringify(result.user));
+      const { user, token } = result;
+
+      localStorage.setItem("authToken", token);
+      localStorage.setItem("userData", JSON.stringify(user));
+      localStorage.setItem("idNumber", idNumber);
+
       alert("Login successful!");
       navigate("/dashboard");
     }
-  };
-
-  const handleCreateAccount = () => {
-    navigate("/createAccoount"); // Navigate to the Create Account page
   };
 
   return (
@@ -86,7 +90,6 @@ export default function Login() {
               alt="Our Lady of Guadalupe Logo"
               className="logo"
             />
-            {/* <button onClick={handleCreateAccount}>Create Account</button> */}
           </div>
 
           {/* Right Section */}
@@ -142,16 +145,6 @@ export default function Login() {
                 ></i>
               </div>
 
-              {/*<div className="mb-4 text-end" style={{ marginTop: -8 }}>
-                <button
-                  type="button"
-                  className="text-decoration-none btn btn-link p-0"
-                  style={{ fontSize: "0.875rem" }}
-                  onClick={handleForgotPassword}
-                >
-                  Forgot password?
-                </button>
-              </div>*/}
               <div className="mb-4 text-center">
                 <button
                   type="button"
@@ -162,9 +155,7 @@ export default function Login() {
                   Create an account
                 </button>
               </div>
-              {/*<button type="submit" className="btn btn-login">
-                Sign in
-              </button>*/}
+
               <button type="submit" className="btn btn-login">
                 Sign in
               </button>

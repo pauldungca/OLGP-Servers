@@ -104,7 +104,6 @@ export default function MembersList() {
             value={searchQuery}
             onChange={handleSearchChange}
           />
-          <button className="btn">Search</button>
           <button className="btn btn-blue">
             <img src={icon.addUserIcon} alt="Add Icon" className="icon-btn" />
             Add Member

@@ -16,6 +16,7 @@ import addUserIcon from "../assets/icons/members-icon/AddUser.png";
 import importUserIcons from "../assets/icons/members-icon/Import.png";
 import printIcon from "../assets/icons/members-icon/Print.png";
 import exportIcon from "../assets/icons/members-icon/Export.png";
+import addImageIcon from "../assets/icons/members-icon/addImage.png";
 
 const icons = {
   dashboardLogo,
@@ -34,6 +35,7 @@ const icons = {
   importUserIcons,
   printIcon,
   exportIcon,
+  addImageIcon
 };
 
 export default icons;

@@ -55,3 +55,9 @@ export const isLectorCommentatorScheduler = async (idNumber) => {
     return false;
   }
 };
+
+export const navigationAddMember = (navigate) => {
+  return () => {
+    navigate("/addMember");
+  };
+};

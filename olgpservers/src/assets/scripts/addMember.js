@@ -1,5 +1,6 @@
 import Swal from "sweetalert2";
 import { supabase } from "../../utils/supabase";
+import bcrypt from "bcryptjs";
 
 // Opens the hidden file input
 export const handleInputImage = (ref) => {
@@ -66,6 +67,68 @@ export const formatContactNumber = (value) => {
   }
 };
 
+// Add this function for Supabase image upload
+export const uploadImageToSupabase = async (file) => {
+  if (!file) return null;
+
+  const fileExt = file.name.split(".").pop();
+  const fileName = `${Math.random()}.${fileExt}`;
+  const filePath = `${fileName}`;
+
+  try {
+    const { data, error } = await supabase.storage
+      .from("users-file") // Your bucket name
+      .upload(filePath, file);
+
+    if (error) {
+      console.error("Upload error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Upload Failed",
+        text: "Failed to upload image: " + error.message,
+      });
+      return null;
+    }
+
+    // Get public URL
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("users-file").getPublicUrl(data.path);
+
+    return publicUrl;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    return null;
+  }
+};
+
+function insertMemberAuthentication(idNumber, password, email) {
+  return supabase
+    .from("authentication")
+    .insert([
+      {
+        idNumber,
+        password,
+        email,
+      },
+    ])
+    .then(({ error }) => {
+      if (error) {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: error.message,
+        });
+        throw new Error(error.message);
+      }
+    });
+}
+
+export const addMemberAuthentication = async (idNumber, password, email) => {
+  const hashedPassword = bcrypt.hashSync(password, 10);
+  return await insertMemberAuthentication(idNumber, hashedPassword, email);
+};
+
 function insertMemberInformation(
   idNumber,
   firstName,
@@ -75,7 +138,8 @@ function insertMemberInformation(
   dateJoined,
   sex,
   email,
-  contactNumber
+  contactNumber,
+  imageUrl
 ) {
   return supabase
     .from("members-information")
@@ -90,6 +154,7 @@ function insertMemberInformation(
         sex,
         email,
         contactNumber,
+        imageUrl,
       },
     ])
     .then(({ data, error }) => {
@@ -115,7 +180,7 @@ function insertMemberInformation(
     });
 }
 
-export const addMember = (
+export const addMember = async (
   idNumber,
   firstName,
   middleName,
@@ -124,7 +189,8 @@ export const addMember = (
   dateJoined,
   sex,
   email,
-  contactNumber
+  contactNumber,
+  imageUrl
 ) => {
   const missingFields = [];
 
@@ -146,30 +212,36 @@ export const addMember = (
       )}</strong>`,
     });
     return false;
-  } else {
-    Swal.fire({
-      icon: "question",
-      title: "Are you sure to add this member?",
-      showCancelButton: true,
-      confirmButtonText: "Save",
-      cancelButtonText: "Cancel",
-      reverseButtons: true,
-    }).then((result) => {
-      if (result.isConfirmed) {
-        insertMemberInformation(
-          idNumber,
-          firstName,
-          middleName,
-          lastName,
-          address,
-          dateJoined,
-          sex,
-          email,
-          contactNumber
-        );
-        //Swal.fire("Saved!", "", "success");
-      } else if (result.isDismissed) {
-      }
-    });
   }
+
+  const result = await Swal.fire({
+    icon: "question",
+    title: "Are you sure to add this member?",
+    showCancelButton: true,
+    confirmButtonText: "Save",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+
+  if (result.isConfirmed) {
+    try {
+      await insertMemberInformation(
+        idNumber,
+        firstName,
+        middleName,
+        lastName,
+        address,
+        dateJoined,
+        sex,
+        email,
+        contactNumber,
+        imageUrl
+      );
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  return false;
 };

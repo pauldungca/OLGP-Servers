@@ -9,15 +9,18 @@ import "../../../assets/styles/addMember.css";
 
 import {
   handleInputImage,
-  onFileChange,
   generateUserID,
   formatContactNumber,
   addMember,
+  addMemberAuthentication,
+  uploadImageToSupabase,
+  handleFileSize,
 } from "../../../assets/scripts/addMember";
 
 export default function AddMember() {
   const fileInputRef = useRef(null);
   const [fileAttached, setFileAttached] = useState(false);
+  const [imageFile, setImageFile] = useState();
 
   const [provinces, setProvinces] = useState([]);
   const [municipalities, setMunicipalities] = useState([]);
@@ -96,8 +99,6 @@ export default function AddMember() {
 
   useEffect(() => {
     const today = new Date();
-
-    // Format the date as MM-DD-YYYY
     const formattedDate = `${String(today.getMonth() + 1).padStart(
       2,
       "0"
@@ -112,8 +113,15 @@ export default function AddMember() {
     setContactNumber(formatted);
   };
 
-  const addMemberHandler = async () => {
-    addMember(
+  const addMemberHandler = async (e) => {
+    e.preventDefault();
+
+    let imageUrl = null;
+    if (imageFile) {
+      imageUrl = await uploadImageToSupabase(imageFile);
+    }
+
+    const isAdded = await addMember(
       idNumber,
       firstName,
       middleName,
@@ -122,8 +130,52 @@ export default function AddMember() {
       dateJoined,
       sex,
       email,
-      contactNumber
+      contactNumber,
+      imageUrl
     );
+
+    if (!imageUrl) {
+      alert("Failed to upload image. Please try again.");
+    }
+
+    if (isAdded) {
+      await addMemberAuthentication(idNumber, "olgp2025-2026", email);
+
+      // Clear fields after success
+      setFirstName("");
+      setMiddleName("");
+      setLastName("");
+      setAddress("");
+      setHouseNumber("");
+      setSelectedProvince("");
+      setSelectedMunicipality("");
+      setSelectedBarangay("");
+      setSex("");
+      setEmail("");
+      setContactNumber("");
+      setSelectedRole("");
+      setIdNumber("");
+      setFileAttached(false);
+      setImageFile(null); // Reset image file
+    }
+  };
+
+  function handleFileChange(e) {
+    e.preventDefault();
+    handleInputImage(fileInputRef);
+  }
+
+  const handleFileInputChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!handleFileSize(file)) {
+      e.target.value = ""; // Reset input
+      return;
+    }
+
+    setImageFile(file);
+    setFileAttached(true);
   };
 
   return (
@@ -170,10 +222,7 @@ export default function AddMember() {
       <form className="form-content">
         {/* File Attachment */}
         <div className="attachment-container">
-          <button
-            className="add-image-btn"
-            onClick={() => handleInputImage(fileInputRef)}
-          >
+          <button className="add-image-btn" onClick={handleFileChange}>
             <img src={icon.addImageIcon} alt="Add" className="icon-img" />
           </button>
 
@@ -189,7 +238,7 @@ export default function AddMember() {
           <input
             type="file"
             ref={fileInputRef}
-            onChange={(e) => onFileChange(e, setFileAttached)}
+            onChange={handleFileInputChange}
             accept=".jpg,.jpeg,.png"
             style={{ display: "none" }}
           />

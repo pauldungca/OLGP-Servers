@@ -11,7 +11,10 @@ import CustomTable from "../../../components/table";
 import DropDownButton from "../../../components/dropDownButton";
 
 import { fetchAltarServerMembers } from "../../../assets/scripts/fetchMember";
-import { navigationAddMember } from "../../../assets/scripts/member";
+import {
+  navigationAddMember,
+  navigationSelectDepartment,
+} from "../../../assets/scripts/member";
 
 export default function MembersList() {
   const [members, setMembers] = useState([]);
@@ -108,11 +111,17 @@ export default function MembersList() {
             value={searchQuery}
             onChange={handleSearchChange}
           />
-          <button className="btn btn-blue" onClick={navigationAddMember(navigate)}>
+          <button
+            className="btn btn-blue"
+            onClick={navigationAddMember(navigate)}
+          >
             <img src={icon.addUserIcon} alt="Add Icon" className="icon-btn" />
             Add Member
           </button>
-          <button className="btn btn-blue">
+          <button
+            className="btn btn-blue"
+            onClick={navigationSelectDepartment(navigate)}
+          >
             <img
               src={icon.importUserIcons}
               alt="Import Icon"

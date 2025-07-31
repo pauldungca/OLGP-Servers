@@ -4,6 +4,9 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 // Ant Design
 import "antd/dist/reset.css";
 
+//bootstrap
+import "bootstrap/dist/css/bootstrap.min.css";
+
 // Login Pages
 import CreateAccoount from "./pages/login-pages/createAccoount";
 import Login from "./pages/login-pages/login";
@@ -13,10 +16,11 @@ import ConfirmPassword from "./pages/login-pages/confirmPassword";
 // Scheduler Pages
 import Dashboard from "./pages/scheduler-pages/dashboard";
 import Notification from "./pages/scheduler-pages/notification";
-
 import Members from "./pages/scheduler-pages/member";
+
 //Members Pages
 import MembersList from "./pages/scheduler-pages/members-pages/membersList";
+import AddMember from "./pages/scheduler-pages/members-pages/addMember";
 
 import Logout from "./pages/scheduler-pages/logout";
 
@@ -46,6 +50,7 @@ function App() {
 
             {/* Members Pages */}
             <Route path="/membersList" element={<MembersList />} />
+            <Route path="/addMember" element={<AddMember />} />
           </Route>
         </Route>
 

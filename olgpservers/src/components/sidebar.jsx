@@ -34,7 +34,11 @@ export default function Sidebar({ collapsed }) {
   useEffect(() => {
     const path = window.location.pathname.replace("/", "") || "dashboard";
 
-    if (path.startsWith("members") || path.startsWith("membersList")) {
+    if (
+      path.startsWith("members") ||
+      path.startsWith("membersList") ||
+      path.startsWith("addMember")
+    ) {
       setActivePage("members");
     } else if (path.includes("schedule")) {
       setActivePage("schedule");

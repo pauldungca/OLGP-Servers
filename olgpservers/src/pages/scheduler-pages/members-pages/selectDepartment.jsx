@@ -59,18 +59,22 @@ export default function SelectDepartment() {
           {buttonCard({
             department: "Altar Server",
             parish: "Import a member from the Altar Server Department.",
+            toPage: "/importMember",
           })}
           {buttonCard({
             department: "Eucharisic Minister",
             parish: "Import a member from the Eucharisic Minister Department.",
+            toPage: "/importMember",
           })}
           {buttonCard({
             department: "Choir",
             parish: "Import a member from the Choir Department.",
+            toPage: "/importMember",
           })}
           {buttonCard({
             department: "Lector Commentator",
             parish: "Import a member from the Lector Commentator Department.",
+            toPage: "/importMember",
           })}
         </div>
       </div>

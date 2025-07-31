@@ -21,6 +21,8 @@ import Members from "./pages/scheduler-pages/member";
 //Members Pages
 import MembersList from "./pages/scheduler-pages/members-pages/membersList";
 import AddMember from "./pages/scheduler-pages/members-pages/addMember";
+import SelectDepartment from "./pages/scheduler-pages/members-pages/selectDepartment";
+import ImportMember from "./pages/scheduler-pages/members-pages/importMember";
 
 import Logout from "./pages/scheduler-pages/logout";
 
@@ -51,6 +53,8 @@ function App() {
             {/* Members Pages */}
             <Route path="/membersList" element={<MembersList />} />
             <Route path="/addMember" element={<AddMember />} />
+            <Route path="/selectDepartment" element={<SelectDepartment />} />
+            <Route path="/importMember" element={<ImportMember />} />
           </Route>
         </Route>
 

@@ -3,6 +3,7 @@ import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import icon from "../../../helper/icon";
+import Footer from "../../../components/footer";
 
 import "../../../assets/styles/member.css";
 import "../../../assets/styles/addMember.css";
@@ -465,6 +466,9 @@ export default function AddMember() {
           </button>
         </div>
       </form>
+      <div>
+        <Footer />
+      </div>
     </div>
   );
 }

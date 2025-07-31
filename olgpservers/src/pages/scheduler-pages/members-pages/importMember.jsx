@@ -1,29 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
 import { Breadcrumb } from "antd";
-import Footer from "../../../components/footer";
-import "../../../assets/styles/member.css";
-import "../../../assets/styles/header.css";
+import { Link } from "react-router-dom";
 import icon from "../../../helper/icon";
+import Footer from "../../../components/footer";
 
-import { CustomTable } from "../../../components/table";
-import DropDownButton from "../../../components/dropDownButton";
+import { ImportMemberTable } from "../../../components/table";
 
 import { fetchAltarServerMembers } from "../../../assets/scripts/fetchMember";
-import {
-  navigationAddMember,
-  navigationSelectDepartment,
-} from "../../../assets/scripts/member";
 
-export default function MembersList() {
+import "../../../assets/styles/member.css";
+import "../../../assets/styles/importMember.css";
+
+export default function ImportMember() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,7 +56,7 @@ export default function MembersList() {
 
   const handleViewDetails = (record) => {
     console.log("View details for:", record);
-    alert(record.firstName);
+    alert(record.idNumber);
   };
 
   return (
@@ -82,7 +75,21 @@ export default function MembersList() {
                   ),
                 },
                 {
-                  title: "Members",
+                  title: (
+                    <Link to="/membersList" className="breadcrumb-item">
+                      Members
+                    </Link>
+                  ),
+                },
+                {
+                  title: (
+                    <Link to="/selectDepartment" className="breadcrumb-item">
+                      Select Department
+                    </Link>
+                  ),
+                },
+                {
+                  title: "Import Member",
                   className: "breadcrumb-item-active",
                 },
               ]}
@@ -90,18 +97,17 @@ export default function MembersList() {
                 <img
                   src={icon.chevronIcon}
                   alt="Chevron Icon"
-                  style={{
-                    width: "15px",
-                    height: "15px",
-                  }}
+                  style={{ width: "15px", height: "15px" }}
                 />
               }
               className="customized-breadcrumb"
             />
           </div>
+
           <div className="header-line"></div>
         </div>
       </div>
+
       <div className="member-content">
         <div className="search-bar-container">
           <input
@@ -111,38 +117,13 @@ export default function MembersList() {
             value={searchQuery}
             onChange={handleSearchChange}
           />
-          <button
-            className="btn btn-blue"
-            onClick={navigationAddMember(navigate)}
-          >
-            <img src={icon.addUserIcon} alt="Add Icon" className="icon-btn" />
-            Add Member
-          </button>
-          <button
-            className="btn btn-blue"
-            onClick={navigationSelectDepartment(navigate)}
-          >
-            <img
-              src={icon.importUserIcons}
-              alt="Import Icon"
-              className="icon-btn"
-            />
-            Import Member
-          </button>
         </div>
         <div className="table-container">
-          <CustomTable
+          <ImportMemberTable
             data={filteredMembers}
             loading={loading}
             onViewDetails={handleViewDetails}
           />
-        </div>
-        <div className="action-buttons">
-          <DropDownButton />
-          <button className="btn btn-blue">
-            <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
-            Print Members List
-          </button>
         </div>
       </div>
       <div>

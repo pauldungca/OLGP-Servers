@@ -11,7 +11,7 @@ import "../../assets/styles/member.css";
 import Footer from "../../components/footer";
 
 export default function Member() {
-  const [idNumber, setIdNumber] = useState("");
+  const [, setIdNumber] = useState("");
   const [isAltarServer, setIsAltarServer] = useState(false);
   const [isLectorCommentator, setIsLectorCommentator] = useState(false);
   const navigate = useNavigate();
@@ -51,8 +51,7 @@ export default function Member() {
           {isAltarServer &&
             buttonCard({
               department: "Altar Server",
-              parish: "Our Lady of Guadalupe",
-              idNumber: idNumber,
+              parish: "Manage the members of the Altar Server Department.",
               toPage: "/membersList",
             })}
 
@@ -60,8 +59,8 @@ export default function Member() {
           {isLectorCommentator &&
             buttonCard({
               department: "Lector Commentator",
-              parish: "Our Lady of Guadalupe Parish",
-              idNumber: idNumber,
+              parish:
+                "Manage the members of the Lector Commentator Department.",
             })}
         </div>
       </div>

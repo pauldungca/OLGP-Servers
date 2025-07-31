@@ -64,7 +64,9 @@ export default function Member() {
             })}
         </div>
       </div>
-      <Footer />
+      <div>
+        <Footer />
+      </div>
     </div>
   );
 }

@@ -4,14 +4,13 @@ import { Link } from "react-router-dom";
 import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
 
-import { ImportMemberTable } from "../../../components/table";
-
+import { AssignMemberTable } from "../../../components/table";
 import { fetchAltarServerMembers } from "../../../assets/scripts/fetchMember";
 
-import "../../../assets/styles/member.css";
-import "../../../assets/styles/importMember.css";
+import "../../../assets/styles/departmentSettings.css";
+import "../../../assets/styles/assignMember.css";
 
-export default function ImportMember() {
+export default function SelectMember() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,36 +59,22 @@ export default function ImportMember() {
   };
 
   return (
-    <div className="member-page-container">
-      <div className="member-header">
+    <div className="department-settings-page-container">
+      <div className="department-settings-header">
         <div className="header-text-with-line">
-          <h3>MEMBERS</h3>
+          <h3>DEPARTMENT SETTINGS</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
                 {
                   title: (
-                    <Link to="/members" className="breadcrumb-item">
+                    <Link to="/departmentSettings" className="breadcrumb-item">
                       Department
                     </Link>
                   ),
                 },
                 {
-                  title: (
-                    <Link to="/membersList" className="breadcrumb-item">
-                      Members
-                    </Link>
-                  ),
-                },
-                {
-                  title: (
-                    <Link to="/selectDepartment" className="breadcrumb-item">
-                      Select Department
-                    </Link>
-                  ),
-                },
-                {
-                  title: "Import Member",
+                  title: "Assign Member",
                   className: "breadcrumb-item-active",
                 },
               ]}
@@ -106,8 +91,7 @@ export default function ImportMember() {
           <div className="header-line"></div>
         </div>
       </div>
-
-      <div className="member-content">
+      <div className="department-settings-content">
         <div className="search-bar-container">
           <input
             type="text"
@@ -118,7 +102,7 @@ export default function ImportMember() {
           />
         </div>
         <div className="table-container">
-          <ImportMemberTable
+          <AssignMemberTable
             data={filteredMembers}
             loading={loading}
             onViewDetails={handleViewDetails}

@@ -43,6 +43,8 @@ export default function Sidebar({ collapsed }) {
     } else if (path.includes("schedule")) {
       setActivePage("schedule");
       setActiveSubmenu("schedule-submenu");
+    } else if (path.startsWith("departmentSettings")) {
+      setActivePage("department-settings");
     } else {
       setActivePage(path);
     }
@@ -156,7 +158,7 @@ export default function Sidebar({ collapsed }) {
         {/* Department Settings Link */}
         {navigationLinks(
           "Department Settings",
-          "/department-settings",
+          "/departmentSettings",
           "department-settings",
           icons.departmentSettingsLogo,
           activePage,

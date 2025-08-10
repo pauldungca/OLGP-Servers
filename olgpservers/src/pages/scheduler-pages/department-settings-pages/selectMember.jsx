@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../helper/icon";
@@ -11,6 +13,8 @@ import "../../../assets/styles/departmentSettings.css";
 import "../../../assets/styles/assignMember.css";
 
 export default function SelectMember() {
+  const navigate = useNavigate();
+
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,8 +58,9 @@ export default function SelectMember() {
   };
 
   const handleViewDetails = (record) => {
-    console.log("View details for:", record);
-    alert(record.idNumber);
+    /*console.log("View details for:", record);
+    alert(record.idNumber);*/
+    navigate("/assignReplacement");
   };
 
   return (

@@ -27,6 +27,7 @@ import ImportMember from "./pages/scheduler-pages/members-pages/importMember";
 
 // Department Settings Pages
 import SelectMember from "./pages/scheduler-pages/department-settings-pages/selectMember";
+import AssignReplacement from "./pages/scheduler-pages/department-settings-pages/assignReplacement";
 
 import Logout from "./pages/scheduler-pages/logout";
 
@@ -63,6 +64,7 @@ function App() {
 
             {/* Department Settings Pages */}
             <Route path="/selectMember" element={<SelectMember />} />
+            <Route path="/assignReplacement" element={<AssignReplacement />} />
           </Route>
         </Route>
 

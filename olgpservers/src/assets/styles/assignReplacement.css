@@ -1,0 +1,76 @@
+/* Assign Replacement Styles */
+.department-settings-content h1 {
+  font-weight: 700;
+  font-size: 2rem;
+  margin-bottom: 2rem;
+}
+
+.department-settings-content p {
+  max-width: 650px;
+  margin: 0 auto 1.5rem auto;
+  font-size: 1.5rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.assign-replacement-role-container {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-top: 2.8rem;
+}
+
+.assign-replacement-role-btn {
+  border-radius: 8px;
+  font-weight: 500;
+  width: 20%;
+  padding: 0.75rem 1.5rem;
+  border: 3px solid rgb(214, 214, 214);
+  color: gray;
+  background-color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.assign-replacement-role-btn:hover {
+  background-color: #f4f6ff;
+}
+
+.assign-replacement-role-btn.selected {
+  border-color: #233876;
+  color: #233876;
+  font-weight: bold;
+}
+
+.assign-replacement-confirm-btn {
+  width: 100%;
+  padding: 0.85rem;
+  font-size: 1.25rem;
+  font-weight: 500;
+  border-radius: 6px;
+  background-color: #16a018;
+  border: 2px solid white;
+  color: white;
+  margin-top: 2.3rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.assign-replacement-confirm-btn:hover {
+  background-color: white;
+  color: #16a018;
+  border: 2px solid #16a018;
+}
+
+.assign-replacement-confirm-btn:disabled {
+  background-color: #ccc;
+  color: #666;
+  border: 2px solid #ccc;
+  pointer-events: none;
+}
+
+/*.assign-replacement-confirm-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}*/

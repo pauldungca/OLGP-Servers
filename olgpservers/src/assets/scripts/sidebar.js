@@ -77,7 +77,7 @@ export const createNavigationLinks = (navigate) => {
             title={title}
             placement="right"
             overlayClassName="sidebar-tooltip"
-            align={{ offset: [10, -18] }}
+            align={{ offset: [10, -5] }}
           >
             <button
               onClick={() => navigate(toPage)}

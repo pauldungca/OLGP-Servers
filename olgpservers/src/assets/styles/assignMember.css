@@ -1,0 +1,80 @@
+.search-bar-container {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Search Input */
+.search-bar-container .form-control {
+  width: 40%;
+  padding: 8px 12px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  order: 1;
+}
+
+/* Custom Table Wrapper */
+.table-container {
+  width: 90%;
+  min-width: 600px;
+  margin: 2rem auto;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Table Header */
+.ant-table-thead .ant-table-cell {
+  background-color: #f8fafc !important;
+  color: #061651;
+  font-weight: 600;
+  padding: 12px 16px;
+}
+
+/* Table Body */
+.ant-table-tbody .ant-table-cell {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f4f8;
+}
+
+/* Row Hover Effect */
+.ant-table-tbody .ant-table-row:hover td {
+  background-color: #f0f8ff !important;
+  cursor: pointer;
+}
+
+/* Action Button */
+.ant-table-cell .ant-btn {
+  width: 120px;
+  transition: all 0.2s ease;
+}
+
+/* Status Column */
+.status-cell {
+  text-align: center;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .table-container {
+    width: 95%;
+    min-width: unset;
+  }
+
+  .ant-table-thead .ant-table-cell,
+  .ant-table-tbody .ant-table-cell {
+    padding: 8px 12px;
+  }
+}
+
+/* Scrollbar Styling */
+.ant-table-body::-webkit-scrollbar {
+  height: 6px;
+}
+
+.ant-table-body::-webkit-scrollbar-thumb {
+  background-color: #4169e1;
+  border-radius: 3px;
+}

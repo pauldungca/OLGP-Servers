@@ -37,12 +37,19 @@ export default function Sidebar({ collapsed }) {
     if (
       path.startsWith("members") ||
       path.startsWith("membersList") ||
-      path.startsWith("addMember")
+      path.startsWith("addMember") ||
+      path.startsWith("importMember") ||
+      path.startsWith("selectDepartment")
     ) {
       setActivePage("members");
     } else if (path.includes("schedule")) {
       setActivePage("schedule");
       setActiveSubmenu("schedule-submenu");
+    } else if (
+      path.startsWith("departmentSettings") ||
+      path.startsWith("selectMember")
+    ) {
+      setActivePage("department-settings");
     } else {
       setActivePage(path);
     }
@@ -156,7 +163,7 @@ export default function Sidebar({ collapsed }) {
         {/* Department Settings Link */}
         {navigationLinks(
           "Department Settings",
-          "/department-settings",
+          "/departmentSettings",
           "department-settings",
           icons.departmentSettingsLogo,
           activePage,

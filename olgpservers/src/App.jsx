@@ -17,12 +17,17 @@ import ConfirmPassword from "./pages/login-pages/confirmPassword";
 import Dashboard from "./pages/scheduler-pages/dashboard";
 import Notification from "./pages/scheduler-pages/notification";
 import Members from "./pages/scheduler-pages/member";
+import DepartmentSettings from "./pages/scheduler-pages/departmentSettings";
 
 //Members Pages
 import MembersList from "./pages/scheduler-pages/members-pages/membersList";
 import AddMember from "./pages/scheduler-pages/members-pages/addMember";
 import SelectDepartment from "./pages/scheduler-pages/members-pages/selectDepartment";
 import ImportMember from "./pages/scheduler-pages/members-pages/importMember";
+
+// Department Settings Pages
+import SelectMember from "./pages/scheduler-pages/department-settings-pages/selectMember";
+import AssignReplacement from "./pages/scheduler-pages/department-settings-pages/assignReplacement";
 
 import Logout from "./pages/scheduler-pages/logout";
 
@@ -48,6 +53,7 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="notification" element={<Notification />} />
             <Route path="members" element={<Members />} />
+            <Route path="departmentSettings" element={<DepartmentSettings />} />
             <Route path="logout" element={<Logout />} />
 
             {/* Members Pages */}
@@ -55,6 +61,10 @@ function App() {
             <Route path="/addMember" element={<AddMember />} />
             <Route path="/selectDepartment" element={<SelectDepartment />} />
             <Route path="/importMember" element={<ImportMember />} />
+
+            {/* Department Settings Pages */}
+            <Route path="/selectMember" element={<SelectMember />} />
+            <Route path="/assignReplacement" element={<AssignReplacement />} />
           </Route>
         </Route>
 

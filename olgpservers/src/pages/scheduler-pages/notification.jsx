@@ -5,6 +5,8 @@ import { Link } from "react-router-dom";
 
 import "../../assets/styles/notification.css";
 
+import Footer from "../../components/footer";
+
 export default function Notification() {
   const notifications = [
     {
@@ -12,25 +14,25 @@ export default function Notification() {
       message:
         "Your scheduled event for Sunday 9 AM has been updated. Please confirm the changes.",
       time: "2h ago",
-      link: "/event-details/1",
+      link: "/viewNotification",
     },
     {
       id: 2,
       message: "A replacement has been assigned to your role in the choir.",
       time: "5h ago",
-      link: "/replacement-details/2",
+      link: "/viewNotification",
     },
     {
       id: 3,
       message: "System maintenance scheduled for tonight at 10 PM.",
       time: "1d ago",
-      link: "/maintenance-details/3",
+      link: "/viewNotification",
     },
     {
       id: 4,
       message: "Reminder: Meeting tomorrow at 6 PM in the parish hall.",
       time: "3d ago",
-      link: "/meeting-details/4",
+      link: "/viewNotification",
     },
   ];
 
@@ -56,7 +58,7 @@ export default function Notification() {
       <div className="notification-content">
         {notifications.map((notif) => (
           <Link
-            /*to={notif.link}*/
+            to={notif.link}
             className="notification-row"
             key={notif.id}
             style={{ textDecoration: "none" }}
@@ -79,6 +81,9 @@ export default function Notification() {
             </div>
           </Link>
         ))}
+      </div>
+      <div>
+        <Footer />
       </div>
     </div>
   );

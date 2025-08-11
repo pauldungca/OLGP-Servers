@@ -51,7 +51,7 @@
 }
 
 .notification-row:nth-child(odd) {
-  background-color: #d6d6d6; /* Light gray for striped rows */
+  background-color: #d6d6d6;
 }
 
 .notification-message {

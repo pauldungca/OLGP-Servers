@@ -47,9 +47,15 @@ export default function Sidebar({ collapsed }) {
       setActiveSubmenu("schedule-submenu");
     } else if (
       path.startsWith("departmentSettings") ||
-      path.startsWith("selectMember")
+      path.startsWith("selectMember") ||
+      path.startsWith("assignReplacement")
     ) {
       setActivePage("department-settings");
+    } else if (
+      path.startsWith("notification") ||
+      path.startsWith("viewNotification")
+    ) {
+      setActivePage("notification");
     } else {
       setActivePage(path);
     }

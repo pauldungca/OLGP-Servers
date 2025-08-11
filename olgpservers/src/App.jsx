@@ -19,6 +19,9 @@ import Notification from "./pages/scheduler-pages/notification";
 import Members from "./pages/scheduler-pages/member";
 import DepartmentSettings from "./pages/scheduler-pages/departmentSettings";
 
+// Notification Pages
+import ViewNotification from "./pages/scheduler-pages/notification-pages/viewNotification";
+
 //Members Pages
 import MembersList from "./pages/scheduler-pages/members-pages/membersList";
 import AddMember from "./pages/scheduler-pages/members-pages/addMember";
@@ -28,6 +31,9 @@ import ImportMember from "./pages/scheduler-pages/members-pages/importMember";
 // Department Settings Pages
 import SelectMember from "./pages/scheduler-pages/department-settings-pages/selectMember";
 import AssignReplacement from "./pages/scheduler-pages/department-settings-pages/assignReplacement";
+
+// Account Pages
+import Account from "./pages/scheduler-pages/account";
 
 import Logout from "./pages/scheduler-pages/logout";
 
@@ -56,6 +62,11 @@ function App() {
             <Route path="departmentSettings" element={<DepartmentSettings />} />
             <Route path="logout" element={<Logout />} />
 
+            {/* Notification Pages */}
+            <Route path="viewNotification" element={<ViewNotification />} />
+
+            {/* Scheduler Pages */}
+
             {/* Members Pages */}
             <Route path="/membersList" element={<MembersList />} />
             <Route path="/addMember" element={<AddMember />} />
@@ -65,6 +76,9 @@ function App() {
             {/* Department Settings Pages */}
             <Route path="/selectMember" element={<SelectMember />} />
             <Route path="/assignReplacement" element={<AssignReplacement />} />
+
+            {/* Account Pages */}
+            <Route path="/account" element={<Account />} />
           </Route>
         </Route>
 

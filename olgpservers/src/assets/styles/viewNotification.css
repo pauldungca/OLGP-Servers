@@ -1,0 +1,31 @@
+.view-notification-card {
+  background-color: #e4e4e4;
+  border-radius: 12px;
+  padding: 20px;
+  height: 50vh;
+}
+
+.view-notification-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 2%;
+}
+
+.view-notification-text {
+  font-size: 1rem;
+  margin-bottom: 20px;
+}
+
+.view-notification-detail {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.view-notification-detail .label {
+  font-weight: 600;
+}
+
+.view-notification-detail .value {
+  font-weight: 400;
+}

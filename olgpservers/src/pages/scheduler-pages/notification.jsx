@@ -1,25 +1,90 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
+import { FaTrash } from "react-icons/fa";
+import Swal from "sweetalert2";
+import { Link } from "react-router-dom";
+
+import "../../assets/styles/notification.css";
+
+import Footer from "../../components/footer";
 
 export default function Notification() {
-  const [idNumber, setIdNumber] = useState("");
+  const notifications = [
+    {
+      id: 1,
+      message:
+        "Your scheduled event for Sunday 9 AM has been updated. Please confirm the changes.",
+      time: "2h ago",
+      link: "/viewNotification",
+    },
+    {
+      id: 2,
+      message: "A replacement has been assigned to your role in the choir.",
+      time: "5h ago",
+      link: "/viewNotification",
+    },
+    {
+      id: 3,
+      message: "System maintenance scheduled for tonight at 10 PM.",
+      time: "1d ago",
+      link: "/viewNotification",
+    },
+    {
+      id: 4,
+      message: "Reminder: Meeting tomorrow at 6 PM in the parish hall.",
+      time: "3d ago",
+      link: "/viewNotification",
+    },
+  ];
 
-  useEffect(() => {
-    document.title = "OLGP Servers | Notification";
-    const storedIdNumber = localStorage.getItem("idNumber");
-    if (storedIdNumber) {
-      setIdNumber(storedIdNumber);
-    } else {
-      setIdNumber("No ID found");
-    }
-  }, []);
+  function handleDelete(e) {
+    Swal.fire({
+      icon: "question",
+      title: "Are you sure to delete this notification?",
+      showCancelButton: true,
+      confirmButtonText: "Yes",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+  }
 
   return (
-    <div>
-      <h2>Welcome to the Notification</h2>
-      <p>
-        This is your notification page where you can manage your content.
-        <h4>{idNumber}</h4>
-      </p>
+    <div className="notification-page-container">
+      <div className="notification-header">
+        <div className="header-text-with-line">
+          <h3>NOTIFICATION ({notifications.length})</h3>
+          <div className="header-line"></div>
+        </div>
+      </div>
+      <div className="notification-content">
+        {notifications.map((notif) => (
+          <Link
+            to={notif.link}
+            className="notification-row"
+            key={notif.id}
+            style={{ textDecoration: "none" }}
+          >
+            <div className="notification-message" title={notif.message}>
+              {notif.message}
+            </div>
+            <div className="notification-actions">
+              <span className="notification-time">{notif.time}</span>
+              <button
+                className="notification-btn delete-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDelete(e);
+                }}
+              >
+                <FaTrash />
+              </button>
+            </div>
+          </Link>
+        ))}
+      </div>
+      <div>
+        <Footer />
+      </div>
     </div>
   );
 }

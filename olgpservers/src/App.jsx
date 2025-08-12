@@ -34,6 +34,8 @@ import AssignReplacement from "./pages/scheduler-pages/department-settings-pages
 
 // Account Pages
 import Account from "./pages/scheduler-pages/account";
+import VerifyOTPAccount from "./pages/scheduler-pages/account-pages/verifyOTP";
+import ChangePasswordAccount from "./pages/scheduler-pages/account-pages/changePasswordAccount";
 
 import Logout from "./pages/scheduler-pages/logout";
 
@@ -79,6 +81,11 @@ function App() {
 
             {/* Account Pages */}
             <Route path="/account" element={<Account />} />
+            <Route path="/verifyOTPAccount" element={<VerifyOTPAccount />} />
+            <Route
+              path="/changePasswordAccount"
+              element={<ChangePasswordAccount />}
+            />
           </Route>
         </Route>
 

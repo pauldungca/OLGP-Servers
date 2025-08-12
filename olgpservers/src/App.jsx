@@ -34,6 +34,7 @@ import AssignReplacement from "./pages/scheduler-pages/department-settings-pages
 
 // Account Pages
 import Account from "./pages/scheduler-pages/account";
+import VerifyOTPAccount from "./pages/scheduler-pages/account-pages/verifyOTP";
 
 import Logout from "./pages/scheduler-pages/logout";
 
@@ -79,6 +80,7 @@ function App() {
 
             {/* Account Pages */}
             <Route path="/account" element={<Account />} />
+            <Route path="/verifyOTPAccount" element={<VerifyOTPAccount />} />
           </Route>
         </Route>
 

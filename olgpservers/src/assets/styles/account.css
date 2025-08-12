@@ -53,11 +53,11 @@
   padding: 8px 14px;
   font-size: 16px;
   border-radius: 5px;
-  width: 200px;
+  width: 15%;
   height: 50px;
   border: 2px solid #2e4a9e;
   transition: background-color 0.3s ease, transform 0.2s ease;
-  margin-bottom: -2%;
+  margin-bottom: -2.1%;
 }
 
 .btn-action:hover {

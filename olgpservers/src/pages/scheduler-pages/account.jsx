@@ -1,9 +1,17 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
+
 import "../../assets/styles/account.css";
 import images from "../../helper/images";
 import Footer from "../../components/footer";
 
 export default function Account() {
+  const navigate = useNavigate();
+
+  function handleChangePassword() {
+    navigate("/verifyOTPAccount");
+  }
+
   return (
     <div className="account-page-container">
       <div className="account-header">
@@ -71,7 +79,11 @@ export default function Account() {
 
           {/* Buttons */}
           <div className="d-flex justify-content-end gap-2">
-            <button type="button" className="btn btn-action">
+            <button
+              type="button"
+              className="btn btn-action"
+              onClick={handleChangePassword}
+            >
               Change Password
             </button>
             <button type="button" className="btn btn-action">

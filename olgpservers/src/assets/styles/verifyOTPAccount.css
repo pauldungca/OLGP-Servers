@@ -1,6 +1,10 @@
 .logo {
   width: 150px;
-  margin-top: -1.8%;
+  margin-top: -5%;
+}
+
+.message {
+  margin-top: -0.8%;
 }
 
 .email {

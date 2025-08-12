@@ -52,7 +52,11 @@ export default function VerifyOTP() {
   };
 
   const handleVerify = () => {
-    navigate("/confirmPassword");
+    navigate("/changePasswordAccount");
+  };
+
+  const handleCancel = () => {
+    navigate("/account");
   };
 
   return (
@@ -95,7 +99,7 @@ export default function VerifyOTP() {
 
         {/* OTP Message */}
         {showMessage && (
-          <div className="mb-4 text-center" id="otp-message">
+          <div className="mb-4 text-center message" id="otp-message">
             <p className="mb-0">OTP is sent to</p>
             <p className="mb-0 fw-bold">johnpauldungca0908@gmail.com</p>
           </div>
@@ -126,7 +130,7 @@ export default function VerifyOTP() {
           <button
             type="button"
             className="btn btn-cancel d-flex align-items-center justify-content-center"
-            onClick={() => (window.location.href = "/")}
+            onClick={handleCancel}
           >
             <i className="bi bi-x-circle me-1"></i> Cancel
           </button>

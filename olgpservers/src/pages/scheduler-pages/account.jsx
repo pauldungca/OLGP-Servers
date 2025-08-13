@@ -1,9 +1,9 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-
-import "../../assets/styles/account.css";
 import images from "../../helper/images";
 import Footer from "../../components/footer";
+
+import "../../assets/styles/account.css";
 
 export default function Account() {
   const navigate = useNavigate();

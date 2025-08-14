@@ -4,6 +4,7 @@ import makeScheduleLogo from "../assets/icons/sidebar-icons/MakeSchedule.png";
 import viewScheduleLogo from "../assets/icons/sidebar-icons/ViewSchedule.png";
 import notificationLogo from "../assets/icons/sidebar-icons/Notification.png";
 import departmentLogo from "../assets/icons/sidebar-icons/Department.png";
+import groupLogo from "../assets/icons/sidebar-icons/Group.png";
 import departmentSettingsLogo from "../assets/icons/sidebar-icons/DeptSettings.png";
 import accountLogo from "../assets/icons/sidebar-icons/Account.png";
 import logoutLogo from "../assets/icons/sidebar-icons/Logout.png";
@@ -35,7 +36,8 @@ const icons = {
   importUserIcons,
   printIcon,
   exportIcon,
-  addImageIcon
+  addImageIcon,
+  groupLogo,
 };
 
 export default icons;

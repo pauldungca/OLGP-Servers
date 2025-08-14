@@ -166,6 +166,16 @@ export default function Sidebar({ collapsed }) {
           collapsed
         )}
 
+        {/* Members Link */}
+        {navigationLinks(
+          "Group",
+          "/group",
+          "group",
+          icons.groupLogo,
+          activePage,
+          collapsed
+        )}
+
         {/* Department Settings Link */}
         {navigationLinks(
           "Department Settings",

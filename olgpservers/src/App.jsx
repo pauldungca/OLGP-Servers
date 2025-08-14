@@ -28,6 +28,9 @@ import AddMember from "./pages/scheduler-pages/members-pages/addMember";
 import SelectDepartment from "./pages/scheduler-pages/members-pages/selectDepartment";
 import ImportMember from "./pages/scheduler-pages/members-pages/importMember";
 
+// Group Pages
+import Group from "./pages/scheduler-pages/group";
+
 // Department Settings Pages
 import SelectMember from "./pages/scheduler-pages/department-settings-pages/selectMember";
 import AssignReplacement from "./pages/scheduler-pages/department-settings-pages/assignReplacement";
@@ -74,6 +77,9 @@ function App() {
             <Route path="/addMember" element={<AddMember />} />
             <Route path="/selectDepartment" element={<SelectDepartment />} />
             <Route path="/importMember" element={<ImportMember />} />
+
+            {/* Group Pages */}
+            <Route path="/group" element={<Group />} />
 
             {/* Department Settings Pages */}
             <Route path="/selectMember" element={<SelectMember />} />

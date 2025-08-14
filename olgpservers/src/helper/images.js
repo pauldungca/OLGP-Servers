@@ -4,6 +4,8 @@ import securityLogo from "../assets/images/securityLock.png";
 import accountImage from "../assets/images/accountImage.png";
 import departmentHandlesImages from "../assets/images/departmentHandlesImage.png";
 import massCompletedImage from "../assets/images/massCompletedImage.png";
+import addGroupImage from "../assets/images/addGroupImage.png";
+import viewGroupImage from "../assets/images/viewGroupImage.png";
 
 const images = {
   backgroundImage,
@@ -12,6 +14,8 @@ const images = {
   accountImage,
   departmentHandlesImages,
   massCompletedImage,
+  addGroupImage,
+  viewGroupImage,
 };
 
 export default images;

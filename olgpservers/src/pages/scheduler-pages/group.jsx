@@ -24,13 +24,13 @@ export default function Group() {
             department: "Eucharistic Minister",
             parish:
               "Manage the groups and members of the Eucharistic Minister Department.",
-            toPage: "/membersList",
+            toPage: "/selectGroup",
           })}
 
           {buttonCard({
             department: "Choir",
             parish: "Manage the groups and members of the Choir Department.",
-            toPage: "/membersList",
+            toPage: "/selectGroup",
           })}
         </div>
       </div>

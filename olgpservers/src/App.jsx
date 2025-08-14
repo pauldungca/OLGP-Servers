@@ -30,6 +30,7 @@ import ImportMember from "./pages/scheduler-pages/members-pages/importMember";
 
 // Group Pages
 import Group from "./pages/scheduler-pages/group";
+import SelectGroup from "./pages/scheduler-pages/group-pages/selectGroup";
 
 // Department Settings Pages
 import SelectMember from "./pages/scheduler-pages/department-settings-pages/selectMember";
@@ -80,6 +81,7 @@ function App() {
 
             {/* Group Pages */}
             <Route path="/group" element={<Group />} />
+            <Route path="/selectGroup" element={<SelectGroup />} />
 
             {/* Department Settings Pages */}
             <Route path="/selectMember" element={<SelectMember />} />

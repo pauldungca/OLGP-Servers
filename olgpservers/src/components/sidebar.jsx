@@ -141,6 +141,12 @@ export default function Sidebar({ collapsed, mobileOpen }) {
               pageName: "view-schedule",
               icon: icons.viewScheduleLogo,
             },
+            {
+              title: "Open Schedule",
+              to: "/schedule-availability",
+              pageName: "schedule-availability",
+              icon: icons.scheduleAvalabilityLogo,
+            },
           ],
           activePage,
           activeSubmenu,

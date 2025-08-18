@@ -2,6 +2,7 @@ import dashboardLogo from "../assets/icons/sidebar-icons/Dashboard.png";
 import scheduleLogo from "../assets/icons/sidebar-icons/Schedule.png";
 import makeScheduleLogo from "../assets/icons/sidebar-icons/MakeSchedule.png";
 import viewScheduleLogo from "../assets/icons/sidebar-icons/ViewSchedule.png";
+import scheduleAvalabilityLogo from "../assets/icons/sidebar-icons/ScheduleAvailability.png";
 import notificationLogo from "../assets/icons/sidebar-icons/Notification.png";
 import departmentLogo from "../assets/icons/sidebar-icons/Department.png";
 import groupLogo from "../assets/icons/sidebar-icons/Group.png";
@@ -38,6 +39,7 @@ const icons = {
   exportIcon,
   addImageIcon,
   groupLogo,
+  scheduleAvalabilityLogo,
 };
 
 export default icons;

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import "../assets/styles/sidebar.css";
-//import "../assets/styles/components.css";
 import icons from "../helper/icon";
 import {
   fetchUserRoles,
@@ -10,7 +9,7 @@ import {
   createNavigationLinkWithSubmenu,
 } from "../assets/scripts/sidebar.js";
 
-export default function Sidebar({ collapsed }) {
+export default function Sidebar({ collapsed, mobileOpen }) {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [activePage, setActivePage] = useState("dashboard");
   const [userRoleType, setUserRoleType] = useState();
@@ -80,7 +79,9 @@ export default function Sidebar({ collapsed }) {
 
   return (
     <div
-      className={`sidebar p-3 ${collapsed ? "collapsed" : ""}`}
+      className={`sidebar p-3 ${collapsed ? "collapsed" : ""} ${
+        mobileOpen ? "mobile-open" : ""
+      }`}
       style={{ width: "250px" }}
     >
       {/* Sidebar Header */}

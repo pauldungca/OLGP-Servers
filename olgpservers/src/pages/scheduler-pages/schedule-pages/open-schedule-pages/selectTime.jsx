@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../../helper/icon";
@@ -8,6 +10,7 @@ import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/selectTime.css";
 
 export default function SelectTime() {
+  const navigate = useNavigate();
   const [year, setYear] = useState(2025);
 
   const prevYear = () => setYear(year - 1);
@@ -27,6 +30,10 @@ export default function SelectTime() {
     "November",
     "December",
   ];
+
+  const handleNavigate = () => {
+    navigate("/updateStatus");
+  };
 
   return (
     <div className="schedule-page-container">
@@ -78,7 +85,9 @@ export default function SelectTime() {
           <div className="row g-3">
             {months.map((month, index) => (
               <div key={index} className="col-6 col-md-3">
-                <div className="month-card">{month}</div>
+                <button className="month-card" onClick={handleNavigate}>
+                  {month}
+                </button>
               </div>
             ))}
           </div>

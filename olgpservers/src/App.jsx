@@ -26,6 +26,7 @@ import MakeSchedule from "./pages/scheduler-pages/schedule-pages/make-schedule-p
 
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
+import UpdateStatus from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/updateStatus";
 
 // Notification Pages
 import ViewNotification from "./pages/scheduler-pages/notification-pages/viewNotification";
@@ -86,6 +87,7 @@ function App() {
 
             {/* Open Schedule Pages */}
             <Route path="/selectTime" element={<SelectTime />} />
+            <Route path="/updateStatus" element={<UpdateStatus />} />
 
             {/* Members Pages */}
             <Route path="/membersList" element={<MembersList />} />

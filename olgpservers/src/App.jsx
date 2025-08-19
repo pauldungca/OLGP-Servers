@@ -19,6 +19,14 @@ import Notification from "./pages/scheduler-pages/notification";
 import Members from "./pages/scheduler-pages/member";
 import DepartmentSettings from "./pages/scheduler-pages/departmentSettings";
 
+// Schedule Pages
+import OpenSchedule from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/openSchedule";
+import ViewSchedule from "./pages/scheduler-pages/schedule-pages/view-schedule-pages/viewSchedule";
+import MakeSchedule from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/makeSchedule";
+
+//Open Schedule Pages
+import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
+
 // Notification Pages
 import ViewNotification from "./pages/scheduler-pages/notification-pages/viewNotification";
 
@@ -71,7 +79,13 @@ function App() {
             {/* Notification Pages */}
             <Route path="viewNotification" element={<ViewNotification />} />
 
-            {/* Scheduler Pages */}
+            {/* Schedule Pages */}
+            <Route path="/openSchedule" element={<OpenSchedule />} />
+            <Route path="/viewSchedule" element={<ViewSchedule />} />
+            <Route path="/makeSchedule" element={<MakeSchedule />} />
+
+            {/* Open Schedule Pages */}
+            <Route path="/selectTime" element={<SelectTime />} />
 
             {/* Members Pages */}
             <Route path="/membersList" element={<MembersList />} />

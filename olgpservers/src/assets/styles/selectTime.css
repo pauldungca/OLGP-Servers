@@ -1,0 +1,48 @@
+/* Calendar Year Selector */
+.year-selector {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.year-btn {
+  background: #ffffff;
+  border: 1px solid #213571;
+  color: #213571;
+  font-size: 18px;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.year-btn:hover {
+  background: #213571;
+  color: #ffffff;
+}
+
+.year-text {
+  font-size: 20px;
+  font-weight: bold;
+  color: #213571;
+}
+
+/* Month Cards */
+.month-card {
+  border: 1px solid #213571;
+  border-radius: 6px;
+  padding: 15% 0;
+  text-align: center;
+  background: #ffffff;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.month-card:hover {
+  background: #2e4a9e;
+  color: #ffffff;
+  transform: translateY(-3px);
+}

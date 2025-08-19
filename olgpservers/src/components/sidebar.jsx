@@ -131,19 +131,19 @@ export default function Sidebar({ collapsed, mobileOpen }) {
           [
             {
               title: "Make Schedule",
-              to: "/make-schedule",
+              to: "/makeSchedule",
               pageName: "make-schedule",
               icon: icons.makeScheduleLogo,
             },
             {
               title: "View Schedule",
-              to: "/view-schedule",
+              to: "/viewSchedule",
               pageName: "view-schedule",
               icon: icons.viewScheduleLogo,
             },
             {
               title: "Open Schedule",
-              to: "/schedule-availability",
+              to: "/openSchedule",
               pageName: "schedule-availability",
               icon: icons.scheduleAvalabilityLogo,
             },

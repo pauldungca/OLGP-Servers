@@ -13,7 +13,7 @@ export default function ViewSchedule() {
     <div className="schedule-page-container">
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>OPEN SCHEDULE</h3>
+          <h3>VIEW SCHEDULE</h3>
           <div className="header-line"></div>
         </div>
       </div>
@@ -22,23 +22,23 @@ export default function ViewSchedule() {
           {buttonCard({
             department: "Altar Server",
             parish: "View your schedule in the Altar Server Department.",
-            toPage: "/selectTime",
+            toPage: "/updateSchedule",
           })}
           {buttonCard({
             department: "Eucharistic Minister",
             parish:
               "View your schedule in the Eucharistic Minister Department.",
-            toPage: "/selectTime",
+            toPage: "/updateSchedule",
           })}
           {buttonCard({
             department: "Choir",
             parish: "View your schedule in the Choir Department.",
-            toPage: "/selectTime",
+            toPage: "/updateSchedule",
           })}
           {buttonCard({
             department: "Lector Commentator",
             parish: "View your schedule in the Lector Commentator Department.",
-            toPage: "/selectTime",
+            toPage: "/updateSchedule",
           })}
         </div>
       </div>

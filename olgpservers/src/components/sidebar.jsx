@@ -84,14 +84,6 @@ export default function Sidebar({ collapsed, mobileOpen }) {
       }`}
       style={{ width: "250px" }}
     >
-      {/* Sidebar Header */}
-      <div className="sidebar-header">
-        <h4 className="sidebar-brand">
-          OLGP <span className="thin-text">Servers</span>
-        </h4>
-        <h5 className="sidebar-brand-short">OLGP</h5>
-      </div>
-
       {/* User Profile Section */}
       <div className="sidebar-user">
         <img

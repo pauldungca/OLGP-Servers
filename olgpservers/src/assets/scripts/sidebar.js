@@ -157,7 +157,7 @@ export const createNavigationLinkWithSubmenu = (icons, navigate) => {
                   title={item.title}
                   placement="right"
                   overlayClassName="sidebar-tooltip"
-                  align={{ offset: [10, -13] }}
+                  align={{ offset: [10, -5] }}
                 >
                   <button
                     onClick={() => navigate(item.to)}

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../../helper/icon";
@@ -9,11 +10,16 @@ import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/updateSchedule.css";
 
 export default function UpdateSchedule() {
+  const navigate = useNavigate();
   const [hoveredBtn, setHoveredBtn] = useState({
     btn1: false,
     btn2: false,
     btn3: false,
   });
+
+  function navToCancel() {
+    navigate("/cancelSchedule");
+  }
 
   // Button text variable
   const notAvailableText = "Cancel Schedule";
@@ -90,6 +96,7 @@ export default function UpdateSchedule() {
                       onMouseLeave={() =>
                         setHoveredBtn((prev) => ({ ...prev, btn2: false }))
                       }
+                      onClick={navToCancel}
                     >
                       <img
                         src={
@@ -141,7 +148,6 @@ export default function UpdateSchedule() {
                   <div className="action-buttons">
                     <div className="d-flex justify-content-center">
                       <button className="btn export-btn me-3">Export</button>
-
                       <button className="btn print-btn">Print</button>
                     </div>
                   </div>

@@ -30,6 +30,7 @@ import UpdateStatus from "./pages/scheduler-pages/schedule-pages/open-schedule-p
 
 // View Schedule Pages
 import UpdateSchedule from "./pages/scheduler-pages/schedule-pages/view-schedule-pages/updateSchedule";
+import CancelSchedule from "./pages/scheduler-pages/schedule-pages/view-schedule-pages/cancelSchedule";
 
 // Notification Pages
 import ViewNotification from "./pages/scheduler-pages/notification-pages/viewNotification";
@@ -94,6 +95,7 @@ function App() {
 
             {/* View Schedule Pages */}
             <Route path="/updateSchedule" element={<UpdateSchedule />} />
+            <Route path="/cancelSchedule" element={<CancelSchedule />} />
 
             {/* Members Pages */}
             <Route path="/membersList" element={<MembersList />} />

@@ -69,7 +69,6 @@ export default function SelectTime() {
         </div>
       </div>
 
-      {/* Calendar UI */}
       <div className="schedule-content">
         <div className="year-selector">
           <button className="year-btn" onClick={prevYear}>

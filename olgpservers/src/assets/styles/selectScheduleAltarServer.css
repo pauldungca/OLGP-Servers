@@ -1,0 +1,139 @@
+/* Month header with buttons */
+.month-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 50px; /* optional, small side padding */
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 100px;
+}
+
+.month-title {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.arrow-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 5px 10px;
+}
+
+.auto-btn-container {
+  display: flex;
+  align-items: center;
+}
+
+.auto-btn {
+  background-color: #213571;
+  color: white;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  min-width: 160px;
+
+  display: flex; /* flex for icon + text */
+  align-items: center;
+  justify-content: center;
+  gap: 10px; /* spacing between icon and text */
+}
+
+.btn-icon {
+  width: 30px; /* control icon size */
+  height: 30px;
+  object-fit: contain; /* prevent stretching */
+  display: block;
+}
+
+/* Bigger cards grid */
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 30px;
+  justify-content: center;
+  padding: 0 40px;
+}
+
+/* Enlarge schedule cards */
+.schedule-card {
+  background: white;
+  border: 3px solid #ddd;
+  border-radius: 12px;
+  padding: 25px 20px;
+  text-align: center;
+  min-height: 280px;
+  max-width: 340px;
+  flex: 1;
+  transition: 0.3s;
+}
+
+.schedule-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Borders by status */
+.border-blue {
+  border: 3px solid #2e4a9e !important;
+}
+
+.border-orange {
+  border: 3px solid #ff9800 !important;
+}
+
+/* Images inside card */
+.schedule-icon {
+  width: 90px;
+  height: 90px;
+  margin-bottom: 15px;
+  object-fit: contain;
+}
+
+.schedule-text {
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+
+/* Divider line under text */
+.date-divider {
+  height: 3px;
+  margin: 10px auto;
+  width: 80%;
+  border-radius: 2px;
+}
+
+.date-divider.blue {
+  background-color: #2e4a9e;
+}
+
+.date-divider.orange {
+  background-color: #ff9800;
+}
+
+/* Date text */
+.schedule-date {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.schedule-date.blue {
+  color: #2e4a9e;
+}
+
+.schedule-date.orange {
+  color: #ff9800;
+}

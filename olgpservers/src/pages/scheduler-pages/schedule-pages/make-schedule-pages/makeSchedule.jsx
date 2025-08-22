@@ -22,7 +22,7 @@ export default function MakeSchedule() {
           {buttonCard({
             department: "Altar Server",
             parish: "Manage the schedule in the Altar Server Department.",
-            toPage: "/selectTime",
+            toPage: "/selectScheduleAltarServer",
           })}
           {buttonCard({
             department: "Eucharistic Minister",

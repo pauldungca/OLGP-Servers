@@ -24,6 +24,11 @@ import OpenSchedule from "./pages/scheduler-pages/schedule-pages/open-schedule-p
 import ViewSchedule from "./pages/scheduler-pages/schedule-pages/view-schedule-pages/viewSchedule";
 import MakeSchedule from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/makeSchedule";
 
+// Make Schedule Pages
+
+// Altar Server Schedule Pages
+import SelectSchedule from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/altar-server-schedule-pages/selectSchedule";
+
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
 import UpdateStatus from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/updateStatus";
@@ -88,6 +93,14 @@ function App() {
             <Route path="/openSchedule" element={<OpenSchedule />} />
             <Route path="/viewSchedule" element={<ViewSchedule />} />
             <Route path="/makeSchedule" element={<MakeSchedule />} />
+
+            {/* Make Schedule Pages */}
+
+            {/* Altar Server Schedule Pages */}
+            <Route
+              path="/selectScheduleAltarServer"
+              element={<SelectSchedule />}
+            />
 
             {/* Open Schedule Pages */}
             <Route path="/selectTime" element={<SelectTime />} />

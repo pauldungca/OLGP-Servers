@@ -57,3 +57,17 @@
   transition: transform 0.2s ease;
   padding-bottom: 0;
 }
+
+.assigned-member {
+  background: green;
+  color: white;
+  border-radius: 10px;
+  padding: 8px 0;
+  text-align: center;
+  font-weight: bold;
+  font-size: 1rem;
+  margin: 12px 0 24px 0;
+  width: 70%;
+  margin-left: auto;
+  margin-right: auto;
+}

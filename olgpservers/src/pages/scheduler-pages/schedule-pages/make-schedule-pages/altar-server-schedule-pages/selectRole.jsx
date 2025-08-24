@@ -83,6 +83,8 @@ export default function SelectRole() {
             <p className="role-card-title">Book and Mic</p>
           </div>
           <div className="role-card">
+            <div className="assigned-member">Argie Tapic</div>
+            <div className="assigned-member">Argie Tapic</div>
             <div className="role-card-divider"></div>
             <p className="role-card-title">Candle Bearers</p>
           </div>

@@ -61,6 +61,16 @@
   color: white;
 }
 
+.cancel-btn:hover {
+  background-color: #e03939;
+  color: white;
+}
+
+.assign-btn:hover {
+  background-color: #0a7a00;
+  color: white;
+}
+
 .img-btn {
   width: 24px;
   height: 24px;

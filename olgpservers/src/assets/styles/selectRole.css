@@ -1,0 +1,73 @@
+/* Grid: fixed 3 columns */
+.role-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* exactly 3 per row */
+  gap: 24px;
+  margin-top: 20px;
+}
+
+/* Role card design */
+.role-card {
+  border: 1.5px solid #2e4a9e;
+  border-radius: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  background-color: #fff;
+  transition: all 0.2s ease-in-out;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 0;
+}
+
+/* Divider line */
+.role-card-divider {
+  height: 2px;
+  background-color: #2e4a9e;
+  margin: 20px auto 12px auto;
+  width: 70%;
+  opacity: 0.9;
+}
+
+/* Role title */
+.role-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2e4a9e;
+  margin-top: 10px;
+}
+
+/* Hover effect */
+.role-card:hover {
+  background-color: #f4f7ff;
+  transform: translateY(-5px);
+  box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.big-role-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 30px;
+  margin-top: 20px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+  padding-bottom: 0;
+}
+
+.assigned-member {
+  background: green;
+  color: white;
+  border-radius: 10px;
+  padding: 8px 0;
+  text-align: center;
+  font-weight: bold;
+  font-size: 1rem;
+  margin: 12px 0 24px 0;
+  width: 70%;
+  margin-left: auto;
+  margin-right: auto;
+}

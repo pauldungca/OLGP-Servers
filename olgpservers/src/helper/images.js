@@ -9,6 +9,10 @@ import viewGroupImage from "../assets/images/viewGroupImage.png";
 import updateStatusImage from "../assets/images/updateStatusImage.png";
 import noButtonImage from "../assets/images/noButtonImage.png";
 import noButtonHoverImage from "../assets/images/noButtonHover.png";
+import emptyScheduleImage from "../assets/images/emptySchedule.png";
+import incompleteScheduleImage from "../assets/images/incompleteSchedule.png";
+import completeScheduleImage from "../assets/images/completeSchedule.png";
+import automaticIcon from "../assets/images/automaticIcon.png";
 
 const images = {
   backgroundImage,
@@ -22,6 +26,10 @@ const images = {
   updateStatusImage,
   noButtonImage,
   noButtonHoverImage,
+  emptyScheduleImage,
+  incompleteScheduleImage,
+  completeScheduleImage,
+  automaticIcon,
 };
 
 export default images;

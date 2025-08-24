@@ -1,0 +1,86 @@
+.assign-container {
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #fff;
+}
+
+.assign-title {
+  color: #0a2471;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.assign-member-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.assign-member-list .list-group-item {
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.assign-member-list .active {
+  background-color: #213571 !important;
+  color: #fff;
+  font-weight: 600;
+}
+
+.assign-right {
+  border-left: 2px solid #dcdcdc;
+  padding-left: 2rem;
+}
+
+.assign-line {
+  border-bottom: 2px solid #213571;
+  margin-top: 0.5rem;
+  width: 100%;
+  height: 2px;
+}
+
+.assigned-name {
+  margin-top: 4px; /* small gap between label and name */
+}
+
+.action-buttons {
+  width: 50%;
+  padding: 14px 28px;
+  font-size: 18px;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+.cancel-btn {
+  background-color: #ff5252;
+  color: white;
+}
+
+.assign-btn {
+  background-color: #0c9600;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background-color: #e03939;
+  color: white;
+}
+
+.assign-btn:hover {
+  background-color: #0a7a00;
+  color: white;
+}
+
+.img-btn {
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+}
+
+.bottom-buttons {
+  margin-top: auto; /* pushes it to the bottom */
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  padding-top: 150px;
+}

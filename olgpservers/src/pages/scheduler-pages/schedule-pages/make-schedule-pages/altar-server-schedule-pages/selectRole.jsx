@@ -1,20 +1,13 @@
 import React from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
 import icon from "../../../../../helper/icon";
-import image from "../../../../../helper/images";
 import Footer from "../../../../../components/footer";
 
 import "../../../../../assets/styles/schedule.css";
-import "../../../../../assets/styles/selectScheduleAltarServer.css";
+import "../../../../../assets/styles/selectRole.css";
 
-export default function SelectMass() {
-  const navigate = useNavigate();
-
-  const handleCardClick = () => {
-    navigate("/selectRoleAltarServer");
-  };
+export default function SelectRole() {
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">
@@ -41,7 +34,17 @@ export default function SelectMass() {
                   ),
                 },
                 {
-                  title: "Select Mass",
+                  title: (
+                    <Link
+                      to="/selectMassAltarServer"
+                      className="breadcrumb-item"
+                    >
+                      Select Mass
+                    </Link>
+                  ),
+                },
+                {
+                  title: "Select Role",
                   className: "breadcrumb-item-active",
                 },
               ]}
@@ -58,42 +61,39 @@ export default function SelectMass() {
           <div className="header-line"></div>
         </div>
       </div>
+
       <div className="schedule-content">
-        <div className="schedule-grid">
-          {/* Empty Schedule */}
-          <div className="schedule-card border-blue" onClick={handleCardClick}>
-            <img
-              src={image.emptyScheduleImage}
-              alt="Empty"
-              className="schedule-icon"
-            />
-            <p className="schedule-text">This Schedule is Empty.</p>
-            <div className="date-divider blue"></div>
-            <p className="schedule-date blue">1st Mass - 6:00 AM</p>
+        <div className="role-cards-grid">
+          <div className="role-card">
+            <div className="role-card-divider"></div>
+            <p className="role-card-title">Thurifer</p>
           </div>
+          <div className="role-card">
+            <div className="role-card-divider"></div>
+            <p className="role-card-title">Bellers</p>
+          </div>
+          <div className="role-card">
+            <div className="role-card-divider"></div>
+            <p className="role-card-title">Book and Mic</p>
+          </div>
+          <div className="role-card">
+            <div className="role-card-divider"></div>
+            <p className="role-card-title">Candle Bearers</p>
+          </div>
+          <div className="role-card">
+            <div className="role-card-divider"></div>
+            <p className="role-card-title">Incense Bearer</p>
+          </div>
+          <div className="role-card">
+            <div className="role-card-divider"></div>
+            <p className="role-card-title">Cross Bearer</p>
+          </div>
+        </div>
 
-          <div className="schedule-card border-blue">
-            <img
-              src={image.emptyScheduleImage}
-              alt="Empty"
-              className="schedule-icon"
-            />
-            <p className="schedule-text">This Schedule is Empty.</p>
-            <div className="date-divider blue"></div>
-            <p className="schedule-date blue">2nd Mass - 8:00 AM</p>
-          </div>
-
-          {/* Incomplete Schedule */}
-          <div className="schedule-card border-orange">
-            <img
-              src={image.incompleteScheduleImage}
-              alt="Incomplete"
-              className="schedule-icon"
-            />
-            <p className="schedule-text">This Schedule is Incomplete.</p>
-            <div className="date-divider orange"></div>
-            <p className="schedule-date orange">3rd Mass - 5:00 PM</p>
-          </div>
+        {/* Big card at the bottom */}
+        <div className="role-card big-role-card">
+          <div className="role-card-divider"></div>
+          <p className="role-card-title">Plates</p>
         </div>
       </div>
       <div>

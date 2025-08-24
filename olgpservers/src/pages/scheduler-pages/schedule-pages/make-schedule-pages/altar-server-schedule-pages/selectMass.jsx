@@ -9,13 +9,12 @@ import Footer from "../../../../../components/footer";
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/selectScheduleAltarServer.css";
 
-export default function SelectSchedule() {
+export default function SelectMass() {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
     navigate("/selectMassAltarServer");
   };
-
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">
@@ -32,7 +31,17 @@ export default function SelectSchedule() {
                   ),
                 },
                 {
-                  title: "Select Schedule",
+                  title: (
+                    <Link
+                      to="/selectScheduleAltarServer"
+                      className="breadcrumb-item"
+                    >
+                      Select Schedule
+                    </Link>
+                  ),
+                },
+                {
+                  title: "Select Mass",
                   className: "breadcrumb-item-active",
                 },
               ]}
@@ -50,20 +59,6 @@ export default function SelectSchedule() {
         </div>
       </div>
       <div className="schedule-content">
-        <div className="month-header">
-          <div className="month-nav">
-            <button className="arrow-btn">❮</button>
-            <h5 className="month-title">MONTH OF APRIL - 2025</h5>
-            <button className="arrow-btn">❯</button>
-          </div>
-
-          <div className="auto-btn-container">
-            <button className="auto-btn">
-              <img src={image.automaticIcon} alt="Auto" className="btn-icon" />
-              Automatic
-            </button>
-          </div>
-        </div>
         <div className="schedule-grid">
           {/* Empty Schedule */}
           <div className="schedule-card border-blue" onClick={handleCardClick}>
@@ -74,7 +69,7 @@ export default function SelectSchedule() {
             />
             <p className="schedule-text">This Schedule is Empty.</p>
             <div className="date-divider blue"></div>
-            <p className="schedule-date blue">April 6 - Sunday</p>
+            <p className="schedule-date blue">1st Mass - 6:00 AM</p>
           </div>
 
           <div className="schedule-card border-blue">
@@ -85,18 +80,7 @@ export default function SelectSchedule() {
             />
             <p className="schedule-text">This Schedule is Empty.</p>
             <div className="date-divider blue"></div>
-            <p className="schedule-date blue">April 9 - Wednesday</p>
-          </div>
-
-          <div className="schedule-card border-blue">
-            <img
-              src={image.emptyScheduleImage}
-              alt="Empty"
-              className="schedule-icon"
-            />
-            <p className="schedule-text">This Schedule is Empty.</p>
-            <div className="date-divider blue"></div>
-            <p className="schedule-date blue">April 10 - Thursday</p>
+            <p className="schedule-date blue">2nd Mass - 8:00 AM</p>
           </div>
 
           {/* Incomplete Schedule */}
@@ -108,7 +92,7 @@ export default function SelectSchedule() {
             />
             <p className="schedule-text">This Schedule is Incomplete.</p>
             <div className="date-divider orange"></div>
-            <p className="schedule-date orange">April 27 - Sunday</p>
+            <p className="schedule-date orange">3rd Mass - 5:00 PM</p>
           </div>
         </div>
       </div>

@@ -28,6 +28,7 @@ import MakeSchedule from "./pages/scheduler-pages/schedule-pages/make-schedule-p
 
 // Altar Server Schedule Pages
 import SelectSchedule from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/altar-server-schedule-pages/selectSchedule";
+import SelectMass from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/altar-server-schedule-pages/selectMass";
 
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
@@ -101,6 +102,7 @@ function App() {
               path="/selectScheduleAltarServer"
               element={<SelectSchedule />}
             />
+            <Route path="/selectMassAltarServer" element={<SelectMass />} />
 
             {/* Open Schedule Pages */}
             <Route path="/selectTime" element={<SelectTime />} />

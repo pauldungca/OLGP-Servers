@@ -46,20 +46,19 @@
   font-weight: 500;
   min-width: 160px;
 
-  display: flex; /* flex for icon + text */
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px; /* spacing between icon and text */
+  gap: 10px;
 }
 
 .btn-icon {
-  width: 30px; /* control icon size */
+  width: 30px;
   height: 30px;
-  object-fit: contain; /* prevent stretching */
+  object-fit: contain;
   display: block;
 }
 
-/* Bigger cards grid */
 .schedule-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -68,7 +67,6 @@
   padding: 0 40px;
 }
 
-/* Enlarge schedule cards */
 .schedule-card {
   background: white;
   border: 3px solid #ddd;
@@ -86,7 +84,6 @@
   box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
 }
 
-/* Borders by status */
 .border-blue {
   border: 3px solid #2e4a9e !important;
 }
@@ -95,7 +92,6 @@
   border: 3px solid #ff9800 !important;
 }
 
-/* Images inside card */
 .schedule-icon {
   width: 90px;
   height: 90px;
@@ -108,7 +104,6 @@
   margin-bottom: 12px;
 }
 
-/* Divider line under text */
 .date-divider {
   height: 3px;
   margin: 10px auto;
@@ -124,7 +119,6 @@
   background-color: #ff9800;
 }
 
-/* Date text */
 .schedule-date {
   font-weight: bold;
   font-size: 16px;

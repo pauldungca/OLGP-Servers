@@ -30,6 +30,7 @@ import MakeSchedule from "./pages/scheduler-pages/schedule-pages/make-schedule-p
 import SelectSchedule from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/altar-server-schedule-pages/selectSchedule";
 import SelectMass from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/altar-server-schedule-pages/selectMass";
 import SelectRole from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/altar-server-schedule-pages/selectRole";
+import AssignMember from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/altar-server-schedule-pages/assignMember";
 
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
@@ -105,6 +106,7 @@ function App() {
             />
             <Route path="/selectMassAltarServer" element={<SelectMass />} />
             <Route path="/selectRoleAltarServer" element={<SelectRole />} />
+            <Route path="/assignMemberAltarServer" element={<AssignMember />} />
 
             {/* Open Schedule Pages */}
             <Route path="/selectTime" element={<SelectTime />} />

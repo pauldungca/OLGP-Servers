@@ -1,6 +1,7 @@
 import React from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import icon from "../../../../../helper/icon";
 import Footer from "../../../../../components/footer";
 
@@ -8,6 +9,11 @@ import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/selectRole.css";
 
 export default function SelectRole() {
+  const navigate = useNavigate();
+
+  const handleCardClick = () => {
+    navigate("/assignMemberAltarServer");
+  };
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">
@@ -64,7 +70,7 @@ export default function SelectRole() {
 
       <div className="schedule-content">
         <div className="role-cards-grid">
-          <div className="role-card">
+          <div className="role-card" onClick={handleCardClick}>
             <div className="role-card-divider"></div>
             <p className="role-card-title">Thurifer</p>
           </div>

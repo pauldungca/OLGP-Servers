@@ -14,9 +14,7 @@
   text-align: center;
   background-color: #fff;
   transition: all 0.2s ease-in-out;
-  cursor: pointer;
   min-height: 200px;
-
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -56,7 +54,6 @@
   font-size: 20px;
   font-weight: 600;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
   transition: transform 0.2s ease;
   padding-bottom: 0;
 }

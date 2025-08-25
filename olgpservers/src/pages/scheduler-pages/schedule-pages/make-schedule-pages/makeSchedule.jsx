@@ -28,7 +28,7 @@ export default function MakeSchedule() {
             department: "Eucharistic Minister",
             parish:
               "Manage the schedule in the Eucharistic Minister Department.",
-            toPage: "/selectTime",
+            toPage: "/selectScheduleEucharisticMinister",
           })}
           {buttonCard({
             department: "Choir",

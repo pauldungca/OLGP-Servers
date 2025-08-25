@@ -32,6 +32,9 @@ import SelectMass from "./pages/scheduler-pages/schedule-pages/make-schedule-pag
 import SelectRole from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/altar-server-schedule-pages/selectRole";
 import AssignMember from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/altar-server-schedule-pages/assignMember";
 
+// Eucharistic Minister Schedule Pages
+import SelectScheduleEM from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/eucharistic-minister-schedule-pages/selectSchedule";
+
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
 import UpdateStatus from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/updateStatus";
@@ -107,6 +110,12 @@ function App() {
             <Route path="/selectMassAltarServer" element={<SelectMass />} />
             <Route path="/selectRoleAltarServer" element={<SelectRole />} />
             <Route path="/assignMemberAltarServer" element={<AssignMember />} />
+
+            {/* Eucharistic Minister Schedule Pages */}
+            <Route
+              path="/selectScheduleEucharisticMinister"
+              element={<SelectScheduleEM />}
+            />
 
             {/* Open Schedule Pages */}
             <Route path="/selectTime" element={<SelectTime />} />

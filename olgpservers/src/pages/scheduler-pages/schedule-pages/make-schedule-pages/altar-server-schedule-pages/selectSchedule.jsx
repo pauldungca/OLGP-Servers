@@ -8,6 +8,7 @@ import Footer from "../../../../../components/footer";
 
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/selectScheduleAltarServer.css";
+import DropDownButton from "../../../../../components/dropDownButton";
 
 export default function SelectSchedule() {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ export default function SelectSchedule() {
             </button>
           </div>
         </div>
-        <div className="schedule-grid">
+        <div className="schedule-grid schedule-content">
           {/* Empty Schedule */}
           <div className="schedule-card border-blue" onClick={handleCardClick}>
             <img
@@ -110,6 +111,13 @@ export default function SelectSchedule() {
             <div className="date-divider orange"></div>
             <p className="schedule-date orange">April 27 - Sunday</p>
           </div>
+        </div>
+        <div className="action-buttons">
+          <DropDownButton />
+          <button className="btn btn-blue">
+            <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
+            Print Members List
+          </button>
         </div>
       </div>
       <div>

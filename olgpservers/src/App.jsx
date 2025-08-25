@@ -34,6 +34,7 @@ import AssignMember from "./pages/scheduler-pages/schedule-pages/make-schedule-p
 
 // Eucharistic Minister Schedule Pages
 import SelectScheduleEM from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/eucharistic-minister-schedule-pages/selectSchedule";
+import SelectMassEM from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/eucharistic-minister-schedule-pages/selectMass";
 
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
@@ -115,6 +116,10 @@ function App() {
             <Route
               path="/selectScheduleEucharisticMinister"
               element={<SelectScheduleEM />}
+            />
+            <Route
+              path="/selectMassEucharisticMinister"
+              element={<SelectMassEM />}
             />
 
             {/* Open Schedule Pages */}

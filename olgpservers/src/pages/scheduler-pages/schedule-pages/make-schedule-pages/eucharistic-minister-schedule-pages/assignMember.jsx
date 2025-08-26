@@ -1,28 +1,59 @@
 import React, { useState } from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
 import icon from "../../../../../helper/icon";
 import image from "../../../../../helper/images";
-import Footer from "../../../../../components/footer";
 
 import "../../../../../assets/styles/schedule.css";
-import "../../../../../assets/styles/assignGroup.css";
+import "../../../../../assets/styles/assignMemberEucharisticMinister.css";
 
-export default function AssignGroup() {
-  const groups = ["Group 1", "Group 2", "Group 3"];
+export default function AssignMemberEucharistic() {
+  const members = [
+    "John Paul Dungca",
+    "Gabriel Cayabyab",
+    "Argie Tapic",
+    "Johnlie Tundayag",
+    "Arcee Cabilangan",
+    "Justine Willi Rigos",
+  ];
+
+  // assignment state for 6 ministers
+  const [assigned, setAssigned] = useState({
+    minister1: "",
+    minister2: "",
+    minister3: "",
+    minister4: "",
+    minister5: "",
+    minister6: "",
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedGroup, setSelectedGroup] = useState("");
-  const [ministerCount, setMinisterCount] = useState(4);
 
-  const filteredGroups = groups.filter((g) =>
-    g.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  const navigate = useNavigate();
+  const handleAssign = (name) => {
+    setAssigned((prev) => {
+      // unassign if already selected
+      for (let key in prev) {
+        if (prev[key] === name) {
+          return { ...prev, [key]: "" };
+        }
+      }
 
-  const handleAssign = () => {
-    navigate("/assignMemberEucharisticMinister");
+      // find the first empty slot
+      for (let key in prev) {
+        if (!prev[key]) {
+          return { ...prev, [key]: name };
+        }
+      }
+      return prev;
+    });
   };
+
+  const isChecked = (name) => Object.values(assigned).includes(name);
+
+  // filter members by search term
+  const filteredMembers = members.filter((name) =>
+    name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="schedule-page-container">
@@ -60,7 +91,17 @@ export default function AssignGroup() {
                   ),
                 },
                 {
-                  title: "Assign Group",
+                  title: (
+                    <Link
+                      to="/assignGroupEucharisticMinister"
+                      className="breadcrumb-item"
+                    >
+                      Assign Group
+                    </Link>
+                  ),
+                },
+                {
+                  title: "Assign Member",
                   className: "breadcrumb-item-active",
                 },
               ]}
@@ -78,12 +119,11 @@ export default function AssignGroup() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="schedule-content">
         <div className="assign-container row">
           {/* Left side */}
           <div className="col-md-6 assign-left">
-            <h5 className="assign-title">Assign Group</h5>
+            <h5 className="assign-title">Eucharistic Ministers</h5>
             <div className="input-group mb-3">
               <input
                 type="text"
@@ -99,22 +139,23 @@ export default function AssignGroup() {
 
             <ul className="list-group assign-member-list">
               <li className="list-group-item active">Name</li>
-              {filteredGroups.length > 0 ? (
-                filteredGroups.map((group) => (
+              {filteredMembers.length > 0 ? (
+                filteredMembers.map((name) => (
                   <li
-                    key={group}
-                    className={`list-group-item d-flex align-items-center ${
-                      selectedGroup === group ? "selected" : ""
-                    }`}
-                    onClick={() => setSelectedGroup(group)}
+                    key={name}
+                    className="list-group-item d-flex align-items-center"
                   >
                     <input
-                      type="radio"
+                      type="checkbox"
                       className="form-check-input me-2"
-                      checked={selectedGroup === group}
-                      onChange={() => setSelectedGroup(group)}
+                      checked={isChecked(name)}
+                      onChange={() => handleAssign(name)}
+                      disabled={
+                        !isChecked(name) &&
+                        Object.values(assigned).every((val) => val !== "") // disable if all 6 filled
+                      }
                     />
-                    {group}
+                    {name}
                   </li>
                 ))
               ) : (
@@ -125,28 +166,20 @@ export default function AssignGroup() {
 
           {/* Right side */}
           <div className="col-md-6 assign-right">
-            <div className="mb-4">
-              <label className="form-label">Group for 1st Mass:</label>
-              <div className="assigned-name">
-                {selectedGroup || <span className="text-muted">Empty</span>}
-              </div>
-              <div className="assign-line"></div>
-            </div>
-
-            <div className="mb-4">
-              <label className="form-label">Ministers count:</label>
-              <select
-                className="form-select w-auto"
-                value={ministerCount}
-                onChange={(e) => setMinisterCount(Number(e.target.value))}
-                disabled={!selectedGroup}
-              >
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                  <option key={num} value={num}>
-                    {num}
-                  </option>
-                ))}
-              </select>
+            <div className="assign-right-scroll">
+              {[...Array(6)].map((_, i) => (
+                <div className="mb-4" key={i}>
+                  <label className="form-label">
+                    Eucharistic Minister {i + 1}:
+                  </label>
+                  <div className="assigned-name">
+                    {assigned[`minister${i + 1}`] || (
+                      <span className="text-muted">Empty</span>
+                    )}
+                  </div>
+                  <div className="assign-line"></div>
+                </div>
+              ))}
             </div>
 
             <div className="bottom-buttons">
@@ -160,8 +193,7 @@ export default function AssignGroup() {
               </button>
               <button
                 className="btn action-buttons assign-btn d-flex align-items-center"
-                disabled={!selectedGroup}
-                onClick={handleAssign}
+                disabled={Object.values(assigned).every((val) => !val)}
               >
                 <img src={image.assignImage} alt="Assign" className="img-btn" />
                 Assign
@@ -169,9 +201,6 @@ export default function AssignGroup() {
             </div>
           </div>
         </div>
-      </div>
-      <div>
-        <Footer />
       </div>
     </div>
   );

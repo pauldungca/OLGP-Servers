@@ -14,7 +14,7 @@ export default function SelectSchedule() {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
-    navigate("/selectMassAltarServer");
+    navigate("/selectMassEucharisticMinister");
   };
 
   return (

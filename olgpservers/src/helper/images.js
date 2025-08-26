@@ -13,6 +13,7 @@ import emptyScheduleImage from "../assets/images/emptySchedule.png";
 import incompleteScheduleImage from "../assets/images/incompleteSchedule.png";
 import completeScheduleImage from "../assets/images/completeSchedule.png";
 import automaticIcon from "../assets/images/automaticIcon.png";
+import assignImage from "../assets/images/assignImage.png";
 
 const images = {
   backgroundImage,
@@ -30,6 +31,7 @@ const images = {
   incompleteScheduleImage,
   completeScheduleImage,
   automaticIcon,
+  assignImage,
 };
 
 export default images;

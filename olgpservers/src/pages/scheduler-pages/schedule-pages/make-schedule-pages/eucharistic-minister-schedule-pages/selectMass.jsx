@@ -13,7 +13,7 @@ export default function SelectMass() {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
-    navigate("/selectRoleAltarServer");
+    navigate("/assignGroupEucharisticMinister");
   };
   return (
     <div className="schedule-page-container">
@@ -33,7 +33,7 @@ export default function SelectMass() {
                 {
                   title: (
                     <Link
-                      to="/selectScheduleAltarServer"
+                      to="/selectScheduleEucharisticMinister"
                       className="breadcrumb-item"
                     >
                       Select Schedule

@@ -12,7 +12,7 @@ export default function SelectRole() {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
-    navigate("/assignMemberAltarServer");
+    navigate("/assignMemberLectorCommentator");
   };
   return (
     <div className="schedule-page-container">

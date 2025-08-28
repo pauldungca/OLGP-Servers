@@ -46,6 +46,7 @@ import AssignGroupChoir from "./pages/scheduler-pages/schedule-pages/make-schedu
 // Lector Commentator Schedule Pages
 import SelectScheduleLectorCommentator from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/lector-commentator-pages/selectSchedule";
 import SelectMassLectorCommentator from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/lector-commentator-pages/selectMass";
+import SelectRoleLectorCommentator from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/lector-commentator-pages/selectRole";
 
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
@@ -157,6 +158,10 @@ function App() {
             <Route
               path="/selectMassLectorCommentator"
               element={<SelectMassLectorCommentator />}
+            />
+            <Route
+              path="/selectRoleLectorCommentator"
+              element={<SelectRoleLectorCommentator />}
             />
 
             {/* Open Schedule Pages */}

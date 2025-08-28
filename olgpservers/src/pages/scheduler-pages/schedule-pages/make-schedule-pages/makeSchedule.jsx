@@ -33,7 +33,7 @@ export default function MakeSchedule() {
           {buttonCard({
             department: "Choir",
             parish: "Manage the schedule in the Choir Department.",
-            toPage: "/selectTime",
+            toPage: "/selectScheduleChoir",
           })}
           {buttonCard({
             department: "Lector Commentator",

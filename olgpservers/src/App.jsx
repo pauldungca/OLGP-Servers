@@ -38,6 +38,11 @@ import SelectMassEM from "./pages/scheduler-pages/schedule-pages/make-schedule-p
 import AssignGroup from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/eucharistic-minister-schedule-pages/assignGroup";
 import AssignMemberEM from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/eucharistic-minister-schedule-pages/assignMember";
 
+// Choir Schedule Pages
+import SelectScheduleChoir from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/choir-schedule-pages/selectSchedule";
+import SelectMassChoir from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/choir-schedule-pages/selectMass";
+import AssignGroupChoir from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/choir-schedule-pages/assignGroup";
+
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
 import UpdateStatus from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/updateStatus";
@@ -131,6 +136,14 @@ function App() {
               path="/assignMemberEucharisticMinister"
               element={<AssignMemberEM />}
             />
+
+            {/* Choir Schedule Pages */}
+            <Route
+              path="/selectScheduleChoir"
+              element={<SelectScheduleChoir />}
+            />
+            <Route path="/selectMassChoir" element={<SelectMassChoir />} />
+            <Route path="/assignGroupChoir" element={<AssignGroupChoir />} />
 
             {/* Open Schedule Pages */}
             <Route path="/selectTime" element={<SelectTime />} />

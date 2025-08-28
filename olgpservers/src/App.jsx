@@ -43,6 +43,12 @@ import SelectScheduleChoir from "./pages/scheduler-pages/schedule-pages/make-sch
 import SelectMassChoir from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/choir-schedule-pages/selectMass";
 import AssignGroupChoir from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/choir-schedule-pages/assignGroup";
 
+// Lector Commentator Schedule Pages
+import SelectScheduleLectorCommentator from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/lector-commentator-pages/selectSchedule";
+import SelectMassLectorCommentator from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/lector-commentator-pages/selectMass";
+import SelectRoleLectorCommentator from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/lector-commentator-pages/selectRole";
+import AssignMemberLectorCommentator from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/lector-commentator-pages/assignMember";
+
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
 import UpdateStatus from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/updateStatus";
@@ -144,6 +150,24 @@ function App() {
             />
             <Route path="/selectMassChoir" element={<SelectMassChoir />} />
             <Route path="/assignGroupChoir" element={<AssignGroupChoir />} />
+
+            {/* Lector Commentator Schedule Pages */}
+            <Route
+              path="/selectScheduleLectorCommentator"
+              element={<SelectScheduleLectorCommentator />}
+            />
+            <Route
+              path="/selectMassLectorCommentator"
+              element={<SelectMassLectorCommentator />}
+            />
+            <Route
+              path="/selectRoleLectorCommentator"
+              element={<SelectRoleLectorCommentator />}
+            />
+            <Route
+              path="/assignMemberLectorCommentator"
+              element={<AssignMemberLectorCommentator />}
+            />
 
             {/* Open Schedule Pages */}
             <Route path="/selectTime" element={<SelectTime />} />

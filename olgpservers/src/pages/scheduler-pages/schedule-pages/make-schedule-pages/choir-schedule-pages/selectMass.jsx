@@ -13,7 +13,7 @@ export default function SelectMass() {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
-    navigate("/selectRoleAltarServer");
+    navigate("/assignGroupChoir");
   };
   return (
     <div className="schedule-page-container">

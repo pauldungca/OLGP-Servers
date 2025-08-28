@@ -41,6 +41,7 @@ import AssignMemberEM from "./pages/scheduler-pages/schedule-pages/make-schedule
 // Choir Schedule Pages
 import SelectScheduleChoir from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/choir-schedule-pages/selectSchedule";
 import SelectMassChoir from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/choir-schedule-pages/selectMass";
+import AssignGroupChoir from "./pages/scheduler-pages/schedule-pages/make-schedule-pages/choir-schedule-pages/assignGroup";
 
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
@@ -142,6 +143,7 @@ function App() {
               element={<SelectScheduleChoir />}
             />
             <Route path="/selectMassChoir" element={<SelectMassChoir />} />
+            <Route path="/assignGroupChoir" element={<AssignGroupChoir />} />
 
             {/* Open Schedule Pages */}
             <Route path="/selectTime" element={<SelectTime />} />

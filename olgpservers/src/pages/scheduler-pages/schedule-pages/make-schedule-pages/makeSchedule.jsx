@@ -38,7 +38,7 @@ export default function MakeSchedule() {
           {buttonCard({
             department: "Lector Commentator",
             parish: "Manage the schedule in the Lector Commentator Department.",
-            toPage: "/selectTime",
+            toPage: "/selectScheduleLectorCommentator",
           })}
         </div>
       </div>

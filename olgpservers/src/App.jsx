@@ -16,6 +16,14 @@ import ConfirmPassword from "./pages/login-pages/confirmPassword";
 // Secretary Pages
 import SecretaryDashboard from "./pages/secretary-pages/dashboard";
 
+// Schedule Pages
+
+// Make Schedule Pages
+import SelectTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-pages/selectTemplate";
+import CreateTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-pages/createtemplate";
+import UseTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-pages/useTemplate";
+import EditTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-pages/editTemplate";
+
 // Scheduler Pages
 import Dashboard from "./pages/scheduler-pages/dashboard";
 import Notification from "./pages/scheduler-pages/notification";
@@ -109,6 +117,12 @@ function App() {
               path="/secretaryDashboard"
               element={<SecretaryDashboard />}
             />
+
+            {/* Make Schedule Pages */}
+            <Route path="/selectTemplate" element={<SelectTemplate />} />
+            <Route path="/createTemplate" element={<CreateTemplate />} />
+            <Route path="/useTemplate" element={<UseTemplate />} />
+            <Route path="/editTemplate" element={<EditTemplate />} />
           </Route>
           <Route element={<Layout />}>
             {/*Schheduler Routes*/}

@@ -283,7 +283,7 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
           [
             {
               title: "Make Schedule",
-              to: "/makeSchedule",
+              to: "/selectTemplate",
               pageName: "make-schedule",
               icon: icons.makeScheduleLogo,
             },

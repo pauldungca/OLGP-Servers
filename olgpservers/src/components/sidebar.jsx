@@ -9,7 +9,8 @@ import {
   createNavigationLinkWithSubmenu,
 } from "../assets/scripts/sidebar.js";
 
-export default function Sidebar({ collapsed, mobileOpen }) {
+// 🔹 Regular Sidebar
+export function Sidebar({ collapsed, mobileOpen }) {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [activePage, setActivePage] = useState("dashboard");
   const [userRoleType, setUserRoleType] = useState();
@@ -165,7 +166,7 @@ export default function Sidebar({ collapsed, mobileOpen }) {
           collapsed
         )}
 
-        {/* Members Link */}
+        {/* Group Link */}
         {navigationLinks(
           "Group",
           "/group",
@@ -195,6 +196,130 @@ export default function Sidebar({ collapsed, mobileOpen }) {
           "Account",
           "/account",
           "account",
+          icons.accountLogo,
+          activePage,
+          collapsed
+        )}
+
+        {/* Logout Link */}
+        {navigationLinks(
+          "Logout",
+          "/logout",
+          "logout",
+          icons.logoutLogo,
+          activePage,
+          collapsed
+        )}
+      </ul>
+    </div>
+  );
+}
+
+// 🔹 Parish Secretary Sidebar
+export function SecretarySidebar({ collapsed, mobileOpen }) {
+  const [activePage, setActivePage] = useState("secretaryDashboard");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const navigationLinks = createNavigationLinks(navigate);
+  const navigationLinkWithSubmenu = createNavigationLinkWithSubmenu(
+    icons,
+    navigate
+  );
+  const [activeSubmenu, setActiveSubmenu] = useState(null);
+
+  const toggleSubmenu = (menuId) => {
+    setActiveSubmenu(activeSubmenu === menuId ? null : menuId);
+  };
+
+  useEffect(() => {
+    const path =
+      window.location.pathname.replace("/", "") || "secretaryDashboard";
+    setActivePage(path);
+  }, [location]);
+
+  return (
+    <div
+      className={`sidebar p-3 ${collapsed ? "collapsed" : ""} ${
+        mobileOpen ? "mobile-open" : ""
+      }`}
+      style={{ width: "250px" }}
+    >
+      {/* User Profile Section */}
+      <div className="sidebar-user">
+        <img
+          src={icons.photoAccountLogo}
+          alt="UserLogo"
+          className="user-icon"
+        />
+        {!collapsed && (
+          <div className="user-details">
+            <span className="username">Ate lala</span>
+            <span className="user-role">Secretary</span>
+          </div>
+        )}
+      </div>
+
+      <br />
+
+      {/* Main Menu */}
+      <ul className="nav flex-column">
+        <li className="nav-section">MAIN</li>
+        {/* Dashboard Link */}
+        {navigationLinks(
+          "Dashboard",
+          "/secretaryDashboard",
+          "secretaryDashboard",
+          icons.dashboardLogo,
+          activePage,
+          collapsed
+        )}
+
+        {/*Schedule Link */}
+        {navigationLinkWithSubmenu(
+          "Schedule",
+          "/schedule",
+          "schedule",
+          icons.scheduleLogo,
+          [
+            {
+              title: "Make Schedule",
+              to: "/makeSchedule",
+              pageName: "make-schedule",
+              icon: icons.makeScheduleLogo,
+            },
+            {
+              title: "View Schedule",
+              to: "/viewSchedule",
+              pageName: "view-schedule",
+              icon: icons.viewScheduleLogo,
+            },
+          ],
+          activePage,
+          activeSubmenu,
+          collapsed,
+          toggleSubmenu
+        )}
+
+        {/* Notifications */}
+        {navigationLinks(
+          "Notifications",
+          "/secretary/notification",
+          "secretaryNotification",
+          icons.notificationLogo,
+          activePage,
+          collapsed
+        )}
+
+        {/* Settings Section */}
+        {!collapsed && <br />}
+        <li className="nav-section nav-section-full">SETTINGS</li>
+        {collapsed && <hr className="nav-divider-collapsed" />}
+
+        {/* Account Link */}
+        {navigationLinks(
+          "Account",
+          "/secretary/account",
+          "secretaryAccount",
           icons.accountLogo,
           activePage,
           collapsed

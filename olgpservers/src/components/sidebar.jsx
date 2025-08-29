@@ -303,7 +303,7 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
         {/* Notifications */}
         {navigationLinks(
           "Notifications",
-          "/secretary/notification",
+          "/notificationSecretary",
           "secretaryNotification",
           icons.notificationLogo,
           activePage,

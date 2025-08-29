@@ -28,6 +28,10 @@ import EditTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-p
 import ViewScheduleSecretary from "./pages/secretary-pages/schedule-pages/view-schedule-pages/viewSchedule";
 import CancelScheduleSecretary from "./pages/secretary-pages/schedule-pages/view-schedule-pages/cancelSchedule";
 
+// Notification Pages
+import NotificationSecretary from "./pages/secretary-pages/notification-pages/notification";
+import ViewNotificationSecretary from "./pages/secretary-pages/notification-pages/viewNotfication";
+
 // Scheduler Pages
 import Dashboard from "./pages/scheduler-pages/dashboard";
 import Notification from "./pages/scheduler-pages/notification";
@@ -136,6 +140,16 @@ function App() {
             <Route
               path="/cancelScheduleSecretary"
               element={<CancelScheduleSecretary />}
+            />
+
+            {/* Notification Pages */}
+            <Route
+              path="/notificationSecretary"
+              element={<NotificationSecretary />}
+            />
+            <Route
+              path="/viewNotificationSecretary"
+              element={<ViewNotificationSecretary />}
             />
           </Route>
           <Route element={<Layout />}>

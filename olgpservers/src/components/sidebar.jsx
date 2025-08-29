@@ -289,7 +289,7 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
             },
             {
               title: "View Schedule",
-              to: "/viewSchedule",
+              to: "/viewScheduleSecretary",
               pageName: "view-schedule",
               icon: icons.viewScheduleLogo,
             },

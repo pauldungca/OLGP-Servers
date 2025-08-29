@@ -24,6 +24,10 @@ import CreateTemplate from "./pages/secretary-pages/schedule-pages/make-schedule
 import UseTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-pages/useTemplate";
 import EditTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-pages/editTemplate";
 
+// View Schedule Pages
+import ViewScheduleSecretary from "./pages/secretary-pages/schedule-pages/view-schedule-pages/viewSchedule";
+import CancelScheduleSecretary from "./pages/secretary-pages/schedule-pages/view-schedule-pages/cancelSchedule";
+
 // Scheduler Pages
 import Dashboard from "./pages/scheduler-pages/dashboard";
 import Notification from "./pages/scheduler-pages/notification";
@@ -123,6 +127,16 @@ function App() {
             <Route path="/createTemplate" element={<CreateTemplate />} />
             <Route path="/useTemplate" element={<UseTemplate />} />
             <Route path="/editTemplate" element={<EditTemplate />} />
+
+            {/* View Schedule Pages */}
+            <Route
+              path="/viewScheduleSecretary"
+              element={<ViewScheduleSecretary />}
+            />
+            <Route
+              path="/cancelScheduleSecretary"
+              element={<CancelScheduleSecretary />}
+            />
           </Route>
           <Route element={<Layout />}>
             {/*Schheduler Routes*/}

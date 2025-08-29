@@ -13,6 +13,9 @@ import Login from "./pages/login-pages/login";
 import VerifyOTP from "./pages/login-pages/verifyOTP";
 import ConfirmPassword from "./pages/login-pages/confirmPassword";
 
+// Secretary Pages
+import SecretaryDashboard from "./pages/secretary-pages/dashboard";
+
 // Scheduler Pages
 import Dashboard from "./pages/scheduler-pages/dashboard";
 import Notification from "./pages/scheduler-pages/notification";
@@ -82,7 +85,8 @@ import ChangePasswordAccount from "./pages/scheduler-pages/account-pages/changeP
 import Logout from "./pages/scheduler-pages/logout";
 
 // Layout & Wrapper
-import Layout from "./pages/scheduler-pages/layout"; // Layout component to wrap the content
+import Layout from "./pages/scheduler-pages/layout"; // Layout component to wrap the content in the scheduler pages
+import SecretaryLayout from "./pages/secretary-pages/layout"; // Layout component to wrap the content in the secretary pages
 import Wrapper from "./helper/wrapper"; // Wrapper component to handle authentication
 
 import "./assets/styles/font.css";
@@ -99,7 +103,15 @@ function App() {
 
         {/* Protected routes */}
         <Route element={<Wrapper />}>
+          {/* Secretary Routes */}
+          <Route element={<SecretaryLayout />}>
+            <Route
+              path="/secretaryDashboard"
+              element={<SecretaryDashboard />}
+            />
+          </Route>
           <Route element={<Layout />}>
+            {/*Schheduler Routes*/}
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="notification" element={<Notification />} />
             <Route path="members" element={<Members />} />

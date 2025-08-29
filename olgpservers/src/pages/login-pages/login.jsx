@@ -64,12 +64,32 @@ export default function Login() {
     } else {
       const { user, token } = result;
 
+      // 🔹 Step 1: Get user-type row using the idNumber
+      const { data: userType, error: userTypeError } = await supabase
+        .from("user-type")
+        .select("parish-secretary")
+        .eq("idNumber", idNumber)
+        .single();
+
+      if (userTypeError) {
+        alert("Error fetching user type.");
+        return;
+      }
+
+      // 🔹 Save to localStorage
       localStorage.setItem("authToken", token);
       localStorage.setItem("userData", JSON.stringify(user));
       localStorage.setItem("idNumber", idNumber);
+      localStorage.setItem("userType", JSON.stringify(userType));
 
       alert("Login successful!");
-      navigate("/dashboard");
+
+      // 🔹 Step 2: Navigate depending on parish-secretary
+      if (userType["parish-secretary"] === 1) {
+        navigate("/secretaryDashboard");
+      } else {
+        navigate("/dashboard");
+      }
     }
   };
 

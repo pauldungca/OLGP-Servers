@@ -16,6 +16,27 @@ import ConfirmPassword from "./pages/login-pages/confirmPassword";
 // Secretary Pages
 import SecretaryDashboard from "./pages/secretary-pages/dashboard";
 
+// Schedule Pages
+
+// Make Schedule Pages
+import SelectTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-pages/selectTemplate";
+import CreateTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-pages/createtemplate";
+import UseTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-pages/useTemplate";
+import EditTemplate from "./pages/secretary-pages/schedule-pages/make-schedule-pages/editTemplate";
+
+// View Schedule Pages
+import ViewScheduleSecretary from "./pages/secretary-pages/schedule-pages/view-schedule-pages/viewSchedule";
+import CancelScheduleSecretary from "./pages/secretary-pages/schedule-pages/view-schedule-pages/cancelSchedule";
+
+// Notification Pages
+import NotificationSecretary from "./pages/secretary-pages/notification-pages/notification";
+import ViewNotificationSecretary from "./pages/secretary-pages/notification-pages/viewNotfication";
+
+// Account Pages
+import AccountSecretary from "./pages/secretary-pages/account-pages/account";
+import VerifyOTPAccountSecretary from "./pages/secretary-pages/account-pages/verifyOTP";
+import ChangePasswordAccountSecretary from "./pages/secretary-pages/account-pages/changePasswordAccount";
+
 // Scheduler Pages
 import Dashboard from "./pages/scheduler-pages/dashboard";
 import Notification from "./pages/scheduler-pages/notification";
@@ -108,6 +129,43 @@ function App() {
             <Route
               path="/secretaryDashboard"
               element={<SecretaryDashboard />}
+            />
+
+            {/* Make Schedule Pages */}
+            <Route path="/selectTemplate" element={<SelectTemplate />} />
+            <Route path="/createTemplate" element={<CreateTemplate />} />
+            <Route path="/useTemplate" element={<UseTemplate />} />
+            <Route path="/editTemplate" element={<EditTemplate />} />
+
+            {/* View Schedule Pages */}
+            <Route
+              path="/viewScheduleSecretary"
+              element={<ViewScheduleSecretary />}
+            />
+            <Route
+              path="/cancelScheduleSecretary"
+              element={<CancelScheduleSecretary />}
+            />
+
+            {/* Notification Pages */}
+            <Route
+              path="/notificationSecretary"
+              element={<NotificationSecretary />}
+            />
+            <Route
+              path="/viewNotificationSecretary"
+              element={<ViewNotificationSecretary />}
+            />
+
+            {/* Account Pages */}
+            <Route path="/secretaryAccount" element={<AccountSecretary />} />
+            <Route
+              path="/verifyOTPAccountSecretary"
+              element={<VerifyOTPAccountSecretary />}
+            />
+            <Route
+              path="/changePasswordAccountSecretary"
+              element={<ChangePasswordAccountSecretary />}
             />
           </Route>
           <Route element={<Layout />}>

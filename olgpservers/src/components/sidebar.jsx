@@ -283,13 +283,13 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
           [
             {
               title: "Make Schedule",
-              to: "/makeSchedule",
+              to: "/selectTemplate",
               pageName: "make-schedule",
               icon: icons.makeScheduleLogo,
             },
             {
               title: "View Schedule",
-              to: "/viewSchedule",
+              to: "/viewScheduleSecretary",
               pageName: "view-schedule",
               icon: icons.viewScheduleLogo,
             },
@@ -303,7 +303,7 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
         {/* Notifications */}
         {navigationLinks(
           "Notifications",
-          "/secretary/notification",
+          "/notificationSecretary",
           "secretaryNotification",
           icons.notificationLogo,
           activePage,
@@ -318,7 +318,7 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
         {/* Account Link */}
         {navigationLinks(
           "Account",
-          "/secretary/account",
+          "/secretaryAccount",
           "secretaryAccount",
           icons.accountLogo,
           activePage,

@@ -318,7 +318,7 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
         {/* Account Link */}
         {navigationLinks(
           "Account",
-          "/secretary/account",
+          "/secretaryAccount",
           "secretaryAccount",
           icons.accountLogo,
           activePage,

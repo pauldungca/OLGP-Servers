@@ -32,6 +32,11 @@ import CancelScheduleSecretary from "./pages/secretary-pages/schedule-pages/view
 import NotificationSecretary from "./pages/secretary-pages/notification-pages/notification";
 import ViewNotificationSecretary from "./pages/secretary-pages/notification-pages/viewNotfication";
 
+// Account Pages
+import AccountSecretary from "./pages/secretary-pages/account-pages/account";
+import VerifyOTPAccountSecretary from "./pages/secretary-pages/account-pages/verifyOTP";
+import ChangePasswordAccountSecretary from "./pages/secretary-pages/account-pages/changePasswordAccount";
+
 // Scheduler Pages
 import Dashboard from "./pages/scheduler-pages/dashboard";
 import Notification from "./pages/scheduler-pages/notification";
@@ -150,6 +155,17 @@ function App() {
             <Route
               path="/viewNotificationSecretary"
               element={<ViewNotificationSecretary />}
+            />
+
+            {/* Account Pages */}
+            <Route path="/secretaryAccount" element={<AccountSecretary />} />
+            <Route
+              path="/verifyOTPAccountSecretary"
+              element={<VerifyOTPAccountSecretary />}
+            />
+            <Route
+              path="/changePasswordAccountSecretary"
+              element={<ChangePasswordAccountSecretary />}
             />
           </Route>
           <Route element={<Layout />}>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Sidebar from "../../components/sidebar";
+import { SecretarySidebar } from "../../components/sidebar";
 import Header from "../../components/header";
 import { Outlet } from "react-router-dom";
 import "../../assets/styles/global.css";
@@ -51,7 +51,7 @@ export default function Layout() {
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-      <Sidebar
+      <SecretarySidebar
         collapsed={isMobile ? false : collapsed}
         mobileOpen={isMobile && mobileOpen}
       />

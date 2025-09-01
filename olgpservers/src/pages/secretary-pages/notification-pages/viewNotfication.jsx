@@ -5,6 +5,7 @@ import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
 
 import "../../../assets/styles/notification.css";
+import "../../../assets/styles/viewNotification.css";
 
 export default function viiewNotfication() {
   return (
@@ -43,7 +44,27 @@ export default function viiewNotfication() {
           <div className="header-line"></div>
         </div>
       </div>
-      <div className="notification-content">View Notification</div>
+      <div className="notification-content">
+        {/* Title outside card */}
+        <h2 className="view-notification-title">
+          A New Wedding Mass is Scheduled
+        </h2>
+
+        {/* Card container */}
+        <div className="view-notification-card">
+          <p className="view-notification-text">
+            A New Wedding Mass is Scheduled. Here are the details:
+          </p>
+          <div className="view-notification-detail">
+            <span className="label">Date:</span>
+            <span className="value">07/25/2025</span>
+          </div>
+          <div className="view-notification-detail">
+            <span className="label">Time:</span>
+            <span className="value">10:00 AM</span>
+          </div>
+        </div>
+      </div>
       <div>
         <Footer />
       </div>

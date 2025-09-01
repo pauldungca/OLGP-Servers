@@ -10,6 +10,7 @@ OLGP Servers is a full-stack web application built for capstone requirements. It
 - **NodeJS** for the backend
 - **Supabase** as the database and authentication provider
 - **Nodemailer** for sending emails (such as OTPs and notifications)
+- **EmailJS** for the backup functionality for sending emails (such as OTPs and notifications)
 
 ## Learn More
 

@@ -1,25 +1,123 @@
-.schedule-card {
+/* Wrapper */
+.update-schedule-wrapper {
   background: #fff;
   border-radius: 8px;
   padding: 20px;
-  border: 1px solid #000000;
-  /*box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);*/
+  border: 2px solid #000000;
+  margin-bottom: 24px;
 }
 
-.schedule-card-header {
+/* Header */
+.update-schedule-header {
   font-size: 15px;
   margin-bottom: 15px;
   border-bottom: 1px solid #000000;
   padding-bottom: 8px;
 }
 
-.schedule-icon {
+/* Body Layout */
+.update-schedule-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch; /* ensures all columns are equal height */
+  text-align: center;
+}
+
+.schedule-col {
+  flex: 1;
+  padding: 15px;
+  align-items: center;
+}
+
+.schedule-col:not(:last-child) {
+  border-right: 1px solid #000000;
+}
+
+/* No Schedule Column */
+.no-schedule img {
   width: 30%;
   height: 50%;
   margin-bottom: 10px;
+  opacity: 0.7;
 }
 
-.schedule-btn {
+.no-schedule p {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Assigned Group Box */
+.assigned-group .assigned-box {
+  border: 1px solid #000000;
+  padding: 10px;
+  margin: 0 auto 12px auto;
+  border-radius: 4px;
+  width: 50%;
+}
+
+.assigned-label {
+  font-size: 14px;
+  color: #333;
+  margin: 0;
+  text-align: center;
+}
+
+.group-name {
+  font-weight: bold;
+  font-size: 20px;
+  margin: 5px 0 0 0;
+  color: #333;
+  text-align: center;
+}
+
+.mass-time {
+  font-size: 14px;
+  margin-bottom: 5px;
+  color: #666;
+  text-align: center;
+}
+
+.assigned-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content; /* only as wide as the buttons */
+  border-radius: 8px; /* optional: rounded corners */
+  padding: 0.5rem 0; /* optional: vertical padding */
+}
+
+.export-btn,
+.print-btn {
+  min-width: 130px;
+  display: inline-block;
+  box-sizing: border-box;
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 4px;
+  border: 1px solid #213571;
+  background-color: #213571;
+  color: white;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  text-align: center;
+  cursor: pointer;
+}
+
+.export-btn:hover,
+.print-btn:hover {
+  background-color: white;
+  color: #213571;
+  border: 1px solid #213571;
+}
+
+/* Cancel Button */
+.cancel-btn {
   width: 80%;
   font-weight: bold;
   display: flex;
@@ -30,74 +128,21 @@
   background-color: #ff5252;
   color: white;
   border: 2px solid #ffffff;
-  transition: 0.3s ease;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 4px;
 }
 
-.schedule-btn-icon {
+.cancel-btn-icon {
   width: 18px;
   height: 18px;
   margin-right: 6px;
   vertical-align: middle;
 }
 
-.schedule-btn:hover {
-  background-color: #ffffff;
-  color: #ff5252;
+.cancel-btn:hover {
+  background-color: #ffffff !important;
+  color: #ff5252 !important;
   border: 2px solid #ff5252;
-}
-
-/* Assigned Group Column Styles */
-.assigned-group-column {
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.assigned-group-header {
-  margin-bottom: 10px;
-  font-size: 14px;
-  text-align: center;
-}
-
-.group-name {
-  font-weight: bold;
-  font-size: 20px;
-  margin-bottom: 8px;
-  color: #333;
-  text-align: center;
-}
-
-.mass-details {
-  font-size: 14px;
-  margin-bottom: 20px;
-  color: #666;
-  text-align: center;
-}
-
-.action-buttons {
-  margin-bottom: 20px;
-  display: 1;
-  justify-content: center;
-  width: 100%;
-}
-
-.export-btn,
-.print-btn {
-  min-width: 90%;
-  padding: 8px 16px;
-  font-size: 14px;
-  border-radius: 4px;
-  border: 1px solid #213571;
-  background-color: #213571;
-  color: white;
-  transition: all 0.3s;
-  text-align: center;
-}
-
-.export-btn:hover,
-.print-btn:hover {
-  background-color: white;
-  color: #213571;
-  border: 1px solid #213571;
 }

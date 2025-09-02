@@ -1,0 +1,86 @@
+/* Main container full height */
+.schedule-page-container {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Content expands and pushes button down */
+.schedule-content {
+  flex-grow: 1;
+}
+
+/* Template Card Styling */
+.template-card {
+  background: #fff;
+  border: 2px solid #1a2a6c; /* navy blue */
+  border-radius: 12px;
+  box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: transform 0.2s ease-in-out;
+}
+
+.template-card:hover {
+  transform: translateY(-5px);
+}
+
+.template-header {
+  background: #1a2a6c;
+  color: white;
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.template-title {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.template-icons i {
+  margin-left: 8px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.edit-icon:hover {
+  color: #ffc107; /* yellow */
+}
+
+.delete-icon:hover {
+  color: #dc3545; /* red */
+}
+
+.template-body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  height: 150px;
+}
+
+.template-image {
+  max-width: 80px;
+  height: auto;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Always bottom button */
+.create-btn-container {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px;
+  background: transparent;
+}
+
+.create-btn {
+  background-color: #1a2a6c;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+
+.create-btn i {
+  margin-right: 6px;
+}

@@ -1,4 +1,6 @@
 import React from "react";
+
+import { useNavigate } from "react-router-dom";
 import image from "../../../../helper/images";
 import Footer from "../../../../components/footer";
 
@@ -7,12 +9,21 @@ import "../../../../assets/styles/selectTemplate.css";
 
 export default function SelectTemplate() {
   // Template Data (can come from props, API, etc.)
+  const navigate = useNavigate();
   const templates = [
-    { id: 1, title: "Christening Mass", image: image.OLGPlogo },
+    {
+      id: 1,
+      title: "Christening Mass dfgdfg df gdf gdf gdf g dfg dfg ",
+      image: image.OLGPlogo,
+    },
     { id: 2, title: "Wedding Mass", image: image.OLGPlogo },
     { id: 3, title: "Funeral Mass", image: image.OLGPlogo },
     { id: 4, title: "Sunday Mass", image: image.OLGPlogo },
   ];
+
+  const handleDoubleClick = (title) => {
+    navigate("/useTemplate");
+  };
 
   return (
     <div className="schedule-page-container d-flex flex-column">
@@ -29,7 +40,10 @@ export default function SelectTemplate() {
         <div className="row">
           {templates.map((template) => (
             <div key={template.id} className="col-md-4 mb-4">
-              <div className="template-card">
+              <div
+                className="template-card clickable"
+                onDoubleClick={() => handleDoubleClick(template.title)}
+              >
                 <div className="template-header">
                   <span className="template-title">{template.title}</span>
                   <div className="template-icons">
@@ -57,7 +71,6 @@ export default function SelectTemplate() {
         </button>
       </div>
 
-      {/* Footer */}
       <Footer />
     </div>
   );

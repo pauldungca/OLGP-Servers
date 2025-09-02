@@ -14,6 +14,7 @@ import incompleteScheduleImage from "../assets/images/incompleteSchedule.png";
 import completeScheduleImage from "../assets/images/completeSchedule.png";
 import automaticIcon from "../assets/images/automaticIcon.png";
 import assignImage from "../assets/images/assignImage.png";
+import addScheduleButton from "../assets/images/addScheduleButton.png";
 
 const images = {
   backgroundImage,
@@ -32,6 +33,7 @@ const images = {
   completeScheduleImage,
   automaticIcon,
   assignImage,
+  addScheduleButton,
 };
 
 export default images;

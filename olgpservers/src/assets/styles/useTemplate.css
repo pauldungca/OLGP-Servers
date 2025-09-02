@@ -1,0 +1,98 @@
+.template-name {
+  color: #1a2b6d;
+  font-weight: 600;
+}
+
+.section-box {
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  padding: 15px;
+  background: #fff;
+  min-height: 220px;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 50px; /* 👈 pushes everything below downward */
+}
+
+.form-label {
+  width: 120px; /* adjust as needed */
+  font-weight: bold;
+}
+
+.form-control {
+  flex: 1;
+}
+
+.note-textarea {
+  resize: none;
+  min-height: 120px; /* make it look like a note */
+}
+
+.note-textarea {
+  resize: none;
+  min-height: 120px; /* make it look like a note */
+}
+
+.custom-box {
+  border: 1px solid #ccc;
+  padding: 15px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.btn-cancel {
+  background-color: #ff4d4f;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-cancel:hover {
+  background-color: #d9363e;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.action-btn {
+  min-width: 150px; /* same width for both */
+  height: 45px; /* same height for both */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  font-size: 15px;
+  border-radius: 8px;
+}
+
+.btn-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+}
+
+/* Add Schedule button style */
+.add-schedule-btn {
+  background-color: #213571;
+  color: white;
+  border: none;
+}
+
+.cancel-schedule-btn {
+  background-color: #ff5252;
+  color: white;
+  border: none;
+}

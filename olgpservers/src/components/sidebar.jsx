@@ -34,7 +34,46 @@ export function Sidebar({ collapsed, mobileOpen }) {
   useEffect(() => {
     const path = window.location.pathname.replace("/", "") || "dashboard";
 
-    if (
+    if (path.includes("schedule")) {
+      setActivePage("schedule");
+      setActiveSubmenu("schedule-submenu");
+    } else if (
+      path.startsWith("makeSchedule") ||
+      path.startsWith("selectScheduleAltarServer") ||
+      path.startsWith("selectMassAltarServer") ||
+      path.startsWith("selectRoleAltarServer") ||
+      path.startsWith("assignMemberAltarServer") ||
+      path.startsWith("selectScheduleEucharisticMinister") ||
+      path.startsWith("selectMassEucharisticMinister") ||
+      path.startsWith("assignGroupEucharisticMinister") ||
+      path.startsWith("assignMemberEucharisticMinister") ||
+      path.startsWith("selectScheduleChoir") ||
+      path.startsWith("selectMassChoir") ||
+      path.startsWith("assignGroupChoir") ||
+      path.startsWith("selectScheduleLectorCommentator") ||
+      path.startsWith("selectMassLectorCommentator") ||
+      path.startsWith("selectRoleLectorCommentator") ||
+      path.startsWith("assignMemberLectorCommentator")
+    ) {
+      setActivePage("make-schedule");
+    } else if (
+      path.startsWith("viewSchedule") ||
+      path.startsWith("updateSchedule") ||
+      path.startsWith("cancelSchedule")
+    ) {
+      setActivePage("view-schedule");
+    } else if (
+      path.startsWith("openSchedule") ||
+      path.startsWith("selectTime") ||
+      path.startsWith("updateStatus")
+    ) {
+      setActivePage("schedule-availability");
+    } else if (
+      path.startsWith("notification") ||
+      path.startsWith("viewNotification")
+    ) {
+      setActivePage("notification");
+    } else if (
       path.startsWith("members") ||
       path.startsWith("membersList") ||
       path.startsWith("addMember") ||
@@ -42,9 +81,8 @@ export function Sidebar({ collapsed, mobileOpen }) {
       path.startsWith("selectDepartment")
     ) {
       setActivePage("members");
-    } else if (path.includes("schedule")) {
-      setActivePage("schedule");
-      setActiveSubmenu("schedule-submenu");
+    } else if (path.startsWith("group") || path.startsWith("selectGroup")) {
+      setActivePage("group");
     } else if (
       path.startsWith("departmentSettings") ||
       path.startsWith("selectMember") ||
@@ -52,10 +90,11 @@ export function Sidebar({ collapsed, mobileOpen }) {
     ) {
       setActivePage("department-settings");
     } else if (
-      path.startsWith("notification") ||
-      path.startsWith("viewNotification")
+      path.startsWith("account") ||
+      path.startsWith("verifyOTPAccount") ||
+      path.startsWith("changePasswordAccount")
     ) {
-      setActivePage("notification");
+      setActivePage("account");
     } else {
       setActivePage(path);
     }

@@ -20,7 +20,7 @@ function Wrapper() {
     return <div>Loading...</div>;
   }
 
-  return authenticated ? <Outlet /> : <Navigate to="/" replace />; // Using Navigate (correct spelling)
+  return authenticated ? <Outlet /> : <Navigate to="/" replace />;
 }
 
 export default Wrapper;

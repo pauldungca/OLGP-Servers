@@ -21,8 +21,12 @@ export default function SelectTemplate() {
     { id: 4, title: "Sunday Mass", image: image.OLGPlogo },
   ];
 
-  const handleDoubleClick = (title) => {
+  const handleDoubleClick = () => {
     navigate("/useTemplate");
+  };
+
+  const handleCreateTemplate = () => {
+    navigate("/createTemplate");
   };
 
   return (
@@ -66,7 +70,10 @@ export default function SelectTemplate() {
 
       {/* Always Bottom Button */}
       <div className="create-btn-container">
-        <button className="btn btn-primary create-btn">
+        <button
+          className="btn btn-primary create-btn"
+          onClick={handleCreateTemplate}
+        >
           <i className="bi bi-plus-circle"></i> Create Mass Schedule Template
         </button>
       </div>

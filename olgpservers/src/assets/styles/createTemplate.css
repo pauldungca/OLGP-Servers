@@ -1,0 +1,121 @@
+/* Dropdown styling */
+.mass-type-dropdown {
+  background-color: #0a2471;
+  color: white;
+  font-weight: 500;
+  height: 47px;
+}
+
+/* Template name input */
+.template-name-input {
+  width: 100%;
+}
+
+/* Department buttons */
+.department-btn {
+  border: 3px solid #213571;
+  color: #213571;
+  background-color: white;
+  flex: 1 1 auto; /* Make each button grow/shrink equally */
+  text-align: center;
+  min-width: 150px; /* Optional: prevents buttons from getting too small */
+}
+.department-btn.active {
+  background-color: #213571;
+  color: white;
+}
+
+.department-btn.disabled {
+  background-color: #d3d3d3;
+  color: #6c757d;
+}
+
+/* Department sections */
+.department-section {
+  border: 2px solid #d3d3d3;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+}
+
+.department-section.enabled {
+  border-color: #213571;
+  background-color: #ffffff;
+}
+
+.department-section.disabled {
+  opacity: 0.6;
+}
+
+/* Section title */
+.section-title {
+  font-size: 18px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #213571;
+}
+
+/* Custom / Standard buttons */
+.custom-standard-btn {
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-weight: 500;
+  border: none;
+}
+
+.custom-standard-btn.enabled {
+  background-color: #213571;
+  color: white;
+}
+
+.custom-standard-btn.disabled {
+  background-color: #d3d3d3;
+  color: #6c757d;
+}
+
+/* Role checkboxes */
+.role-checkbox label {
+  margin-left: 5px;
+}
+
+/* Shared size for both action buttons */
+.btn-cancel,
+.btn-create {
+  width: 150px;
+  height: 48px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Cancel button */
+.btn-cancel {
+  background-color: #ff4d4d;
+  color: white;
+  min-width: 100px;
+  height: 48px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-cancel:hover {
+  background-color: #e63e3e;
+  color: white;
+}
+
+/* Create button */
+.btn-create {
+  background-color: #213571;
+  color: white;
+}
+
+.btn-create:hover {
+  background-color: #162656;
+  color: white;
+}

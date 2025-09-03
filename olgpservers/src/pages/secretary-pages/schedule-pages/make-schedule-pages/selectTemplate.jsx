@@ -10,6 +10,7 @@ import "../../../../assets/styles/selectTemplate.css";
 export default function SelectTemplate() {
   // Template Data (can come from props, API, etc.)
   const navigate = useNavigate();
+
   const templates = [
     {
       id: 1,
@@ -27,6 +28,10 @@ export default function SelectTemplate() {
 
   const handleCreateTemplate = () => {
     navigate("/createTemplate");
+  };
+
+  const navigateToEditTemplate = () => {
+    navigate("/editTemplate");
   };
 
   return (
@@ -51,7 +56,10 @@ export default function SelectTemplate() {
                 <div className="template-header">
                   <span className="template-title">{template.title}</span>
                   <div className="template-icons">
-                    <i className="bi bi-pencil-square edit-icon"></i>
+                    <i
+                      className="bi bi-pencil-square edit-icon"
+                      onClick={navigateToEditTemplate}
+                    ></i>
                     <i className="bi bi-trash delete-icon"></i>
                   </div>
                 </div>

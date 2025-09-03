@@ -75,7 +75,7 @@ import AssignMemberLectorCommentator from "./pages/scheduler-pages/schedule-page
 
 //Open Schedule Pages
 import SelectTime from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/selectTime";
-import UpdateStatus from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/updateStatus";
+import UpdateStatus from "./pages/scheduler-pages/schedule-pages/open-schedule-pages/updateStatus.jsx";
 
 // View Schedule Pages
 import UpdateSchedule from "./pages/scheduler-pages/schedule-pages/view-schedule-pages/updateSchedule";
@@ -239,13 +239,13 @@ function App() {
               element={<AssignMemberLectorCommentator />}
             />
 
-            {/* Open Schedule Pages */}
-            <Route path="/selectTime" element={<SelectTime />} />
-            <Route path="/updateStatus" element={<UpdateStatus />} />
-
             {/* View Schedule Pages */}
             <Route path="/updateSchedule" element={<UpdateSchedule />} />
             <Route path="/cancelSchedule" element={<CancelSchedule />} />
+
+            {/* Open Schedule Pages */}
+            <Route path="/selectTime" element={<SelectTime />} />
+            <Route path="/updateStatus" element={<UpdateStatus />} />
 
             {/* Members Pages */}
             <Route path="/membersList" element={<MembersList />} />

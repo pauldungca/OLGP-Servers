@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../../helper/icon";
@@ -31,9 +30,9 @@ export default function SelectTime() {
     "December",
   ];
 
-  const handleNavigate = () => {
+  function handleNavigate() {
     navigate("/updateStatus");
-  };
+  }
 
   return (
     <div className="schedule-page-container">

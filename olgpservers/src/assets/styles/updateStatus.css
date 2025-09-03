@@ -1,26 +1,55 @@
-.schedule-card {
+/* Wrapper */
+.update-schedule-wrapper {
   background: #fff;
   border-radius: 8px;
   padding: 20px;
-  border: 1px solid #000000;
-  /*box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);*/
+  border: 2px solid #000000;
+  margin-bottom: 24px;
 }
 
-.schedule-card-header {
+/* Header */
+.update-schedule-header {
   font-size: 15px;
   margin-bottom: 15px;
   border-bottom: 1px solid #000000;
   padding-bottom: 8px;
 }
 
-.schedule-icon {
-  width: 30%;
-  height: 50%;
-  margin-bottom: 10px;
+/* Body Layout */
+.update-schedule-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch; /* ensures all columns are equal height */
+  text-align: center;
 }
 
-.schedule-btn {
+.schedule-col {
+  flex: 1;
+  padding: 15px;
+  align-items: center;
+}
+
+.schedule-col:not(:last-child) {
+  border-right: 1px solid #000000;
+}
+
+/* No Schedule Column */
+.img-no-schedule {
+  width: 30%;
+  height: 70%;
+  margin-bottom: 10px;
+  opacity: 0.7;
+}
+
+.no-schedule p {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Cancel Button */
+.cancel-btn {
   width: 80%;
+  height: 20%;
   font-weight: bold;
   display: flex;
   justify-content: center;
@@ -30,18 +59,21 @@
   background-color: #ff5252;
   color: white;
   border: 2px solid #ffffff;
-  transition: 0.3s ease;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 4px;
 }
 
-.schedule-btn-icon {
-  width: 18px;
-  height: 18px;
+.cancel-btn-icon {
+  width: 5px;
+  height: 5px;
   margin-right: 6px;
   vertical-align: middle;
 }
 
-.schedule-btn:hover {
-  background-color: #ffffff;
-  color: #ff5252;
+.cancel-btn:hover {
+  background-color: #ffffff !important;
+  color: #ff5252 !important;
   border: 2px solid #ff5252;
 }

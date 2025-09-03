@@ -234,7 +234,40 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
   useEffect(() => {
     const path =
       window.location.pathname.replace("/", "") || "secretaryDashboard";
-    setActivePage(path);
+
+    if (path.includes("schedule")) {
+      setActivePage("schedule");
+      setActiveSubmenu("schedule-submenu");
+    } else if (
+      path.startsWith("selectTemplate") ||
+      path.startsWith("createTemplate") ||
+      path.startsWith("useTemplate") ||
+      path.startsWith("editTemplate")
+    ) {
+      setActivePage("make-schedule");
+    } else if (
+      path.startsWith("viewScheduleSecretary") ||
+      path.startsWith("cancelScheduleSecretary")
+    ) {
+      setActivePage("view-schedule");
+    } else if (
+      path.startsWith("notificationSecretary") ||
+      path.startsWith("viewNotificationSecretary")
+    ) {
+      setActivePage("secretaryNotification");
+    } else if (
+      path.startsWith("secretaryAccount") ||
+      path.startsWith("verifyOTPAccountSecretary") ||
+      path.startsWith("changePasswordAccountSecretary")
+    ) {
+      setActivePage("secretaryAccount");
+    } else {
+      setActivePage(path);
+    }
+
+    if (path.includes("schedule")) {
+      setActiveSubmenu("schedule-submenu");
+    }
   }, [location]);
 
   return (

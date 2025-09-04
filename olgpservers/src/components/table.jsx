@@ -21,23 +21,14 @@ const CustomTable = ({ data, loading, onViewDetails }) => {
       ellipsis: true,
     },
     {
-      title: "Status",
-      dataIndex: "status",
-      showSorterTooltip: { target: "full-header" },
+      title: "Role",
+      dataIndex: "role",
+      width: 120,
       filters: [
-        {
-          text: "Apprentice",
-          value: "Apprentice",
-        },
-        {
-          text: "Certified",
-          value: "Certified",
-        },
+        { text: "Flexible", value: "Flexible" },
+        { text: "Non-Flexible", value: "Non-Flexible" },
       ],
-      width: 100,
-      onFilter: (value, record) => record.status.indexOf(value) === 0,
-      sorter: (a, b) => a.status.length - b.status.length,
-      sortDirections: ["descend"],
+      onFilter: (value, record) => record.role === value,
     },
     {
       title: "Action",

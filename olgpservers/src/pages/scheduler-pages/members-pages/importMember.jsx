@@ -6,7 +6,7 @@ import Footer from "../../../components/footer";
 
 import { ImportMemberTable } from "../../../components/table";
 
-import { fetchAltarServerMembers } from "../../../assets/scripts/fetchMember";
+import { fetchAltarServerMembersWithRole } from "../../../assets/scripts/fetchMember";
 
 import "../../../assets/styles/member.css";
 import "../../../assets/styles/importMember.css";
@@ -25,7 +25,7 @@ export default function ImportMember() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const membersData = await fetchAltarServerMembers();
+        const membersData = await fetchAltarServerMembersWithRole();
         setMembers(membersData);
         setFilteredMembers(membersData);
         setLoading(false);

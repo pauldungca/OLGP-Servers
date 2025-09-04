@@ -7,7 +7,7 @@ import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
 
 import { AssignMemberTable } from "../../../components/table";
-import { fetchAltarServerMembers } from "../../../assets/scripts/fetchMember";
+import { fetchAltarServerMembersWithRole } from "../../../assets/scripts/fetchMember";
 
 import "../../../assets/styles/departmentSettings.css";
 import "../../../assets/styles/assignMember.css";
@@ -28,7 +28,7 @@ export default function SelectMember() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const membersData = await fetchAltarServerMembers();
+        const membersData = await fetchAltarServerMembersWithRole();
         setMembers(membersData);
         setFilteredMembers(membersData);
         setLoading(false);

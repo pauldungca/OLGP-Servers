@@ -14,12 +14,16 @@ export function Sidebar({ collapsed, mobileOpen }) {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [activePage, setActivePage] = useState("dashboard");
   const [userRoleType, setUserRoleType] = useState();
-  const [, setUserRoles] = useState({
+  const [userRoles, setUserRoles] = useState({
     isParishSecretary: false,
     isAltarServerScheduler: false,
     isEucharisticMinisterScheduler: false,
     isLectorCommentatorScheduler: false,
     isChoirScheduler: false,
+    isAltarServerMember: false,
+    isEucharisticMinisterMember: false,
+    isLectorCommentatorMember: false,
+    isChoirMember: false,
   });
   const [, setUserId] = useState();
 
@@ -179,12 +183,42 @@ export function Sidebar({ collapsed, mobileOpen }) {
               pageName: "schedule-availability",
               icon: icons.scheduleAvalabilityLogo,
             },
-          ],
+          ].filter((option) => {
+            if (option.title === "Make Schedule") {
+              return (
+                userRoles.isAltarServerScheduler ||
+                userRoles.isEucharisticMinisterScheduler ||
+                userRoles.isLectorCommentatorScheduler ||
+                userRoles.isChoirScheduler ||
+                userRoles.isAltarServerMember ||
+                userRoles.isEucharisticMinisterMember ||
+                userRoles.isLectorCommentatorMember ||
+                userRoles.isChoirMember
+              );
+            }
+            if (option.title === "View Schedule") {
+              return (
+                userRoles.isAltarServerScheduler ||
+                userRoles.isEucharisticMinisterScheduler ||
+                userRoles.isChoirScheduler ||
+                userRoles.isLectorCommentatorScheduler
+              );
+            }
+            if (option.title === "Open Schedule") {
+              return (
+                userRoles.isAltarServerMember ||
+                userRoles.isEucharisticMinisterMember ||
+                userRoles.isLectorCommentatorMember
+              );
+            }
+            return true;
+          }),
           activePage,
           activeSubmenu,
           collapsed,
           toggleSubmenu
         )}
+
         {/* Notifications Link */}
         {navigationLinks(
           "Notifications",
@@ -196,34 +230,42 @@ export function Sidebar({ collapsed, mobileOpen }) {
         )}
 
         {/* Members Link */}
-        {navigationLinks(
-          "Members",
-          "/members",
-          "members",
-          icons.departmentLogo,
-          activePage,
-          collapsed
-        )}
+        {(userRoles.isAltarServerScheduler ||
+          userRoles.isLectorCommentatorScheduler) &&
+          navigationLinks(
+            "Members",
+            "/members",
+            "members",
+            icons.departmentLogo,
+            activePage,
+            collapsed
+          )}
 
         {/* Group Link */}
-        {navigationLinks(
-          "Group",
-          "/group",
-          "group",
-          icons.groupLogo,
-          activePage,
-          collapsed
-        )}
+        {(userRoles.isEucharisticMinisterScheduler ||
+          userRoles.isChoirScheduler) &&
+          navigationLinks(
+            "Group",
+            "/group",
+            "group",
+            icons.groupLogo,
+            activePage,
+            collapsed
+          )}
 
         {/* Department Settings Link */}
-        {navigationLinks(
-          "Department Settings",
-          "/departmentSettings",
-          "department-settings",
-          icons.departmentSettingsLogo,
-          activePage,
-          collapsed
-        )}
+        {(userRoles.isAltarServerScheduler ||
+          userRoles.isEucharisticMinisterScheduler ||
+          userRoles.isChoirScheduler ||
+          userRoles.isLectorCommentatorScheduler) &&
+          navigationLinks(
+            "Department Settings",
+            "/departmentSettings",
+            "department-settings",
+            icons.departmentSettingsLogo,
+            activePage,
+            collapsed
+          )}
 
         {/* Settings Section */}
         {!collapsed && <br />}

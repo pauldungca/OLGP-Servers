@@ -1,5 +1,4 @@
-import React from "react";
-
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import image from "../../../../helper/images";
 import Footer from "../../../../components/footer";
@@ -8,6 +7,9 @@ import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/selectTemplate.css";
 
 export default function SelectTemplate() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Make Schedule";
+  }, []);
   // Template Data (can come from props, API, etc.)
   const navigate = useNavigate();
 

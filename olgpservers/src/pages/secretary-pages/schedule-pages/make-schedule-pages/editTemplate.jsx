@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../../helper/icon";
@@ -9,6 +9,9 @@ import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/createTemplate.css";
 
 export default function EditTemplate() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Make Schedule";
+  }, []);
   const [selectedDepartments, setSelectedDepartments] = useState([]);
   const [mode, setMode] = useState({
     altar: "standard",

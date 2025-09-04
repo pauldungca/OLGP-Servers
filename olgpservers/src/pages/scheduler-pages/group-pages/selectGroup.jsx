@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { Breadcrumb } from "antd";
@@ -11,6 +11,9 @@ import images from "../../../helper/images";
 import Footer from "../../../components/footer";
 
 export default function SelectGroup() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Groups";
+  }, []);
   const navigate = useNavigate();
   const groups = ["GROUP 1", "GROUP 2", "GROUP 3"];
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../helper/icon";
@@ -8,6 +8,9 @@ import "../../../assets/styles/departmentSettings.css";
 import "../../../assets/styles/assignReplacement.css";
 
 export default function AssignReplacement() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Department Settings";
+  }, []);
   const [selectedRole, setSelectedRole] = useState(null);
 
   const roles = [

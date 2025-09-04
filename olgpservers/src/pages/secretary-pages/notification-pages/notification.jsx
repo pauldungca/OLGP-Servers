@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { FaTrash } from "react-icons/fa";
 import Swal from "sweetalert2";
 import { Link } from "react-router-dom";
@@ -7,6 +7,9 @@ import Footer from "../../../components/footer";
 import "../../../assets/styles/notification.css";
 
 export default function Notification() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Notifications";
+  }, []);
   const notifications = [
     {
       id: 1,

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../helper/icon";
@@ -8,6 +8,9 @@ import "../../../assets/styles/viewNotification.css";
 import Footer from "../../../components/footer";
 
 export default function ViewNotification() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Notifications";
+  }, []);
   return (
     <div className="notification-page-container">
       <div className="notification-header">

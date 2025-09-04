@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
@@ -10,6 +10,9 @@ import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/updateSchedule.css";
 
 export default function UpdateSchedule() {
+  useEffect(() => {
+    document.title = "OLGP Servers | View Schedule";
+  }, []);
   const navigate = useNavigate();
   const [hoveredBtn, setHoveredBtn] = useState({
     btn1: false,

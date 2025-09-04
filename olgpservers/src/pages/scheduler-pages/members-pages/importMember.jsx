@@ -12,6 +12,9 @@ import "../../../assets/styles/member.css";
 import "../../../assets/styles/importMember.css";
 
 export default function ImportMember() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Members";
+  }, []);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 

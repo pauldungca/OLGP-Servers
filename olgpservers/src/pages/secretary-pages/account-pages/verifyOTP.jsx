@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { useNavigate, Link } from "react-router-dom";
 import images from "../../../helper/images";
@@ -9,6 +9,9 @@ import "../../../assets/styles/account.css";
 import "../../../assets/styles/verifyOTPAccount.css";
 
 export default function VerifyOTP() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Account";
+  }, []);
   const navigate = useNavigate();
   const [otp, setOtp] = useState(Array(6).fill(""));
   const [otpEnabled, setOtpEnabled] = useState(false);

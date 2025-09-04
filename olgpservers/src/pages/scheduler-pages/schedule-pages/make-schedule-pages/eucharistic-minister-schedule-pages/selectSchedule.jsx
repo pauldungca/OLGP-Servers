@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,9 @@ import "../../../../../assets/styles/selectScheduleAltarServer.css";
 import DropDownButton from "../../../../../components/dropDownButton";
 
 export default function SelectSchedule() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Make Schedule";
+  }, []);
   const navigate = useNavigate();
 
   const handleCardClick = () => {

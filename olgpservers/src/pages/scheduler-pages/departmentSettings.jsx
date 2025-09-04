@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import images from "../../helper/images";
 import Footer from "../../components/footer";
@@ -8,6 +8,9 @@ import { createButtonCard } from "../../assets/scripts/member";
 import "../../assets/styles/departmentSettings.css";
 
 export default function DepartmentSettings() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Department Settings";
+  }, []);
   const navigate = useNavigate();
   const buttonCard = createButtonCard(images, navigate);
   return (

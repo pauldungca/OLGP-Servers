@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Breadcrumb, DatePicker, TimePicker } from "antd";
 import { Link } from "react-router-dom";
 import image from "../../../../helper/images";
@@ -9,6 +9,9 @@ import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/useTemplate.css";
 
 export default function UseTemplate() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Make Schedule";
+  }, []);
   const [note, setNote] = useState("");
 
   const handleNoteChange = (e) => {

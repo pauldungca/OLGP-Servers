@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../../helper/icon";
@@ -9,6 +9,9 @@ import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/updateStatus.css";
 
 export default function UpdateStatus() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Open Schedule";
+  }, []);
   const question = "Are you available in this mass?";
   const buttonLabel = "Not Available";
 

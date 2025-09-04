@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
@@ -9,6 +9,9 @@ import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/selectTime.css";
 
 export default function SelectTime() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Open Schedule";
+  }, []);
   const navigate = useNavigate();
   const [year, setYear] = useState(2025);
 

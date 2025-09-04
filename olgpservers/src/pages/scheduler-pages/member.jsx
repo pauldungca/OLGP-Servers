@@ -11,6 +11,9 @@ import "../../assets/styles/member.css";
 import Footer from "../../components/footer";
 
 export default function Member() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Members";
+  }, []);
   const [, setIdNumber] = useState("");
   const [isAltarServer, setIsAltarServer] = useState(false);
   const [isLectorCommentator, setIsLectorCommentator] = useState(false);

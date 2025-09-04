@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +10,9 @@ import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/selectScheduleAltarServer.css";
 
 export default function SelectMass() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Make Schedule";
+  }, []);
   const navigate = useNavigate();
 
   const handleCardClick = () => {

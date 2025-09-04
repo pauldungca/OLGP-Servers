@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../../../helper/icon";
@@ -8,6 +8,9 @@ import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/assignMemberRole.css";
 
 export default function AssignMember() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Make Schedule";
+  }, []);
   const members = [
     "John Paul Dungca",
     "Gabriel Cayabyab",

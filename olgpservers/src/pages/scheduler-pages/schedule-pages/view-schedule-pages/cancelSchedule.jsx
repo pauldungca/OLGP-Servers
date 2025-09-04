@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../../helper/icon";
@@ -7,6 +7,9 @@ import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/cancelSchedule.css";
 
 export default function CancelSchedule() {
+  useEffect(() => {
+    document.title = "OLGP Servers | View Schedule";
+  }, []);
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">

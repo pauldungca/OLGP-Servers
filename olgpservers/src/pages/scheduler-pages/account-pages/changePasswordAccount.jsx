@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { useNavigate, Link } from "react-router-dom";
 import images from "../../../helper/images";
@@ -9,6 +9,9 @@ import "../../../assets/styles/account.css";
 import "../../../assets/styles/changePasswordAccount.css";
 
 export default function ChangePasswordAccount() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Account";
+  }, []);
   const [newPasswordVisible, setNewPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [newPassword, setNewPassword] = useState("");

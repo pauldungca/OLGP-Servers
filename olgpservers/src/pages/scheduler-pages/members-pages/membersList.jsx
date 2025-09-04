@@ -17,6 +17,9 @@ import {
 } from "../../../assets/scripts/member";
 
 export default function MembersList() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Members";
+  }, []);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 

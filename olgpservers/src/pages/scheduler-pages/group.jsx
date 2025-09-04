@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import images from "../../helper/images";
 import { createButtonCard } from "../../assets/scripts/member";
@@ -7,6 +7,9 @@ import "../../assets/styles/group.css";
 import Footer from "../../components/footer";
 
 export default function Group() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Groups";
+  }, []);
   const navigate = useNavigate();
   const buttonCard = createButtonCard(images, navigate);
 

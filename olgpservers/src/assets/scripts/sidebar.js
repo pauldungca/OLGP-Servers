@@ -7,14 +7,22 @@ export const fetchUserRoles = async (userId, setUserRoles, setUserRoleType) => {
     const { data, error } = await supabase
       .from("user-type")
       .select(
-        `parish-secretary, altar-server-scheduler, eucharistic-minister-scheduler, choir-scheduler, lector-commentator`
+        `parish-secretary, 
+        altar-server-scheduler, 
+        eucharistic-minister-scheduler, 
+        choir-scheduler, 
+        lector-commentator-scheduler,
+        altar-server-member, 
+        eucharistic-minister-member, 
+        choir-member, 
+        lector-commentator-member`
       )
       .eq("idNumber", userId)
       .single();
 
     if (error) {
-      console.error("Supabase error:", error);
-      setUserRoleType("Error");
+      alert("Supabase error:", error);
+      setUserRoleType("Error Hello");
       return;
     }
 
@@ -29,14 +37,18 @@ export const fetchUserRoles = async (userId, setUserRoles, setUserRoleType) => {
       isAltarServerScheduler: data["altar-server-scheduler"] === 1,
       isEucharisticMinisterScheduler:
         data["eucharistic-minister-scheduler"] === 1,
-      isLectorCommentatorScheduler: data["lector-commentator"] === 1,
       isChoirScheduler: data["choir-scheduler"] === 1,
+      isLectorCommentatorScheduler: data["lector-commentator-scheduler"] === 1,
+      isAltarServerMember: data["altar-server-member"] === 1,
+      isEucharisticMinisterMember: data["eucharistic-minister-member"] === 1,
+      isChoirMember: data["choir-member"] === 1,
+      isLectorCommentatorMember: data["lector-commentator-member"] === 1,
     };
 
     setUserRoles(roles);
     setUserRoleType(determineUserRole(roles));
   } catch (err) {
-    console.error("Error in fetchUserRoles:", err);
+    console("Error in fetchUserRoles:", err);
     setUserRoleType("Error");
   }
 };
@@ -51,6 +63,13 @@ export const determineUserRole = (roles) => {
   if (roles.isLectorCommentatorScheduler)
     activeRoles.push("Lector Commentator Scheduler");
   if (roles.isChoirScheduler) activeRoles.push("Choir Scheduler");
+
+  if (roles.isAltarServerMember) activeRoles.push("Altar Server member");
+  if (roles.isEucharisticMinisterMember)
+    activeRoles.push("Eucharistic Minister member");
+  if (roles.isLectorCommentatorMember)
+    activeRoles.push("Lector Commentator member");
+  if (roles.isChoirMember) activeRoles.push("Choir member");
 
   if (activeRoles.length === 0) {
     return "None";

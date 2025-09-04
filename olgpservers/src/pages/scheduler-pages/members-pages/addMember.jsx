@@ -19,6 +19,9 @@ import {
 } from "../../../assets/scripts/addMember";
 
 export default function AddMember() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Members";
+  }, []);
   const fileInputRef = useRef(null);
   const [fileAttached, setFileAttached] = useState(false);
   const [imageFile, setImageFile] = useState();

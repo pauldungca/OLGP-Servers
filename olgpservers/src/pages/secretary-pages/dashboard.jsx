@@ -1,10 +1,13 @@
-import React from "react";
+import React, { useEffect } from "react";
 import CalendarPage from "../../components/calendar";
 import Footer from "../../components/footer";
 
 import "../../assets/styles/dashboard.css";
 
 export default function Dashboard() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Dashboard";
+  }, []);
   return (
     <div className="dashboard-page-container">
       <div className="dashboard-header">

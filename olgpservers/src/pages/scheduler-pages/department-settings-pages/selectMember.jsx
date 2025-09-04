@@ -13,6 +13,9 @@ import "../../../assets/styles/departmentSettings.css";
 import "../../../assets/styles/assignMember.css";
 
 export default function SelectMember() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Department Settings";
+  }, []);
   const navigate = useNavigate();
 
   const [members, setMembers] = useState([]);

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import images from "../../../../helper/images";
 import { useNavigate } from "react-router-dom";
 import { createButtonCard } from "../../../../assets/scripts/member";
@@ -7,6 +7,9 @@ import Footer from "../../../../components/footer";
 import "../../../../assets/styles/schedule.css";
 
 export default function OpenSchedule() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Open Schedule";
+  }, []);
   const navigate = useNavigate();
   const buttonCard = createButtonCard(images, navigate);
   return (

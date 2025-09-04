@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +10,9 @@ import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/assignGroup.css";
 
 export default function AssignGroup() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Make Schedule";
+  }, []);
   const groups = ["AGC", "CFC", "OLGC", "Coro Ni Maria"];
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");

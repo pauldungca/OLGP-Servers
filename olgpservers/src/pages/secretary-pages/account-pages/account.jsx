@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import images from "../../../helper/images";
 import Footer from "../../../components/footer";
@@ -6,6 +6,9 @@ import Footer from "../../../components/footer";
 import "../../../assets/styles/account.css";
 
 export default function Account() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Account";
+  }, []);
   const navigate = useNavigate();
 
   const handleChangePassword = () => {

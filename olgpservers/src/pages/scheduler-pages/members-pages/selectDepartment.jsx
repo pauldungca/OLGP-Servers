@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Breadcrumb } from "antd";
@@ -12,6 +12,9 @@ import { createButtonCard } from "../../../assets/scripts/member";
 import "../../../assets/styles/member.css";
 
 export default function SelectDepartment() {
+  useEffect(() => {
+    document.title = "OLGP Servers | Members";
+  }, []);
   const navigate = useNavigate();
   const buttonCard = createButtonCard(images, navigate);
 

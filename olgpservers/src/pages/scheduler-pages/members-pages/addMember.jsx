@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
@@ -9,44 +9,49 @@ import "../../../assets/styles/member.css";
 import "../../../assets/styles/addMember.css";
 
 import {
-  handleInputImage,
   generateUserID,
   formatContactNumber,
   addMember,
   addMemberAuthentication,
-  uploadImageToSupabase,
+  defineUserType,
   handleFileSize,
+  saveAltarServerRoles,
+  //uploadAndSaveMemberImage,
+  //insertMemberImage,
 } from "../../../assets/scripts/addMember";
 
 export default function AddMember() {
   useEffect(() => {
     document.title = "OLGP Servers | Members";
   }, []);
+
+  const location = useLocation();
+  const department = location.state?.department || "Members";
+
   const fileInputRef = useRef(null);
-  const [fileAttached, setFileAttached] = useState(false);
-  const [imageFile, setImageFile] = useState();
-
-  const [provinces, setProvinces] = useState([]);
-  const [municipalities, setMunicipalities] = useState([]);
-  const [barangays, setBarangays] = useState([]);
-
-  const [selectedProvince, setSelectedProvince] = useState("");
-  const [selectedMunicipality, setSelectedMunicipality] = useState("");
-  const [selectedBarangay, setSelectedBarangay] = useState("");
-
-  const [houseNumber, setHouseNumber] = useState("");
-
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
   const [sex, setSex] = useState("");
   const [email, setEmail] = useState("");
-
   const [contactNumber, setContactNumber] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [dateJoined, setDateJoined] = useState("");
   const [idNumber, setIdNumber] = useState("");
   const [address, setAddress] = useState("");
+
+  const [selectedRolesArray, setSelectedRolesArray] = useState([]);
+
+  const [provinces, setProvinces] = useState([]);
+  const [municipalities, setMunicipalities] = useState([]);
+  const [barangays, setBarangays] = useState([]);
+  const [selectedProvince, setSelectedProvince] = useState("");
+  const [selectedMunicipality, setSelectedMunicipality] = useState("");
+  const [selectedBarangay, setSelectedBarangay] = useState("");
+  const [houseNumber, setHouseNumber] = useState("");
+
+  const [imageFile, setImageFile] = useState(null); // ✅ holds the selected file
+  const [fileAttached, setFileAttached] = useState(false); // ✅ tracks if a file is attached
 
   // Fetch provinces
   useEffect(() => {
@@ -56,7 +61,7 @@ export default function AddMember() {
       .catch((err) => console.error(err));
   }, []);
 
-  // Fetch municipalities when a province is selected
+  // Fetch municipalities
   useEffect(() => {
     if (selectedProvince) {
       axios
@@ -70,7 +75,7 @@ export default function AddMember() {
     }
   }, [selectedProvince]);
 
-  // Fetch barangays when a municipality is selected
+  // Fetch barangays
   useEffect(() => {
     if (selectedMunicipality) {
       axios
@@ -84,12 +89,12 @@ export default function AddMember() {
     }
   }, [selectedMunicipality]);
 
+  // Build full address
   useEffect(() => {
     const provinceName =
       provinces.find((p) => p.code === selectedProvince)?.name || "";
     const municipalityName =
       municipalities.find((m) => m.code === selectedMunicipality)?.name || "";
-
     const fullAddress = `${houseNumber}, ${selectedBarangay}, ${municipalityName}, ${provinceName}`;
     setAddress(fullAddress);
   }, [
@@ -101,13 +106,13 @@ export default function AddMember() {
     municipalities,
   ]);
 
+  // Set default date and user ID
   useEffect(() => {
     const today = new Date();
     const formattedDate = `${String(today.getMonth() + 1).padStart(
       2,
       "0"
     )}-${String(today.getDate()).padStart(2, "0")}-${today.getFullYear()}`;
-
     setDateJoined(formattedDate);
     setIdNumber(generateUserID());
   }, []);
@@ -117,14 +122,35 @@ export default function AddMember() {
     setContactNumber(formatted);
   };
 
+  const handleFileInputChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // ✅ Use your handleFileSize function
+    if (!handleFileSize(file)) {
+      e.target.value = ""; // reset input if file is too large
+      return;
+    }
+
+    // File is valid
+    setImageFile(file);
+    setFileAttached(true);
+  };
+
+  const handleFileChange = (e) => {
+    e.preventDefault(); // prevent page reload
+    fileInputRef.current.click();
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null); // remove the selected file
+    setFileAttached(false); // mark no file attached
+  };
+
   const addMemberHandler = async (e) => {
     e.preventDefault();
 
-    let imageUrl = null;
-    if (imageFile) {
-      imageUrl = await uploadImageToSupabase(imageFile);
-    }
-
+    // Add member basic info
     const isAdded = await addMember(
       idNumber,
       firstName,
@@ -134,18 +160,38 @@ export default function AddMember() {
       dateJoined,
       sex,
       email,
-      contactNumber,
-      imageUrl
+      contactNumber
     );
 
-    if (!imageUrl) {
-      alert("Failed to upload image. Please try again.");
-    }
-
     if (isAdded) {
-      await addMemberAuthentication(idNumber, "olgp2025-2026", email);
+      // ✅ Only upload image if a file is attached (currently commented)
+      /*
+    if (imageFile) {
+      const imageUrl = await uploadAndSaveMemberImage(idNumber, imageFile);
+      if (imageUrl) {
+        await insertMemberImage(idNumber, imageUrl);
+      } 
+    } else {
+      alert("No image file attached, skipping upload.");
+    }
+    */
 
-      // Clear fields after success
+      // Add authentication & define user type
+      await addMemberAuthentication(idNumber, "olgp2025-2026", email);
+      await defineUserType(idNumber, department);
+
+      // ✅ Save Altar Server Roles
+      let selectedRolesArray = [];
+      if (selectedRole === "Non-Flexible") {
+        // Collect checked checkboxes
+        const checkboxes = document.querySelectorAll(
+          '.role-options input[type="checkbox"]:checked'
+        );
+        selectedRolesArray = Array.from(checkboxes).map((cb) => cb.value);
+      }
+      await saveAltarServerRoles(idNumber, selectedRole, selectedRolesArray);
+
+      // Reset form
       setFirstName("");
       setMiddleName("");
       setLastName("");
@@ -158,35 +204,17 @@ export default function AddMember() {
       setEmail("");
       setContactNumber("");
       setSelectedRole("");
-      setIdNumber("");
+      setIdNumber(generateUserID());
+      setImageFile(null);
       setFileAttached(false);
-      setImageFile(null); // Reset image file
     }
-  };
-
-  function handleFileChange(e) {
-    e.preventDefault();
-    handleInputImage(fileInputRef);
-  }
-
-  const handleFileInputChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!handleFileSize(file)) {
-      e.target.value = ""; // Reset input
-      return;
-    }
-
-    setImageFile(file);
-    setFileAttached(true);
   };
 
   return (
     <div className="member-page-container">
       <div className="member-header">
         <div className="header-text-with-line">
-          <h3>MEMBERS</h3>
+          <h3>MEMBERS - {department.toUpperCase()}</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -199,7 +227,11 @@ export default function AddMember() {
                 },
                 {
                   title: (
-                    <Link to="/membersList" className="breadcrumb-item">
+                    <Link
+                      to="/membersList"
+                      state={{ department }}
+                      className="breadcrumb-item"
+                    >
                       Members
                     </Link>
                   ),
@@ -224,21 +256,53 @@ export default function AddMember() {
       </div>
 
       <form className="form-content">
-        {/* File Attachment */}
+        {/* File Attachment (UI Only) */}
         <div className="attachment-container">
-          <button className="add-image-btn" onClick={handleFileChange}>
+          {/* Preview or placeholder */}
+          <div
+            className="preview-container mt-3"
+            style={{ position: "relative", display: "inline-block" }}
+          >
+            {imageFile && (
+              <div
+                className="preview-container mt-3"
+                style={{ position: "relative", display: "inline-block" }}
+              >
+                <img
+                  src={URL.createObjectURL(imageFile)}
+                  alt="Preview"
+                  className="preview-img"
+                />
+
+                {/* ❌ X button */}
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="preview-btn"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Add file button */}
+          <button
+            type="button"
+            className="add-image-btn"
+            onClick={handleFileChange} // opens file picker
+          >
             <img src={icon.addImageIcon} alt="Add" className="icon-img" />
           </button>
 
           <div className="attachment-labels">
-            <label className="file-label">Attach image here (optional)</label>
+            <label className="file-label">Attach image here</label>
             {fileAttached && (
-              <span className="file-success">
-                Successfully attached a file.
-              </span>
+              <span className="file-success">File attached!</span>
             )}
           </div>
 
+          {/* Hidden file input */}
           <input
             type="file"
             ref={fileInputRef}
@@ -262,7 +326,9 @@ export default function AddMember() {
               />
             </div>
             <div className="col-md-4">
-              <label className="form-label">Middle Name (Optional)</label>
+              <label className="form-label">
+                Middle Name <span className="text-muted">(Optional)</span>
+              </label>
               <input
                 type="text"
                 className="form-control"
@@ -431,31 +497,36 @@ export default function AddMember() {
           {/* Conditional Role Options */}
           {selectedRole === "Non-Flexible" && (
             <div className="role-options mt-3">
-              <label>
-                <input type="checkbox" name="roles" value="CandleBearer" />{" "}
-                Candle Bearer
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="Beller" /> Beller
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="CrossBearer" /> Cross
-                Bearer
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="Thurifer" /> Thurifer
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="IncenseBearer" />{" "}
-                Incense Bearer
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="MainServers" /> Main
-                Servers (Book and Mic)
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="Plates" /> Plates
-              </label>
+              {[
+                { label: "Candle Bearer", value: "CandleBearer" },
+                { label: "Beller", value: "Beller" },
+                { label: "Cross Bearer", value: "CrossBearer" },
+                { label: "Thurifer", value: "Thurifer" },
+                { label: "Incense Bearer", value: "IncenseBearer" },
+                { label: "Main Servers (Book and Mic)", value: "MainServers" },
+                { label: "Plates", value: "Plates" },
+              ].map((role) => (
+                <label key={role.value}>
+                  <input
+                    type="checkbox"
+                    value={role.value}
+                    checked={selectedRolesArray.includes(role.value)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedRolesArray([
+                          ...selectedRolesArray,
+                          role.value,
+                        ]);
+                      } else {
+                        setSelectedRolesArray(
+                          selectedRolesArray.filter((r) => r !== role.value)
+                        );
+                      }
+                    }}
+                  />{" "}
+                  {role.label}
+                </label>
+              ))}
             </div>
           )}
 

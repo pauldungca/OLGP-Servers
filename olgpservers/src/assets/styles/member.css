@@ -268,7 +268,6 @@
   gap: 15px;
   justify-content: right;
   margin-top: 1rem;
-  position: relative;
 }
 
 .action-buttons .btn-blue {
@@ -279,7 +278,7 @@
   border: none;
   cursor: pointer;
   border-radius: 5px;
-  width: 22%;
+  width: 50%;
   display: flex;
   align-items: center;
   justify-content: center;

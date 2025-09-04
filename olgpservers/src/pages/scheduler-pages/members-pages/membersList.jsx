@@ -1,25 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Breadcrumb } from "antd";
 import Footer from "../../../components/footer";
-import "../../../assets/styles/member.css";
-import "../../../assets/styles/header.css";
 import icon from "../../../helper/icon";
-
 import { CustomTable } from "../../../components/table";
 import DropDownButton from "../../../components/dropDownButton";
-
 import { fetchAltarServerMembers } from "../../../assets/scripts/fetchMember";
 import {
   navigationAddMember,
   navigationSelectDepartment,
 } from "../../../assets/scripts/member";
 
+import "../../../assets/styles/member.css";
+
 export default function MembersList() {
   useEffect(() => {
     document.title = "OLGP Servers | Members";
   }, []);
+
+  const location = useLocation();
+  const department = location.state?.department || "Members"; // default fallback
+
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -73,7 +74,7 @@ export default function MembersList() {
     <div className="member-page-container">
       <div className="member-header">
         <div className="header-text-with-line">
-          <h3>MEMBERS</h3>
+          <h3>MEMBERS - {department.toUpperCase()}</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -116,7 +117,7 @@ export default function MembersList() {
           />
           <button
             className="btn btn-blue"
-            onClick={navigationAddMember(navigate)}
+            onClick={navigationAddMember(navigate, { department })}
           >
             <img src={icon.addUserIcon} alt="Add Icon" className="icon-btn" />
             Add Member

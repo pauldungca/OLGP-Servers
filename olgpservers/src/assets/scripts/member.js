@@ -3,7 +3,10 @@ import { supabase } from "../../utils/supabase";
 export const createButtonCard = (images, navigate) => {
   return function ButtonCard({ department, parish, toPage }) {
     return (
-      <button className="member-card" onClick={() => navigate(toPage)}>
+      <button
+        className="member-card"
+        onClick={() => navigate(toPage, { state: { department, parish } })}
+      >
         <img src={images.OLGPlogo} alt={department} />
         <div>
           <div className="member-card-title">{department}</div>
@@ -54,10 +57,8 @@ export const isLectorCommentatorScheduler = async (idNumber) => {
   }
 };
 
-export const navigationAddMember = (navigate) => {
-  return () => {
-    navigate("/addMember");
-  };
+export const navigationAddMember = (navigate, state) => () => {
+  navigate("/addMember", { state });
 };
 
 export const navigationSelectDepartment = (navigate) => {

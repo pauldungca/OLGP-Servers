@@ -1,11 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Breadcrumb } from "antd";
 import Footer from "../../../components/footer";
 import icon from "../../../helper/icon";
+//import image from "../../../helper/images";
+import ExportMemberList from "../../../components/exportMemberList";
+
 import { CustomTable } from "../../../components/table";
 import DropDownButton from "../../../components/dropDownButton";
-import { fetchAltarServerMembersWithRole } from "../../../assets/scripts/fetchMember";
+import {
+  fetchAltarServerMembersWithRole,
+  sampleMembers,
+  exportTableAsPNG,
+  exportTableAsPDF,
+} from "../../../assets/scripts/fetchMember";
 import {
   navigationAddMember,
   navigationSelectDepartment,
@@ -14,6 +22,7 @@ import {
 import "../../../assets/styles/member.css";
 
 export default function MembersList() {
+  const exportRef = useRef();
   const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -135,11 +144,25 @@ export default function MembersList() {
         </div>
 
         <div className="action-buttons">
-          <DropDownButton />
-          <button className="btn btn-blue">
-            <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
-            Print Members List
-          </button>
+          <DropDownButton
+            onExportPNG={() => exportTableAsPNG(exportRef)}
+            /*onExportPDF={() =>
+              exportTableAsPDF(exportRef.current, image.OLGPlogo)
+            }*/
+            onExportPDF={() => exportTableAsPDF(sampleMembers)}
+          />
+          <button className="btn btn-blue">Print Members List</button>
+        </div>
+
+        {/* Hidden export-only component */}
+        <div
+          style={{
+            position: "absolute",
+            top: "-9999px", // push it off screen
+            left: "-9999px", // out of viewport
+          }}
+        >
+          <ExportMemberList ref={exportRef} members={sampleMembers} />
         </div>
       </div>
 

@@ -311,3 +311,31 @@ export const insertMemberImage = async (idNumber, imageUrl) => {
     alert("Unexpected error: " + err.message);
   }
 };
+
+export const handleContactNumberChange = (e, setContactNumber) => {
+  const formatted = formatContactNumber(e.target.value);
+  setContactNumber(formatted);
+};
+
+export const handleFileInputChange = (e, setImageFile, setFileAttached) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (!handleFileSize(file)) {
+    e.target.value = "";
+    return;
+  }
+
+  setImageFile(file);
+  setFileAttached(true);
+};
+
+export const handleFileChange = (e, fileInputRef) => {
+  e.preventDefault();
+  fileInputRef.current.click();
+};
+
+export const handleRemoveImage = (setImageFile, setFileAttached) => {
+  setImageFile(null);
+  setFileAttached(false);
+};

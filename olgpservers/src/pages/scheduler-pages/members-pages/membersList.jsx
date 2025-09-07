@@ -3,7 +3,6 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Breadcrumb } from "antd";
 import Footer from "../../../components/footer";
 import icon from "../../../helper/icon";
-
 import { CustomTable } from "../../../components/table";
 import DropDownButton from "../../../components/dropDownButton";
 import {
@@ -16,6 +15,8 @@ import {
 import {
   navigationAddMember,
   navigationSelectDepartment,
+  handleViewInformation,
+  handleSearchChange,
 } from "../../../assets/scripts/member";
 
 import "../../../assets/styles/member.css";
@@ -49,29 +50,6 @@ export default function MembersList() {
     };
     fetchData();
   }, []);
-
-  const handleSearchChange = (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-
-    if (query === "") {
-      setFilteredMembers(members);
-    } else {
-      const filtered = members.filter(
-        (member) =>
-          member.firstName.toLowerCase().includes(query.toLowerCase()) ||
-          member.lastName.toLowerCase().includes(query.toLowerCase()) ||
-          member.role.toLowerCase().includes(query.toLowerCase()) ||
-          member.idNumber.toString().includes(query)
-      );
-      setFilteredMembers(filtered);
-    }
-  };
-
-  const handleViewDetails = (record) => {
-    console.log("View details for:", record);
-    alert(record.firstName);
-  };
 
   return (
     <div className="member-page-container">
@@ -114,11 +92,13 @@ export default function MembersList() {
             className="form-control"
             placeholder="Search Members"
             value={searchQuery}
-            onChange={handleSearchChange}
+            onChange={(e) =>
+              handleSearchChange(e, members, setSearchQuery, setFilteredMembers)
+            }
           />
           <button
             className="btn btn-blue"
-            onClick={() => navigationAddMember(navigate, { department })}
+            onClick={navigationAddMember(navigate, { department })}
           >
             <img src={icon.addUserIcon} alt="Add Icon" className="icon-btn" />
             Add Member
@@ -140,7 +120,9 @@ export default function MembersList() {
           <CustomTable
             data={filteredMembers}
             loading={loading}
-            onViewDetails={handleViewDetails}
+            onViewDetails={(member) =>
+              handleViewInformation(navigate, member, department)()
+            }
           />
         </div>
 

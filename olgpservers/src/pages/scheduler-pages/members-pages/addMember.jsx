@@ -10,14 +10,14 @@ import "../../../assets/styles/addMember.css";
 
 import {
   generateUserID,
-  formatContactNumber,
   addMember,
   addMemberAuthentication,
   defineUserType,
-  handleFileSize,
   saveAltarServerRoles,
-  //uploadAndSaveMemberImage,
-  //insertMemberImage,
+  handleContactNumberChange,
+  handleFileInputChange,
+  handleFileChange,
+  handleRemoveImage,
 } from "../../../assets/scripts/addMember";
 
 export default function AddMember() {
@@ -50,8 +50,8 @@ export default function AddMember() {
   const [selectedBarangay, setSelectedBarangay] = useState("");
   const [houseNumber, setHouseNumber] = useState("");
 
-  const [imageFile, setImageFile] = useState(null); // ✅ holds the selected file
-  const [fileAttached, setFileAttached] = useState(false); // ✅ tracks if a file is attached
+  const [imageFile, setImageFile] = useState(null);
+  const [fileAttached, setFileAttached] = useState(false);
 
   // Fetch provinces
   useEffect(() => {
@@ -117,40 +117,9 @@ export default function AddMember() {
     setIdNumber(generateUserID());
   }, []);
 
-  const handleContactNumberChange = (e) => {
-    const formatted = formatContactNumber(e.target.value);
-    setContactNumber(formatted);
-  };
-
-  const handleFileInputChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // ✅ Use your handleFileSize function
-    if (!handleFileSize(file)) {
-      e.target.value = ""; // reset input if file is too large
-      return;
-    }
-
-    // File is valid
-    setImageFile(file);
-    setFileAttached(true);
-  };
-
-  const handleFileChange = (e) => {
-    e.preventDefault(); // prevent page reload
-    fileInputRef.current.click();
-  };
-
-  const handleRemoveImage = () => {
-    setImageFile(null); // remove the selected file
-    setFileAttached(false); // mark no file attached
-  };
-
   const addMemberHandler = async (e) => {
     e.preventDefault();
 
-    // Add member basic info
     const isAdded = await addMember(
       idNumber,
       firstName,
@@ -164,26 +133,11 @@ export default function AddMember() {
     );
 
     if (isAdded) {
-      // ✅ Only upload image if a file is attached (currently commented)
-      /*
-    if (imageFile) {
-      const imageUrl = await uploadAndSaveMemberImage(idNumber, imageFile);
-      if (imageUrl) {
-        await insertMemberImage(idNumber, imageUrl);
-      } 
-    } else {
-      alert("No image file attached, skipping upload.");
-    }
-    */
-
-      // Add authentication & define user type
       await addMemberAuthentication(idNumber, "olgp2025-2026", email);
       await defineUserType(idNumber, department);
 
-      // ✅ Save Altar Server Roles
       let selectedRolesArray = [];
       if (selectedRole === "Non-Flexible") {
-        // Collect checked checkboxes
         const checkboxes = document.querySelectorAll(
           '.role-options input[type="checkbox"]:checked'
         );
@@ -256,41 +210,34 @@ export default function AddMember() {
       </div>
 
       <form className="form-content">
-        {/* File Attachment (UI Only) */}
+        {/* File Attachment */}
         <div className="attachment-container">
-          {/* Preview or placeholder */}
-          <div
-            className="preview-container mt-3"
-            style={{ position: "relative", display: "inline-block" }}
-          >
-            {imageFile && (
-              <div
-                className="preview-container mt-3"
-                style={{ position: "relative", display: "inline-block" }}
+          {/* Preview */}
+          {imageFile && (
+            <div
+              className="preview-container mt-3"
+              style={{ position: "relative", display: "inline-block" }}
+            >
+              <img
+                src={URL.createObjectURL(imageFile)}
+                alt="Preview"
+                className="preview-img"
+              />
+              <button
+                type="button"
+                onClick={() => handleRemoveImage(setImageFile, setFileAttached)}
+                className="preview-btn"
               >
-                <img
-                  src={URL.createObjectURL(imageFile)}
-                  alt="Preview"
-                  className="preview-img"
-                />
-
-                {/* ❌ X button */}
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="preview-btn"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-          </div>
+                ×
+              </button>
+            </div>
+          )}
 
           {/* Add file button */}
           <button
             type="button"
             className="add-image-btn"
-            onClick={handleFileChange} // opens file picker
+            onClick={(e) => handleFileChange(e, fileInputRef)}
           >
             <img src={icon.addImageIcon} alt="Add" className="icon-img" />
           </button>
@@ -302,11 +249,13 @@ export default function AddMember() {
             )}
           </div>
 
-          {/* Hidden file input */}
+          {/* Hidden input */}
           <input
             type="file"
             ref={fileInputRef}
-            onChange={handleFileInputChange}
+            onChange={(e) =>
+              handleFileInputChange(e, setImageFile, setFileAttached)
+            }
             accept=".jpg,.jpeg,.png"
             style={{ display: "none" }}
           />
@@ -364,7 +313,6 @@ export default function AddMember() {
                 ))}
               </select>
             </div>
-
             <div className="col-md-3">
               <label className="form-label">Municipality</label>
               <select
@@ -381,7 +329,6 @@ export default function AddMember() {
                 ))}
               </select>
             </div>
-
             <div className="col-md-3">
               <label className="form-label">Barangay</label>
               <select
@@ -398,7 +345,6 @@ export default function AddMember() {
                 ))}
               </select>
             </div>
-
             <div className="col-md-3">
               <label className="form-label">House Number</label>
               <input
@@ -421,7 +367,6 @@ export default function AddMember() {
                 disabled
               />
             </div>
-
             <div className="col-md-4">
               <label className="form-label">Date Joined</label>
               <input
@@ -462,7 +407,7 @@ export default function AddMember() {
                 type="text"
                 className="form-control"
                 value={contactNumber}
-                onChange={handleContactNumberChange}
+                onChange={(e) => handleContactNumberChange(e, setContactNumber)}
                 maxLength={13}
                 placeholder="0000 000 0000"
               />
@@ -494,7 +439,7 @@ export default function AddMember() {
             </div>
           </div>
 
-          {/* Conditional Role Options */}
+          {/* Non-Flexible Role Options */}
           {selectedRole === "Non-Flexible" && (
             <div className="role-options mt-3">
               {[
@@ -530,7 +475,6 @@ export default function AddMember() {
             </div>
           )}
 
-          {/* Submit */}
           <button
             type="button"
             className="btn btn-add mt-4"
@@ -540,9 +484,7 @@ export default function AddMember() {
           </button>
         </div>
       </form>
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

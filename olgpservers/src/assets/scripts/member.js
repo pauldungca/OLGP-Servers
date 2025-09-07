@@ -66,3 +66,35 @@ export const navigationSelectDepartment = (navigate) => {
     navigate("/selectDepartment");
   };
 };
+
+export const handleViewInformation = (navigate, member, department) => () => {
+  navigate("/viewMemberInformation", {
+    state: {
+      idNumber: member.idNumber,
+      department: department,
+    },
+  });
+};
+
+export const handleSearchChange = (
+  e,
+  members,
+  setSearchQuery,
+  setFilteredMembers
+) => {
+  const query = e.target.value;
+  setSearchQuery(query);
+
+  if (query === "") {
+    setFilteredMembers(members);
+  } else {
+    const filtered = members.filter(
+      (member) =>
+        member.firstName.toLowerCase().includes(query.toLowerCase()) ||
+        member.lastName.toLowerCase().includes(query.toLowerCase()) ||
+        member.role.toLowerCase().includes(query.toLowerCase()) ||
+        member.idNumber.toString().includes(query)
+    );
+    setFilteredMembers(filtered);
+  }
+};

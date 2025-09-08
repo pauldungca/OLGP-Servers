@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
 
@@ -20,6 +20,15 @@ export default function ImportMember() {
 
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const location = useLocation();
+  const department = location.state?.department || "Members";
+
+  const selectedDepartment = location.state?.selectedDepartment || "None";
+
+  function showAlert() {
+    alert(selectedDepartment);
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,10 +57,10 @@ export default function ImportMember() {
     } else {
       const filtered = members.filter(
         (member) =>
-          member.firstName.toLowerCase().includes(query.toLowerCase()) ||
-          member.lastName.toLowerCase().includes(query.toLowerCase()) ||
-          member.status.toLowerCase().includes(query.toLowerCase()) ||
-          member.idNumber.toString().includes(query)
+          member.firstName?.toLowerCase().includes(query.toLowerCase()) ||
+          member.lastName?.toLowerCase().includes(query.toLowerCase()) ||
+          member.status?.toLowerCase().includes(query.toLowerCase()) ||
+          member.idNumber?.toString().includes(query)
       );
       setFilteredMembers(filtered);
     }
@@ -66,7 +75,7 @@ export default function ImportMember() {
     <div className="member-page-container">
       <div className="member-header">
         <div className="header-text-with-line">
-          <h3>MEMBERS</h3>
+          <h3>MEMBERS - {department.toUpperCase()}</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -79,14 +88,22 @@ export default function ImportMember() {
                 },
                 {
                   title: (
-                    <Link to="/membersList" className="breadcrumb-item">
+                    <Link
+                      to="/membersList"
+                      state={{ department }}
+                      className="breadcrumb-item"
+                    >
                       Members
                     </Link>
                   ),
                 },
                 {
                   title: (
-                    <Link to="/selectDepartment" className="breadcrumb-item">
+                    <Link
+                      to="/selectDepartment"
+                      state={{ department }}
+                      className="breadcrumb-item"
+                    >
                       Select Department
                     </Link>
                   ),
@@ -112,6 +129,8 @@ export default function ImportMember() {
 
       <div className="member-content">
         <div className="search-bar-container">
+          <button onClick={showAlert}>Show Selected Department</button>
+
           <input
             type="text"
             className="form-control"

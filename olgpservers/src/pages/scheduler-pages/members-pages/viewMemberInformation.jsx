@@ -11,10 +11,13 @@ import {
   fetchProvinces,
   fetchMunicipalities,
   fetchBarangays,
-  fetchMemberRoles,
-  removeMember,
+  removeAltarServer,
+  removeLectorCommentator,
   editMemberInfo,
-  editMemberRoles,
+  editAltarServerRoles,
+  editLectorCommentatorRoles,
+  fetchAltarServerRoles,
+  fetchLectorCommentatorRoles,
 } from "../../../assets/scripts/viewMember";
 
 import "../../../assets/styles/member.css";
@@ -63,8 +66,14 @@ export default function ViewMemberInformation() {
   const loadMemberData = useCallback(async () => {
     if (!idNumber) return;
     try {
-      const { info, roleType } = await fetchMemberData(idNumber);
-      const roles = await fetchMemberRoles(idNumber);
+      const { info, roleType } = await fetchMemberData(idNumber, department);
+
+      let roles = [];
+      if (department === "Altar Server") {
+        roles = await fetchAltarServerRoles(idNumber);
+      } else if (department === "Lector Commentator") {
+        roles = await fetchLectorCommentatorRoles(idNumber);
+      }
 
       setSelectedRolesArray(roles);
       setFirstName(info.firstName);
@@ -85,8 +94,9 @@ export default function ViewMemberInformation() {
     } catch (err) {
       console.error("Failed to load member:", err.message);
     } finally {
+      setLoading(false);
     }
-  }, [idNumber]); // ✅ include idNumber as dependency
+  }, [idNumber, department]);
 
   useEffect(() => {
     loadMemberData();
@@ -156,10 +166,9 @@ export default function ViewMemberInformation() {
       reverseButtons: true,
     });
 
-    if (!result.isConfirmed) {
-      return;
-    }
+    if (!result.isConfirmed) return;
 
+    // 1️⃣ Update basic info
     const infoSuccess = await editMemberInfo(
       idNumber,
       firstName,
@@ -171,15 +180,28 @@ export default function ViewMemberInformation() {
       contactNumber
     );
 
-    const rolesSuccess = await editMemberRoles(idNumber, selectedRolesArray);
+    // 2️⃣ Update roles depending on department
+    let rolesSuccess = false;
+    if (department === "Altar Server") {
+      rolesSuccess = await editAltarServerRoles(idNumber, selectedRolesArray);
+    } else if (department === "Lector Commentator") {
+      rolesSuccess = await editLectorCommentatorRoles(
+        idNumber,
+        selectedRolesArray
+      );
+    }
 
+    // 3️⃣ Final check
     if (infoSuccess && rolesSuccess) {
-      await loadMemberData();
+      // 🔹 Force checkboxes to reflect the latest choices
+      setSelectedRolesArray([...selectedRolesArray]);
+
       Swal.fire({
         icon: "success",
         title: "Member Updated",
         text: "Member information and roles were successfully updated!",
       });
+
       setEditMode(false);
       setAddressDirty(false);
     } else {
@@ -453,21 +475,30 @@ export default function ViewMemberInformation() {
                 type="text"
                 className="form-control"
                 value={idNumber}
-                disabled // ✅ always disabled
+                disabled
               />
             </div>
           </div>
 
           <div className="role-options mt-3">
-            {[
-              { label: "Candle Bearer", value: "CandleBearer" },
-              { label: "Beller", value: "Beller" },
-              { label: "Cross Bearer", value: "CrossBearer" },
-              { label: "Thurifer", value: "Thurifer" },
-              { label: "Incense Bearer", value: "IncenseBearer" },
-              { label: "Main Servers (Book and Mic)", value: "MainServers" },
-              { label: "Plates", value: "Plates" },
-            ].map((role) => (
+            {(department === "Altar Server"
+              ? [
+                  { label: "Candle Bearer", value: "CandleBearer" },
+                  { label: "Beller", value: "Beller" },
+                  { label: "Cross Bearer", value: "CrossBearer" },
+                  { label: "Thurifer", value: "Thurifer" },
+                  { label: "Incense Bearer", value: "IncenseBearer" },
+                  {
+                    label: "Main Servers (Book and Mic)",
+                    value: "MainServers",
+                  },
+                  { label: "Plates", value: "Plates" },
+                ]
+              : [
+                  { label: "Preface", value: "preface" },
+                  { label: "Reading", value: "reading" },
+                ]
+            ).map((role) => (
               <label key={role.value}>
                 <input
                   type="checkbox"
@@ -475,18 +506,39 @@ export default function ViewMemberInformation() {
                   disabled={!editMode}
                   checked={selectedRolesArray.includes(role.value)}
                   onChange={(e) => {
+                    let updatedRoles;
                     if (e.target.checked) {
-                      setSelectedRolesArray([
-                        ...selectedRolesArray,
-                        role.value,
-                      ]);
+                      updatedRoles = [...selectedRolesArray, role.value];
                     } else {
-                      setSelectedRolesArray(
-                        selectedRolesArray.filter((r) => r !== role.value)
+                      updatedRoles = selectedRolesArray.filter(
+                        (r) => r !== role.value
                       );
                     }
+
+                    setSelectedRolesArray(updatedRoles);
+
+                    // 🔹 Determine Flexible / Non-Flexible automatically
+                    const allRoles =
+                      department === "Altar Server"
+                        ? [
+                            "CandleBearer",
+                            "Beller",
+                            "CrossBearer",
+                            "Thurifer",
+                            "IncenseBearer",
+                            "MainServers",
+                            "Plates",
+                          ]
+                        : ["preface", "reading"];
+
+                    if (updatedRoles.length === allRoles.length) {
+                      setSelectedRole("Flexible");
+                    } else {
+                      setSelectedRole("Non-Flexible");
+                    }
                   }}
-                />{" "}
+                />
+
                 {role.label}
               </label>
             ))}
@@ -513,7 +565,6 @@ export default function ViewMemberInformation() {
                   type="button"
                   className="btn btn-view flex-fill"
                   onClick={handleSaveChanges}
-                  //onClick={sampleIdNumber()}
                 >
                   Save Edit
                 </button>
@@ -523,7 +574,29 @@ export default function ViewMemberInformation() {
                 <button
                   type="button"
                   className="btn btn-danger flex-fill"
-                  onClick={() => removeMember(idNumber, setLoading, navigate)}
+                  onClick={() => {
+                    if (department === "Altar Server") {
+                      removeAltarServer(
+                        idNumber,
+                        setLoading,
+                        navigate,
+                        department
+                      );
+                    } else if (department === "Lector Commentator") {
+                      removeLectorCommentator(
+                        idNumber,
+                        setLoading,
+                        navigate,
+                        department
+                      );
+                    } else {
+                      Swal.fire({
+                        icon: "error",
+                        title: "Unknown Department",
+                        text: "Cannot remove member: unsupported department.",
+                      });
+                    }
+                  }}
                 >
                   Remove Member
                 </button>

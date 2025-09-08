@@ -17,6 +17,37 @@ export const createButtonCard = (images, navigate) => {
   };
 };
 
+export const createSelectedDepartmentCard = (images, navigate) => {
+  return function SelectedDepartmentCard({
+    department,
+    parish,
+    toPage,
+    selectedDepartment,
+    originalDepartment,
+  }) {
+    return (
+      <button
+        className="member-card"
+        onClick={() =>
+          navigate(toPage, {
+            state: {
+              department: originalDepartment,
+              selectedDepartment,
+              parish,
+            },
+          })
+        }
+      >
+        <img src={images.OLGPlogo} alt={department} />
+        <div>
+          <div className="member-card-title">{department}</div>
+          <div className="member-card-subtitle">{parish}</div>
+        </div>
+      </button>
+    );
+  };
+};
+
 export const isAltarServerScheduler = async (idNumber) => {
   try {
     const { data, error } = await supabase
@@ -41,7 +72,7 @@ export const isLectorCommentatorScheduler = async (idNumber) => {
   try {
     const { data, error } = await supabase
       .from("user-type")
-      .select(`lector-commentator`)
+      .select(`lector-commentator-scheduler`)
       .eq("idNumber", idNumber)
       .single();
 
@@ -50,7 +81,7 @@ export const isLectorCommentatorScheduler = async (idNumber) => {
       return false;
     }
 
-    return data["lector-commentator"] === 1;
+    return data["lector-commentator-scheduler"] === 1;
   } catch (err) {
     console.error("Error in fetchLectorCommentatorStatus:", err);
     return false;
@@ -61,10 +92,8 @@ export const navigationAddMember = (navigate, state) => () => {
   navigate("/addMember", { state });
 };
 
-export const navigationSelectDepartment = (navigate) => {
-  return () => {
-    navigate("/selectDepartment");
-  };
+export const navigationSelectDepartment = (navigate, state) => () => {
+  navigate("/selectDepartment", { state });
 };
 
 export const handleViewInformation = (navigate, member, department) => () => {

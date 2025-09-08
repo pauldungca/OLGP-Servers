@@ -14,6 +14,7 @@ import {
   addMemberAuthentication,
   defineUserType,
   saveAltarServerRoles,
+  saveLectorCommentatorRoles,
   handleContactNumberChange,
   handleFileInputChange,
   handleFileChange,
@@ -143,7 +144,15 @@ export default function AddMember() {
         );
         selectedRolesArray = Array.from(checkboxes).map((cb) => cb.value);
       }
-      await saveAltarServerRoles(idNumber, selectedRole, selectedRolesArray);
+      if (department.toUpperCase() === "ALTAR SERVER") {
+        await saveAltarServerRoles(idNumber, selectedRole, selectedRolesArray);
+      } else if (department.toUpperCase() === "LECTOR COMMENTATOR") {
+        await saveLectorCommentatorRoles(
+          idNumber,
+          selectedRole,
+          selectedRolesArray
+        );
+      }
 
       // Reset form
       setFirstName("");
@@ -442,36 +451,44 @@ export default function AddMember() {
           {/* Non-Flexible Role Options */}
           {selectedRole === "Non-Flexible" && (
             <div className="role-options mt-3">
-              {[
-                { label: "Candle Bearer", value: "CandleBearer" },
-                { label: "Beller", value: "Beller" },
-                { label: "Cross Bearer", value: "CrossBearer" },
-                { label: "Thurifer", value: "Thurifer" },
-                { label: "Incense Bearer", value: "IncenseBearer" },
-                { label: "Main Servers (Book and Mic)", value: "MainServers" },
-                { label: "Plates", value: "Plates" },
-              ].map((role) => (
-                <label key={role.value}>
-                  <input
-                    type="checkbox"
-                    value={role.value}
-                    checked={selectedRolesArray.includes(role.value)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedRolesArray([
-                          ...selectedRolesArray,
-                          role.value,
-                        ]);
-                      } else {
-                        setSelectedRolesArray(
-                          selectedRolesArray.filter((r) => r !== role.value)
-                        );
-                      }
-                    }}
-                  />{" "}
-                  {role.label}
-                </label>
-              ))}
+              {department === "ALTAR SERVER"
+                ? [
+                    { label: "Candle Bearer", value: "CandleBearer" },
+                    { label: "Beller", value: "Beller" },
+                    { label: "Cross Bearer", value: "CrossBearer" },
+                    { label: "Thurifer", value: "Thurifer" },
+                    { label: "Incense Bearer", value: "IncenseBearer" },
+                    {
+                      label: "Main Servers (Book and Mic)",
+                      value: "MainServers",
+                    },
+                    { label: "Plates", value: "Plates" },
+                  ]
+                : [
+                    { label: "Reading", value: "Reading" },
+                    { label: "Preface", value: "Preface" },
+                  ].map((role) => (
+                    <label key={role.value}>
+                      <input
+                        type="checkbox"
+                        value={role.value}
+                        checked={selectedRolesArray.includes(role.value)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedRolesArray([
+                              ...selectedRolesArray,
+                              role.value,
+                            ]);
+                          } else {
+                            setSelectedRolesArray(
+                              selectedRolesArray.filter((r) => r !== role.value)
+                            );
+                          }
+                        }}
+                      />{" "}
+                      {role.label}
+                    </label>
+                  ))}
             </div>
           )}
 

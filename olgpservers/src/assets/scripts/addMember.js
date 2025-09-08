@@ -154,13 +154,86 @@ export const addMember = async (
   return false;
 };
 
+export const saveAltarServerRoles = async (
+  idNumber,
+  selectedRole,
+  selectedRoles = []
+) => {
+  if (!idNumber || !selectedRole) return;
+
+  // Default roles object
+  const rolesData = {
+    idNumber,
+    "candle-bearer": 0,
+    beller: 0,
+    "cross-bearer": 0,
+    "incense-bearer": 0,
+    thurifer: 0,
+    "main-server": 0,
+    plate: 0,
+  };
+
+  if (selectedRole === "Flexible") {
+    Object.keys(rolesData).forEach((key) => {
+      if (key !== "idNumber") rolesData[key] = 1;
+    });
+  } else if (selectedRole === "Non-Flexible") {
+    selectedRoles.forEach((role) => {
+      if (role === "CandleBearer") rolesData["candle-bearer"] = 1;
+      else if (role === "Beller") rolesData.beller = 1;
+      else if (role === "CrossBearer") rolesData["cross-bearer"] = 1;
+      else if (role === "IncenseBearer") rolesData["incense-bearer"] = 1;
+      else if (role === "Thurifer") rolesData.thurifer = 1;
+      else if (role === "MainServers") rolesData["main-server"] = 1;
+      else if (role === "Plates") rolesData.plate = 1;
+      // default: do nothing
+    });
+  }
+
+  // Insert into Supabase
+  await supabase.from("altar-server-roles").insert([rolesData]);
+
+  // Always return true (or false if needed)
+  return true;
+};
+
+export const saveLectorCommentatorRoles = async (
+  idNumber,
+  selectedRole,
+  selectedRoles = []
+) => {
+  if (!idNumber || !selectedRole) return;
+
+  // Default roles object
+  const rolesData = {
+    idNumber,
+    reading: 0,
+    preface: 0,
+  };
+
+  if (selectedRole === "Flexible") {
+    rolesData.reading = 1;
+    rolesData.preface = 1;
+  } else if (selectedRole === "Non-Flexible") {
+    selectedRoles.forEach((role) => {
+      if (role === "Reading") rolesData.reading = 1;
+      else if (role === "Preface") rolesData.preface = 1;
+    });
+  }
+
+  // Insert into Supabase
+  await supabase.from("lector-commentator-roles").insert([rolesData]);
+
+  return true;
+};
+
 // Define user type
 export const defineUserType = async (idNumber, department) => {
   const departmentMap = {
     "ALTAR SERVER": "altar-server-member",
     "EUCHARISTIC MINISTER": "eucharistic-minister-member",
     CHOIR: "choir-member",
-    "LECTOR-COMMENTATOR": "lector-commentator-member",
+    "LECTOR COMMENTATOR": "lector-commentator-member",
   };
 
   const userTypeData = {
@@ -210,49 +283,6 @@ export const handleFileSize = (file) => {
     });
     return false;
   }
-  return true;
-};
-
-export const saveAltarServerRoles = async (
-  idNumber,
-  selectedRole,
-  selectedRoles = []
-) => {
-  if (!idNumber || !selectedRole) return;
-
-  // Default roles object
-  const rolesData = {
-    idNumber,
-    "candle-bearer": 0,
-    beller: 0,
-    "cross-bearer": 0,
-    "incense-bearer": 0,
-    thurifer: 0,
-    "main-server": 0,
-    plate: 0,
-  };
-
-  if (selectedRole === "Flexible") {
-    Object.keys(rolesData).forEach((key) => {
-      if (key !== "idNumber") rolesData[key] = 1;
-    });
-  } else if (selectedRole === "Non-Flexible") {
-    selectedRoles.forEach((role) => {
-      if (role === "CandleBearer") rolesData["candle-bearer"] = 1;
-      else if (role === "Beller") rolesData.beller = 1;
-      else if (role === "CrossBearer") rolesData["cross-bearer"] = 1;
-      else if (role === "IncenseBearer") rolesData["incense-bearer"] = 1;
-      else if (role === "Thurifer") rolesData.thurifer = 1;
-      else if (role === "MainServers") rolesData["main-server"] = 1;
-      else if (role === "Plates") rolesData.plate = 1;
-      // default: do nothing
-    });
-  }
-
-  // Insert into Supabase
-  await supabase.from("altar-server-roles").insert([rolesData]);
-
-  // Always return true (or false if needed)
   return true;
 };
 

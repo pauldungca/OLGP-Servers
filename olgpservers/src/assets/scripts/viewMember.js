@@ -52,31 +52,28 @@ export const formatContactNumber = (value) => {
   )} ${digitsOnly.slice(7)}`;
 };
 
-export const fetchMemberData = async (idNumber) => {
+export const fetchMemberData = async (idNumber, department) => {
   if (!idNumber) return null;
 
   try {
-    // Fetch member information
+    // Fetch member info
     const { data: info, error: infoError } = await supabase
       .from("members-information")
       .select("*")
       .eq("idNumber", idNumber)
       .single();
-
     if (infoError) throw infoError;
 
-    // Fetch member roles
-    const { data: roleData, error: roleError } = await supabase
-      .from("altar-server-roles")
-      .select("*")
-      .eq("idNumber", idNumber)
-      .single();
-
-    if (roleError) throw roleError;
-
-    // Determine role type
     let roleType = "";
-    if (roleData) {
+    if (department === "Altar Server") {
+      // Fetch altar server roles
+      const { data: roleData, error: roleError } = await supabase
+        .from("altar-server-roles")
+        .select("*")
+        .eq("idNumber", idNumber)
+        .single();
+      if (roleError) throw roleError;
+
       const allRoles = [
         "candle-bearer",
         "beller",
@@ -86,7 +83,18 @@ export const fetchMemberData = async (idNumber) => {
         "main-server",
         "plate",
       ];
+      const isFlexible = allRoles.every((role) => roleData[role] === 1);
+      roleType = isFlexible ? "Flexible" : "Non-Flexible";
+    } else if (department === "Lector Commentator") {
+      // Fetch lector commentator roles
+      const { data: roleData, error: roleError } = await supabase
+        .from("lector-commentator-roles")
+        .select("*")
+        .eq("idNumber", idNumber)
+        .single();
+      if (roleError) throw roleError;
 
+      const allRoles = ["preface", "reading"];
       const isFlexible = allRoles.every((role) => roleData[role] === 1);
       roleType = isFlexible ? "Flexible" : "Non-Flexible";
     }
@@ -150,7 +158,12 @@ export const fetchMemberRoles = async (idNumber) => {
   }
 };
 
-export const removeMember = async (idNumber, setLoading, navigate) => {
+export const removeAltarServer = async (
+  idNumber,
+  setLoading,
+  navigate,
+  department
+) => {
   if (!idNumber) return;
 
   const result = await Swal.fire({
@@ -202,7 +215,85 @@ export const removeMember = async (idNumber, setLoading, navigate) => {
       });
 
       // Optional: navigate back to members list
-      if (navigate) navigate("/membersList");
+      if (navigate) {
+        navigate("/membersList", {
+          state: { department },
+        });
+      }
+    } catch (err) {
+      console.error("Error removing member:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to remove the member. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+};
+
+export const removeLectorCommentator = async (
+  idNumber,
+  setLoading,
+  navigate,
+  department
+) => {
+  if (!idNumber) return;
+
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    text: "Do you really want to remove this member? This action cannot be undone.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Yes, remove",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+
+  if (result.isConfirmed) {
+    try {
+      setLoading(true);
+
+      // 1️⃣ Remove from members-information
+      let { error: errorMembers } = await supabase
+        .from("members-information")
+        .delete()
+        .eq("idNumber", idNumber);
+      if (errorMembers) throw errorMembers;
+
+      // 2️⃣ Remove from authentication
+      let { error: errorAuth } = await supabase
+        .from("authentication")
+        .delete()
+        .eq("idNumber", idNumber);
+      if (errorAuth) throw errorAuth;
+
+      // 3️⃣ Remove from user-type
+      let { error: errorUserType } = await supabase
+        .from("user-type")
+        .delete()
+        .eq("idNumber", idNumber);
+      if (errorUserType) throw errorUserType;
+
+      // 4️⃣ Remove from lector-commentator-roles
+      let { error: errorRoles } = await supabase
+        .from("lector-commentator-roles")
+        .delete()
+        .eq("idNumber", idNumber);
+      if (errorRoles) throw errorRoles;
+
+      Swal.fire({
+        icon: "success",
+        title: "Member Removed",
+        text: "The member has been successfully removed from all records.",
+      });
+
+      if (navigate) {
+        navigate("/membersList", {
+          state: { department },
+        });
+      }
     } catch (err) {
       console.error("Error removing member:", err);
       Swal.fire({
@@ -251,7 +342,7 @@ export const editMemberInfo = async (
   }
 };
 
-export const editMemberRoles = async (idNumber, selectedRolesArray) => {
+export const editAltarServerRoles = async (idNumber, selectedRolesArray) => {
   if (!idNumber) return false;
 
   try {
@@ -281,5 +372,104 @@ export const editMemberRoles = async (idNumber, selectedRolesArray) => {
   } catch (err) {
     console.error("Edit member roles error:", err);
     return false;
+  }
+};
+
+export const editLectorCommentatorRoles = async (
+  idNumber,
+  selectedRolesArray
+) => {
+  if (!idNumber) return false;
+
+  try {
+    // normalize to lowercase so UI values and DB checks match
+    const normalized = (selectedRolesArray || []).map((r) =>
+      String(r).toLowerCase()
+    );
+
+    const roleData = {
+      preface: normalized.includes("preface") ? 1 : 0,
+      reading: normalized.includes("reading") ? 1 : 0,
+    };
+
+    // try update first
+    const { data, error } = await supabase
+      .from("lector-commentator-roles")
+      .update(roleData)
+      .eq("idNumber", idNumber)
+      .select();
+
+    if (error) throw error;
+
+    // if update returned no rows, insert a new row
+    const updatedEmpty = !data || (Array.isArray(data) && data.length === 0);
+
+    if (updatedEmpty) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("lector-commentator-roles")
+        .insert([{ idNumber, ...roleData }])
+        .select();
+
+      if (insertError) throw insertError;
+      if (!inserted || (Array.isArray(inserted) && inserted.length === 0)) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Edit lector-commentator roles error:", err);
+    return false;
+  }
+};
+
+export const fetchAltarServerRoles = async (idNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from("altar-server-roles")
+      .select("*")
+      .eq("idNumber", idNumber)
+      .single();
+
+    if (error && error.code !== "PGRST116") throw error;
+
+    const roles = [];
+    if (data) {
+      if (data.CandleBearer === 1) roles.push("CandleBearer");
+      if (data.Beller === 1) roles.push("Beller");
+      if (data.CrossBearer === 1) roles.push("CrossBearer");
+      if (data.Thurifer === 1) roles.push("Thurifer");
+      if (data.IncenseBearer === 1) roles.push("IncenseBearer");
+      if (data.MainServers === 1) roles.push("MainServers");
+      if (data.Plates === 1) roles.push("Plates");
+    }
+
+    return roles;
+  } catch (err) {
+    console.error("Error fetching altar server roles:", err.message);
+    return [];
+  }
+};
+
+export const fetchLectorCommentatorRoles = async (idNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from("lector-commentator-roles")
+      .select("*")
+      .eq("idNumber", idNumber)
+      .single();
+
+    if (error && error.code !== "PGRST116") throw error;
+
+    const roles = [];
+    if (data) {
+      if (data.preface === 1) roles.push("preface"); // ✅ lowercase
+      if (data.reading === 1) roles.push("reading"); // ✅ lowercase
+    }
+
+    return roles;
+  } catch (err) {
+    console.error("Error fetching lector commentator roles:", err.message);
+    return [];
   }
 };

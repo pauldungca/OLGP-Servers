@@ -388,7 +388,6 @@ const renderMemberPageHTML = async (pageMembers, pageNumber, totalPages) => {
   `;
 };
 
-// CSS styles - completely removed page breaks
 const getPrintStyles = () => `
   @page {
     size: 8.5in 11in;
@@ -594,6 +593,67 @@ export const fetchAltarServerMembersWithRole = async () => {
       );
 
       const isFlexible = roleFields.every((key) => roles[key] === 1);
+
+      return { ...member, role: isFlexible ? "Flexible" : "Non-Flexible" };
+    });
+
+    return membersWithRole;
+  } catch (err) {
+    console.error("Supabase error:", err);
+    return [];
+  }
+};
+
+export const fetchLectorCommentatorMembersWithRole = async () => {
+  try {
+    // 1️⃣ Get all user-type entries where lector-commentator-member = 1
+    const { data: userTypes, error: userTypeError } = await supabase
+      .from("user-type")
+      .select("idNumber")
+      .eq('"lector-commentator-member"', 1);
+
+    if (userTypeError) throw userTypeError;
+
+    const idNumbers = userTypes.map((ut) => ut.idNumber);
+
+    // 2️⃣ Alert if no lector-commentator members
+    if (idNumbers.length === 0) {
+      Swal.fire({
+        icon: "info",
+        title: "No Lector Commentator Members",
+        text: "There are currently no members marked as Lector Commentators.",
+      });
+      return [];
+    }
+
+    // 3️⃣ Fetch members-information for those idNumbers
+    const { data: members, error: membersError } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", idNumbers)
+      .order("dateJoined", { ascending: false });
+
+    if (membersError) throw membersError;
+
+    // 4️⃣ Fetch lector-commentator-roles for these members
+    const { data: rolesData, error: rolesError } = await supabase
+      .from("lector-commentator-roles")
+      .select("*")
+      .in("idNumber", idNumbers);
+
+    if (rolesError) throw rolesError;
+
+    // 5️⃣ Merge roles and compute Flexible / Non-Flexible manually
+    const membersWithRole = members.map((member) => {
+      // find the role row
+      const roles = rolesData.find(
+        (r) => String(r.idNumber).trim() === String(member.idNumber).trim()
+      );
+
+      if (!roles) return { ...member, role: "Non-Flexible" };
+
+      // Only two columns: preface and reading
+      const isFlexible = roles.preface === 1 && roles.reading === 1;
 
       return { ...member, role: isFlexible ? "Flexible" : "Non-Flexible" };
     });

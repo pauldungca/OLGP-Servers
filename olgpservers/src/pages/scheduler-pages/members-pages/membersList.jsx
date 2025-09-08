@@ -7,6 +7,7 @@ import { CustomTable } from "../../../components/table";
 import DropDownButton from "../../../components/dropDownButton";
 import {
   fetchAltarServerMembersWithRole,
+  fetchLectorCommentatorMembersWithRole,
   sampleMembers,
   exportTableAsPNG,
   exportTableAsPDF,
@@ -39,7 +40,12 @@ export default function MembersList() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const result = await fetchAltarServerMembersWithRole();
+        let result = [];
+        if (department === "Altar Server") {
+          result = await fetchAltarServerMembersWithRole();
+        } else if (department === "Lector Commentator") {
+          result = await fetchLectorCommentatorMembersWithRole();
+        }
         setMembers(result);
         setFilteredMembers(result);
       } catch (err) {
@@ -48,8 +54,9 @@ export default function MembersList() {
         setLoading(false);
       }
     };
+
     fetchData();
-  }, []);
+  }, [department]);
 
   return (
     <div className="member-page-container">
@@ -105,7 +112,7 @@ export default function MembersList() {
           </button>
           <button
             className="btn btn-blue"
-            onClick={() => navigationSelectDepartment(navigate)}
+            onClick={navigationSelectDepartment(navigate, { department })}
           >
             <img
               src={icon.importUserIcons}

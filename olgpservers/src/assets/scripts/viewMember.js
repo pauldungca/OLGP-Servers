@@ -123,41 +123,6 @@ export const confirmCancelEdit = async () => {
   return result.isConfirmed;
 };
 
-// Fetch altar server roles for a specific member
-export const fetchMemberRoles = async (idNumber) => {
-  try {
-    const { data: rolesData, error } = await supabase
-      .from("altar-server-roles")
-      .select("*")
-      .eq("idNumber", idNumber)
-      .single(); // fetch only one record
-
-    if (error) throw error;
-    if (!rolesData) return [];
-
-    // Map the database columns to checkbox values
-    const roleMap = {
-      "candle-bearer": "CandleBearer",
-      beller: "Beller",
-      "cross-bearer": "CrossBearer",
-      thurifer: "Thurifer",
-      "incense-bearer": "IncenseBearer",
-      "main-server": "MainServers",
-      plate: "Plates",
-    };
-
-    // Only include the roles where value = 1
-    const selectedRoles = Object.keys(roleMap)
-      .filter((col) => rolesData[col] === 1)
-      .map((col) => roleMap[col]);
-
-    return selectedRoles;
-  } catch (err) {
-    console.error("Error fetching member roles:", err);
-    return [];
-  }
-};
-
 export const removeAltarServer = async (
   idNumber,
   setLoading,
@@ -180,41 +145,86 @@ export const removeAltarServer = async (
     try {
       setLoading(true);
 
-      // 1️⃣ Remove from members-information
-      let { error: errorMembers } = await supabase
-        .from("members-information")
-        .delete()
-        .eq("idNumber", idNumber);
-      if (errorMembers) throw errorMembers;
-
-      // 2️⃣ Remove from authentication
-      let { error: errorAuth } = await supabase
-        .from("authentication")
-        .delete()
-        .eq("idNumber", idNumber);
-      if (errorAuth) throw errorAuth;
-
-      // 3️⃣ Remove from user-type
-      let { error: errorUserType } = await supabase
+      // 🔎 Step 1: Fetch user-type record to check membership
+      const { data: userType, error: fetchError } = await supabase
         .from("user-type")
-        .delete()
-        .eq("idNumber", idNumber);
-      if (errorUserType) throw errorUserType;
+        .select("*")
+        .eq("idNumber", idNumber)
+        .single();
 
-      // 4️⃣ Remove from altar-server-roles
-      let { error: errorRoles } = await supabase
-        .from("altar-server-roles")
-        .delete()
-        .eq("idNumber", idNumber);
-      if (errorRoles) throw errorRoles;
+      if (fetchError) throw fetchError;
 
-      Swal.fire({
-        icon: "success",
-        title: "Member Removed",
-        text: "The member has been successfully removed from all records.",
-      });
+      if (!userType) throw new Error("User not found in user-type table.");
 
-      // Optional: navigate back to members list
+      // Count how many department memberships are active (value = 1)
+      const departmentMemberships = Object.values(userType).filter(
+        (val) => val === 1
+      ).length;
+
+      if (
+        departmentMemberships === 1 &&
+        userType["altar-server-member"] === 1
+      ) {
+        // ✅ Case 1: Member ONLY belongs to Altar Server → remove completely
+
+        // 1️⃣ Remove from members-information
+        let { error: errorMembers } = await supabase
+          .from("members-information")
+          .delete()
+          .eq("idNumber", idNumber);
+        if (errorMembers) throw errorMembers;
+
+        // 2️⃣ Remove from authentication
+        let { error: errorAuth } = await supabase
+          .from("authentication")
+          .delete()
+          .eq("idNumber", idNumber);
+        if (errorAuth) throw errorAuth;
+
+        // 3️⃣ Remove from user-type
+        let { error: errorUserType } = await supabase
+          .from("user-type")
+          .delete()
+          .eq("idNumber", idNumber);
+        if (errorUserType) throw errorUserType;
+
+        // 4️⃣ Remove from altar-server-roles
+        let { error: errorRoles } = await supabase
+          .from("altar-server-roles")
+          .delete()
+          .eq("idNumber", idNumber);
+        if (errorRoles) throw errorRoles;
+
+        Swal.fire({
+          icon: "success",
+          title: "Member Removed",
+          text: "The member has been fully removed from all records.",
+        });
+      } else {
+        // ✅ Case 2: Member belongs to other departments → only remove Altar Server membership
+
+        // 1️⃣ Update user-type → set altar-server-member = 0
+        let { error: errorUpdate } = await supabase
+          .from("user-type")
+          .update({ "altar-server-member": 0 })
+          .eq("idNumber", idNumber);
+        if (errorUpdate) throw errorUpdate;
+
+        // 2️⃣ Remove altar-server roles (clear the record for that idNumber)
+        let { error: errorRoles } = await supabase
+          .from("altar-server-roles")
+          .delete()
+          .eq("idNumber", idNumber);
+        if (errorRoles) throw errorRoles;
+
+        Swal.fire({
+          icon: "success",
+          title: "Altar Server Removed",
+          text: "The member has been removed from Altar Server but remains in other departments.",
+        });
+      }
+
+      // Optional: navigate back
       if (navigate) {
         navigate("/membersList", {
           state: { department },
@@ -243,7 +253,7 @@ export const removeLectorCommentator = async (
 
   const result = await Swal.fire({
     title: "Are you sure?",
-    text: "Do you really want to remove this member? This action cannot be undone.",
+    text: "Do you really want to remove this member from Lector Commentator?",
     icon: "warning",
     showCancelButton: true,
     confirmButtonText: "Yes, remove",
@@ -255,38 +265,78 @@ export const removeLectorCommentator = async (
     try {
       setLoading(true);
 
-      // 1️⃣ Remove from members-information
-      let { error: errorMembers } = await supabase
-        .from("members-information")
-        .delete()
-        .eq("idNumber", idNumber);
-      if (errorMembers) throw errorMembers;
-
-      // 2️⃣ Remove from authentication
-      let { error: errorAuth } = await supabase
-        .from("authentication")
-        .delete()
-        .eq("idNumber", idNumber);
-      if (errorAuth) throw errorAuth;
-
-      // 3️⃣ Remove from user-type
-      let { error: errorUserType } = await supabase
+      // 🔍 Step 1: Fetch user-type record
+      const { data: userTypeData, error: userTypeFetchError } = await supabase
         .from("user-type")
-        .delete()
-        .eq("idNumber", idNumber);
-      if (errorUserType) throw errorUserType;
+        .select("*")
+        .eq("idNumber", idNumber)
+        .single();
 
-      // 4️⃣ Remove from lector-commentator-roles
-      let { error: errorRoles } = await supabase
-        .from("lector-commentator-roles")
-        .delete()
-        .eq("idNumber", idNumber);
-      if (errorRoles) throw errorRoles;
+      if (userTypeFetchError) throw userTypeFetchError;
+
+      if (!userTypeData) throw new Error("User not found in user-type");
+
+      // 🔎 Step 2: Check if the member belongs to other departments
+      const { idNumber: _, ...departments } = userTypeData;
+      const activeDepartments = Object.values(departments).filter(
+        (val) => val === 1
+      );
+
+      if (
+        activeDepartments.length === 1 &&
+        userTypeData["lector-commentator-member"] === 1
+      ) {
+        // ✅ Member only in Lector Commentator → full delete
+
+        // 1️⃣ Remove from members-information
+        let { error: errorMembers } = await supabase
+          .from("members-information")
+          .delete()
+          .eq("idNumber", idNumber);
+        if (errorMembers) throw errorMembers;
+
+        // 2️⃣ Remove from authentication
+        let { error: errorAuth } = await supabase
+          .from("authentication")
+          .delete()
+          .eq("idNumber", idNumber);
+        if (errorAuth) throw errorAuth;
+
+        // 3️⃣ Remove from user-type
+        let { error: errorUserType } = await supabase
+          .from("user-type")
+          .delete()
+          .eq("idNumber", idNumber);
+        if (errorUserType) throw errorUserType;
+
+        // 4️⃣ Remove from lector-commentator-roles
+        let { error: errorRoles } = await supabase
+          .from("lector-commentator-roles")
+          .delete()
+          .eq("idNumber", idNumber);
+        if (errorRoles) throw errorRoles;
+      } else {
+        // 🔄 Member has other departments → just set lector-commentator-member = 0
+        const { error: updateError } = await supabase
+          .from("user-type")
+          .update({ "lector-commentator-member": 0 })
+          .eq("idNumber", idNumber);
+
+        if (updateError) throw updateError;
+
+        // also clean roles from lector-commentator-roles
+        const { error: roleError } = await supabase
+          .from("lector-commentator-roles")
+          .delete()
+          .eq("idNumber", idNumber);
+
+        if (roleError) throw roleError;
+      }
 
       Swal.fire({
         icon: "success",
         title: "Member Removed",
-        text: "The member has been successfully removed from all records.",
+        text: "The member has been successfully removed from Lector Commentator.",
       });
 
       if (navigate) {
@@ -423,7 +473,7 @@ export const editLectorCommentatorRoles = async (
   }
 };
 
-export const fetchAltarServerRoles = async (idNumber) => {
+/*export const fetchAltarServerRoles = async (idNumber) => {
   try {
     const { data, error } = await supabase
       .from("altar-server-roles")
@@ -442,6 +492,34 @@ export const fetchAltarServerRoles = async (idNumber) => {
       if (data.IncenseBearer === 1) roles.push("IncenseBearer");
       if (data.MainServers === 1) roles.push("MainServers");
       if (data.Plates === 1) roles.push("Plates");
+    }
+
+    return roles;
+  } catch (err) {
+    console.error("Error fetching altar server roles:", err.message);
+    return [];
+  }
+};*/
+
+export const fetchAltarServerRoles = async (idNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from("altar-server-roles")
+      .select("*")
+      .eq("idNumber", idNumber)
+      .single();
+
+    if (error && error.code !== "PGRST116") throw error;
+
+    const roles = [];
+    if (data) {
+      if (data["candle-bearer"] === 1) roles.push("CandleBearer");
+      if (data["beller"] === 1) roles.push("Beller");
+      if (data["cross-bearer"] === 1) roles.push("CrossBearer");
+      if (data["thurifer"] === 1) roles.push("Thurifer");
+      if (data["incense-bearer"] === 1) roles.push("IncenseBearer");
+      if (data["main-servers"] === 1) roles.push("MainServers");
+      if (data["plates"] === 1) roles.push("Plates");
     }
 
     return roles;

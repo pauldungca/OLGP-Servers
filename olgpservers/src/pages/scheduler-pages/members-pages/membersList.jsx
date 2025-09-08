@@ -8,7 +8,6 @@ import DropDownButton from "../../../components/dropDownButton";
 import {
   fetchAltarServerMembersWithRole,
   fetchLectorCommentatorMembersWithRole,
-  sampleMembers,
   exportTableAsPNG,
   exportTableAsPDF,
   printMemberList,
@@ -57,6 +56,20 @@ export default function MembersList() {
 
     fetchData();
   }, [department]);
+
+  const formatFullName = (member) => {
+    const middleInitial = member.middleName
+      ? ` ${member.middleName.charAt(0).toUpperCase()}.`
+      : "";
+    return `${member.firstName}${middleInitial} ${member.lastName}`.trim();
+  };
+
+  const getExportData = () => {
+    return members.map((member) => ({
+      idNumber: member.idNumber,
+      name: formatFullName(member),
+    }));
+  };
 
   return (
     <div className="member-page-container">
@@ -133,7 +146,7 @@ export default function MembersList() {
           />
         </div>
 
-        <div className="action-buttons">
+        {/*<div className="action-buttons">
           <DropDownButton
             onExportPNG={() => exportTableAsPNG(sampleMembers)}
             onExportPDF={() => exportTableAsPDF(sampleMembers)}
@@ -141,6 +154,19 @@ export default function MembersList() {
           <button
             className="btn btn-blue flex items-center gap-2"
             onClick={() => printMemberList(sampleMembers)}
+          >
+            <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
+            Print Members List
+          </button>
+        </div>*/}
+        <div className="action-buttons">
+          <DropDownButton
+            onExportPNG={() => exportTableAsPNG(getExportData())}
+            onExportPDF={() => exportTableAsPDF(getExportData())}
+          />
+          <button
+            className="btn btn-blue flex items-center gap-2"
+            onClick={() => printMemberList(getExportData())}
           >
             <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
             Print Members List

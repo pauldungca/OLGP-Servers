@@ -108,7 +108,7 @@ const ImportMemberTable = ({ data, loading, onViewDetails }) => {
           }}
           onClick={() => onViewDetails(record)}
         >
-          View Details
+          Import Member
         </Button>
       ),
     },

@@ -451,7 +451,7 @@ export default function AddMember() {
           {/* Non-Flexible Role Options */}
           {selectedRole === "Non-Flexible" && (
             <div className="role-options mt-3">
-              {department === "ALTAR SERVER"
+              {(department === "ALTAR SERVER"
                 ? [
                     { label: "Candle Bearer", value: "CandleBearer" },
                     { label: "Beller", value: "Beller" },
@@ -467,28 +467,50 @@ export default function AddMember() {
                 : [
                     { label: "Reading", value: "Reading" },
                     { label: "Preface", value: "Preface" },
-                  ].map((role) => (
-                    <label key={role.value}>
-                      <input
-                        type="checkbox"
-                        value={role.value}
-                        checked={selectedRolesArray.includes(role.value)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedRolesArray([
-                              ...selectedRolesArray,
-                              role.value,
-                            ]);
-                          } else {
-                            setSelectedRolesArray(
-                              selectedRolesArray.filter((r) => r !== role.value)
-                            );
-                          }
-                        }}
-                      />{" "}
-                      {role.label}
-                    </label>
-                  ))}
+                  ]
+              ).map((role) => (
+                <label key={role.value} style={{ marginRight: "15px" }}>
+                  <input
+                    type="checkbox"
+                    value={role.value}
+                    checked={selectedRolesArray.includes(role.value)}
+                    onChange={(e) => {
+                      let updatedRoles;
+
+                      if (e.target.checked) {
+                        updatedRoles = [...selectedRolesArray, role.value];
+                      } else {
+                        updatedRoles = selectedRolesArray.filter(
+                          (r) => r !== role.value
+                        );
+                      }
+
+                      setSelectedRolesArray(updatedRoles);
+
+                      // 🔹 Check against all roles in this department
+                      const allRoles =
+                        department === "ALTAR SERVER"
+                          ? [
+                              "CandleBearer",
+                              "Beller",
+                              "CrossBearer",
+                              "Thurifer",
+                              "IncenseBearer",
+                              "MainServers",
+                              "Plates",
+                            ]
+                          : ["Reading", "Preface"];
+
+                      if (updatedRoles.length === allRoles.length) {
+                        setSelectedRole("Flexible");
+                      } else {
+                        setSelectedRole("Non-Flexible");
+                      }
+                    }}
+                  />{" "}
+                  {role.label}
+                </label>
+              ))}
             </div>
           )}
 

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
@@ -9,44 +9,50 @@ import "../../../assets/styles/member.css";
 import "../../../assets/styles/addMember.css";
 
 import {
-  handleInputImage,
   generateUserID,
-  formatContactNumber,
   addMember,
   addMemberAuthentication,
-  uploadImageToSupabase,
-  handleFileSize,
+  defineUserType,
+  saveAltarServerRoles,
+  saveLectorCommentatorRoles,
+  handleContactNumberChange,
+  handleFileInputChange,
+  handleFileChange,
+  handleRemoveImage,
 } from "../../../assets/scripts/addMember";
 
 export default function AddMember() {
   useEffect(() => {
     document.title = "OLGP Servers | Members";
   }, []);
+
+  const location = useLocation();
+  const department = location.state?.department || "Members";
+
   const fileInputRef = useRef(null);
-  const [fileAttached, setFileAttached] = useState(false);
-  const [imageFile, setImageFile] = useState();
-
-  const [provinces, setProvinces] = useState([]);
-  const [municipalities, setMunicipalities] = useState([]);
-  const [barangays, setBarangays] = useState([]);
-
-  const [selectedProvince, setSelectedProvince] = useState("");
-  const [selectedMunicipality, setSelectedMunicipality] = useState("");
-  const [selectedBarangay, setSelectedBarangay] = useState("");
-
-  const [houseNumber, setHouseNumber] = useState("");
-
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
   const [sex, setSex] = useState("");
   const [email, setEmail] = useState("");
-
   const [contactNumber, setContactNumber] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [dateJoined, setDateJoined] = useState("");
   const [idNumber, setIdNumber] = useState("");
   const [address, setAddress] = useState("");
+
+  const [selectedRolesArray, setSelectedRolesArray] = useState([]);
+
+  const [provinces, setProvinces] = useState([]);
+  const [municipalities, setMunicipalities] = useState([]);
+  const [barangays, setBarangays] = useState([]);
+  const [selectedProvince, setSelectedProvince] = useState("");
+  const [selectedMunicipality, setSelectedMunicipality] = useState("");
+  const [selectedBarangay, setSelectedBarangay] = useState("");
+  const [houseNumber, setHouseNumber] = useState("");
+
+  const [imageFile, setImageFile] = useState(null);
+  const [fileAttached, setFileAttached] = useState(false);
 
   // Fetch provinces
   useEffect(() => {
@@ -56,7 +62,7 @@ export default function AddMember() {
       .catch((err) => console.error(err));
   }, []);
 
-  // Fetch municipalities when a province is selected
+  // Fetch municipalities
   useEffect(() => {
     if (selectedProvince) {
       axios
@@ -70,7 +76,7 @@ export default function AddMember() {
     }
   }, [selectedProvince]);
 
-  // Fetch barangays when a municipality is selected
+  // Fetch barangays
   useEffect(() => {
     if (selectedMunicipality) {
       axios
@@ -84,12 +90,12 @@ export default function AddMember() {
     }
   }, [selectedMunicipality]);
 
+  // Build full address
   useEffect(() => {
     const provinceName =
       provinces.find((p) => p.code === selectedProvince)?.name || "";
     const municipalityName =
       municipalities.find((m) => m.code === selectedMunicipality)?.name || "";
-
     const fullAddress = `${houseNumber}, ${selectedBarangay}, ${municipalityName}, ${provinceName}`;
     setAddress(fullAddress);
   }, [
@@ -101,29 +107,19 @@ export default function AddMember() {
     municipalities,
   ]);
 
+  // Set default date and user ID
   useEffect(() => {
     const today = new Date();
     const formattedDate = `${String(today.getMonth() + 1).padStart(
       2,
       "0"
     )}-${String(today.getDate()).padStart(2, "0")}-${today.getFullYear()}`;
-
     setDateJoined(formattedDate);
     setIdNumber(generateUserID());
   }, []);
 
-  const handleContactNumberChange = (e) => {
-    const formatted = formatContactNumber(e.target.value);
-    setContactNumber(formatted);
-  };
-
   const addMemberHandler = async (e) => {
     e.preventDefault();
-
-    let imageUrl = null;
-    if (imageFile) {
-      imageUrl = await uploadImageToSupabase(imageFile);
-    }
 
     const isAdded = await addMember(
       idNumber,
@@ -134,18 +130,31 @@ export default function AddMember() {
       dateJoined,
       sex,
       email,
-      contactNumber,
-      imageUrl
+      contactNumber
     );
-
-    if (!imageUrl) {
-      alert("Failed to upload image. Please try again.");
-    }
 
     if (isAdded) {
       await addMemberAuthentication(idNumber, "olgp2025-2026", email);
+      await defineUserType(idNumber, department);
 
-      // Clear fields after success
+      let selectedRolesArray = [];
+      if (selectedRole === "Non-Flexible") {
+        const checkboxes = document.querySelectorAll(
+          '.role-options input[type="checkbox"]:checked'
+        );
+        selectedRolesArray = Array.from(checkboxes).map((cb) => cb.value);
+      }
+      if (department.toUpperCase() === "ALTAR SERVER") {
+        await saveAltarServerRoles(idNumber, selectedRole, selectedRolesArray);
+      } else if (department.toUpperCase() === "LECTOR COMMENTATOR") {
+        await saveLectorCommentatorRoles(
+          idNumber,
+          selectedRole,
+          selectedRolesArray
+        );
+      }
+
+      // Reset form
       setFirstName("");
       setMiddleName("");
       setLastName("");
@@ -158,35 +167,17 @@ export default function AddMember() {
       setEmail("");
       setContactNumber("");
       setSelectedRole("");
-      setIdNumber("");
+      setIdNumber(generateUserID());
+      setImageFile(null);
       setFileAttached(false);
-      setImageFile(null); // Reset image file
     }
-  };
-
-  function handleFileChange(e) {
-    e.preventDefault();
-    handleInputImage(fileInputRef);
-  }
-
-  const handleFileInputChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!handleFileSize(file)) {
-      e.target.value = ""; // Reset input
-      return;
-    }
-
-    setImageFile(file);
-    setFileAttached(true);
   };
 
   return (
     <div className="member-page-container">
       <div className="member-header">
         <div className="header-text-with-line">
-          <h3>MEMBERS</h3>
+          <h3>MEMBERS - {department.toUpperCase()}</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -199,7 +190,11 @@ export default function AddMember() {
                 },
                 {
                   title: (
-                    <Link to="/membersList" className="breadcrumb-item">
+                    <Link
+                      to="/membersList"
+                      state={{ department }}
+                      className="breadcrumb-item"
+                    >
                       Members
                     </Link>
                   ),
@@ -226,23 +221,50 @@ export default function AddMember() {
       <form className="form-content">
         {/* File Attachment */}
         <div className="attachment-container">
-          <button className="add-image-btn" onClick={handleFileChange}>
+          {/* Preview */}
+          {imageFile && (
+            <div
+              className="preview-container mt-3"
+              style={{ position: "relative", display: "inline-block" }}
+            >
+              <img
+                src={URL.createObjectURL(imageFile)}
+                alt="Preview"
+                className="preview-img"
+              />
+              <button
+                type="button"
+                onClick={() => handleRemoveImage(setImageFile, setFileAttached)}
+                className="preview-btn"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {/* Add file button */}
+          <button
+            type="button"
+            className="add-image-btn"
+            onClick={(e) => handleFileChange(e, fileInputRef)}
+          >
             <img src={icon.addImageIcon} alt="Add" className="icon-img" />
           </button>
 
           <div className="attachment-labels">
-            <label className="file-label">Attach image here (optional)</label>
+            <label className="file-label">Attach image here</label>
             {fileAttached && (
-              <span className="file-success">
-                Successfully attached a file.
-              </span>
+              <span className="file-success">File attached!</span>
             )}
           </div>
 
+          {/* Hidden input */}
           <input
             type="file"
             ref={fileInputRef}
-            onChange={handleFileInputChange}
+            onChange={(e) =>
+              handleFileInputChange(e, setImageFile, setFileAttached)
+            }
             accept=".jpg,.jpeg,.png"
             style={{ display: "none" }}
           />
@@ -262,7 +284,9 @@ export default function AddMember() {
               />
             </div>
             <div className="col-md-4">
-              <label className="form-label">Middle Name (Optional)</label>
+              <label className="form-label">
+                Middle Name <span className="text-muted">(Optional)</span>
+              </label>
               <input
                 type="text"
                 className="form-control"
@@ -298,7 +322,6 @@ export default function AddMember() {
                 ))}
               </select>
             </div>
-
             <div className="col-md-3">
               <label className="form-label">Municipality</label>
               <select
@@ -315,7 +338,6 @@ export default function AddMember() {
                 ))}
               </select>
             </div>
-
             <div className="col-md-3">
               <label className="form-label">Barangay</label>
               <select
@@ -332,7 +354,6 @@ export default function AddMember() {
                 ))}
               </select>
             </div>
-
             <div className="col-md-3">
               <label className="form-label">House Number</label>
               <input
@@ -355,7 +376,6 @@ export default function AddMember() {
                 disabled
               />
             </div>
-
             <div className="col-md-4">
               <label className="form-label">Date Joined</label>
               <input
@@ -396,7 +416,7 @@ export default function AddMember() {
                 type="text"
                 className="form-control"
                 value={contactNumber}
-                onChange={handleContactNumberChange}
+                onChange={(e) => handleContactNumberChange(e, setContactNumber)}
                 maxLength={13}
                 placeholder="0000 000 0000"
               />
@@ -428,38 +448,72 @@ export default function AddMember() {
             </div>
           </div>
 
-          {/* Conditional Role Options */}
+          {/* Non-Flexible Role Options */}
           {selectedRole === "Non-Flexible" && (
             <div className="role-options mt-3">
-              <label>
-                <input type="checkbox" name="roles" value="CandleBearer" />{" "}
-                Candle Bearer
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="Beller" /> Beller
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="CrossBearer" /> Cross
-                Bearer
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="Thurifer" /> Thurifer
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="IncenseBearer" />{" "}
-                Incense Bearer
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="MainServers" /> Main
-                Servers (Book and Mic)
-              </label>
-              <label>
-                <input type="checkbox" name="roles" value="Plates" /> Plates
-              </label>
+              {(department === "ALTAR SERVER"
+                ? [
+                    { label: "Candle Bearer", value: "CandleBearer" },
+                    { label: "Beller", value: "Beller" },
+                    { label: "Cross Bearer", value: "CrossBearer" },
+                    { label: "Thurifer", value: "Thurifer" },
+                    { label: "Incense Bearer", value: "IncenseBearer" },
+                    {
+                      label: "Main Servers (Book and Mic)",
+                      value: "MainServers",
+                    },
+                    { label: "Plates", value: "Plates" },
+                  ]
+                : [
+                    { label: "Reading", value: "Reading" },
+                    { label: "Preface", value: "Preface" },
+                  ]
+              ).map((role) => (
+                <label key={role.value} style={{ marginRight: "15px" }}>
+                  <input
+                    type="checkbox"
+                    value={role.value}
+                    checked={selectedRolesArray.includes(role.value)}
+                    onChange={(e) => {
+                      let updatedRoles;
+
+                      if (e.target.checked) {
+                        updatedRoles = [...selectedRolesArray, role.value];
+                      } else {
+                        updatedRoles = selectedRolesArray.filter(
+                          (r) => r !== role.value
+                        );
+                      }
+
+                      setSelectedRolesArray(updatedRoles);
+
+                      // 🔹 Check against all roles in this department
+                      const allRoles =
+                        department === "ALTAR SERVER"
+                          ? [
+                              "CandleBearer",
+                              "Beller",
+                              "CrossBearer",
+                              "Thurifer",
+                              "IncenseBearer",
+                              "MainServers",
+                              "Plates",
+                            ]
+                          : ["Reading", "Preface"];
+
+                      if (updatedRoles.length === allRoles.length) {
+                        setSelectedRole("Flexible");
+                      } else {
+                        setSelectedRole("Non-Flexible");
+                      }
+                    }}
+                  />{" "}
+                  {role.label}
+                </label>
+              ))}
             </div>
           )}
 
-          {/* Submit */}
           <button
             type="button"
             className="btn btn-add mt-4"
@@ -469,9 +523,7 @@ export default function AddMember() {
           </button>
         </div>
       </form>
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

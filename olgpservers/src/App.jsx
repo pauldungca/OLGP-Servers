@@ -89,6 +89,7 @@ import MembersList from "./pages/scheduler-pages/members-pages/membersList";
 import AddMember from "./pages/scheduler-pages/members-pages/addMember";
 import SelectDepartment from "./pages/scheduler-pages/members-pages/selectDepartment";
 import ImportMember from "./pages/scheduler-pages/members-pages/importMember";
+import ViewMemberInformation from "./pages/scheduler-pages/members-pages/viewMemberInformation.jsx";
 
 // Group Pages
 import Group from "./pages/scheduler-pages/group";
@@ -252,6 +253,10 @@ function App() {
             <Route path="/addMember" element={<AddMember />} />
             <Route path="/selectDepartment" element={<SelectDepartment />} />
             <Route path="/importMember" element={<ImportMember />} />
+            <Route
+              path="/viewMemberInformation"
+              element={<ViewMemberInformation />}
+            />
 
             {/* Group Pages */}
             <Route path="/group" element={<Group />} />

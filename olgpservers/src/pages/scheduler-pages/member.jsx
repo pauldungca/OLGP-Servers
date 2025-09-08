@@ -64,6 +64,7 @@ export default function Member() {
               department: "Lector Commentator",
               parish:
                 "Manage the members of the Lector Commentator Department.",
+              toPage: "/membersList",
             })}
         </div>
       </div>

@@ -262,13 +262,11 @@
   margin-right: 10px;
 }
 
-/* Action Buttons (Export & Print) */
 .action-buttons {
   display: flex;
   gap: 15px;
-  justify-content: right;
   margin-top: 1rem;
-  position: relative;
+  margin-left: auto;
 }
 
 .action-buttons .btn-blue {
@@ -279,7 +277,8 @@
   border: none;
   cursor: pointer;
   border-radius: 5px;
-  width: 22%;
+  display: inline-flex;
+  width: 50%;
   display: flex;
   align-items: center;
   justify-content: center;

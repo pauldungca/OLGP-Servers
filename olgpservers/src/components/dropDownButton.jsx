@@ -2,20 +2,53 @@ import React, { useState } from "react";
 import { Dropdown, Menu } from "antd";
 import icon from "../helper/icon";
 
-const DropdownButton = () => {
+// Accept export handlers as props
+const DropdownButton = ({ onExportPDF, onExportPNG }) => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
 
   const menu = (
     <Menu className="export-options">
       <Menu.Item key="1" className="menu-item">
-        <a target="_blank" rel="noopener noreferrer" href="/path-to-pdf">
+        <button
+          className="menu-link"
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            margin: 0,
+            color: "inherit",
+            width: "100%",
+            textAlign: "left",
+            cursor: "pointer",
+          }}
+          onClick={() => {
+            setDropdownVisible(false);
+            if (onExportPDF) onExportPDF();
+          }}
+        >
           PDF
-        </a>
+        </button>
       </Menu.Item>
       <Menu.Item key="2" className="menu-item">
-        <a target="_blank" rel="noopener noreferrer" href="/path-to-png">
+        <button
+          className="menu-link"
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            margin: 0,
+            color: "inherit",
+            width: "100%",
+            textAlign: "left",
+            cursor: "pointer",
+          }}
+          onClick={() => {
+            setDropdownVisible(false);
+            if (onExportPNG) onExportPNG();
+          }}
+        >
           PNG
-        </a>
+        </button>
       </Menu.Item>
     </Menu>
   );

@@ -40,6 +40,10 @@ export default function CreateAccoount() {
       ministerScheduler: 0,
       choirScheduler: 0,
       lectorScheduler: 0,
+      altarMember: 0,
+      eucharisticMinister: 0,
+      choirMember: 0,
+      lectorCommentator: 0,
     }
   ) {
     try {
@@ -52,7 +56,11 @@ export default function CreateAccoount() {
             "altar-server-scheduler": roles.altarScheduler,
             "eucharistic-minister-scheduler": roles.ministerScheduler,
             "choir-scheduler": roles.choirScheduler,
-            "lector-commentator": roles.lectorScheduler,
+            "lector-commentator-scheduler": roles.lectorScheduler,
+            "altar-server-member": roles.altarMember,
+            "eucharistic-minister-member": roles.eucharisticMinister,
+            "choir-member": roles.choirMember,
+            "lector-commentator-member": roles.lectorCommentator,
           },
         ])
         .select();
@@ -86,7 +94,11 @@ export default function CreateAccoount() {
           altarScheduler: 0,
           ministerScheduler: 0,
           choirScheduler: 0,
-          lectorScheduler: 1,
+          lectorScheduler: 0,
+          altarMember: 0,
+          eucharisticMinister: 0,
+          choirMember: 0,
+          lectorCommentator: 0,
         }); // for identifying the user, 1 for a role and 0 for not role
         setMessage("Account created!");
         setEmail("");

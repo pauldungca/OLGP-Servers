@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
@@ -7,7 +7,10 @@ import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
 import images from "../../../helper/images";
 
-import { createButtonCard } from "../../../assets/scripts/member";
+import {
+  // createButtonCard,
+  createSelectedDepartmentCard,
+} from "../../../assets/scripts/member";
 
 import "../../../assets/styles/member.css";
 
@@ -16,13 +19,37 @@ export default function SelectDepartment() {
     document.title = "OLGP Servers | Members";
   }, []);
   const navigate = useNavigate();
-  const buttonCard = createButtonCard(images, navigate);
+  //const buttonCard = createButtonCard(images, navigate);
+
+  const location = useLocation();
+  const department = location.state?.department || "Members";
+
+  const SelectedDepartmentCard = createSelectedDepartmentCard(images, navigate);
+
+  const departments = [
+    {
+      department: "Altar Server",
+      parish: "Import a member from the Altar Server Department.",
+    },
+    {
+      department: "Eucharistic Minister",
+      parish: "Import a member from the Eucharistic Minister Department.",
+    },
+    {
+      department: "Choir",
+      parish: "Import a member from the Choir Department.",
+    },
+    {
+      department: "Lector Commentator",
+      parish: "Import a member from the Lector Commentator Department.",
+    },
+  ];
 
   return (
     <div className="member-page-container">
       <div className="member-header">
         <div className="header-text-with-line">
-          <h3>MEMBERS</h3>
+          <h3>MEMBERS - {department.toUpperCase()}</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -35,7 +62,11 @@ export default function SelectDepartment() {
                 },
                 {
                   title: (
-                    <Link to="/membersList" className="breadcrumb-item">
+                    <Link
+                      to="/membersList"
+                      state={{ department }}
+                      className="breadcrumb-item"
+                    >
                       Members
                     </Link>
                   ),
@@ -60,26 +91,18 @@ export default function SelectDepartment() {
       </div>
       <div className="member-content">
         <div className="member-cards-container">
-          {buttonCard({
-            department: "Altar Server",
-            parish: "Import a member from the Altar Server Department.",
-            toPage: "/importMember",
-          })}
-          {buttonCard({
-            department: "Eucharisic Minister",
-            parish: "Import a member from the Eucharisic Minister Department.",
-            toPage: "/importMember",
-          })}
-          {buttonCard({
-            department: "Choir",
-            parish: "Import a member from the Choir Department.",
-            toPage: "/importMember",
-          })}
-          {buttonCard({
-            department: "Lector Commentator",
-            parish: "Import a member from the Lector Commentator Department.",
-            toPage: "/importMember",
-          })}
+          {departments
+            .filter((d) => d.department !== department)
+            .map((d) => (
+              <SelectedDepartmentCard
+                key={d.department}
+                department={d.department}
+                parish={d.parish}
+                toPage="/importMember"
+                selectedDepartment={d.department}
+                originalDepartment={department}
+              />
+            ))}
         </div>
       </div>
       <div>

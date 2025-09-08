@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
+import Swal from "sweetalert2";
 
 import { ImportMemberTable } from "../../../components/table";
+import {
+  importToAltarServerDepartment,
+  importToLectorCommentatorDepartment,
+} from "../../../assets/scripts/importMember";
 
-import { fetchAltarServerMembers } from "../../../assets/scripts/fetchMember";
+import {
+  fetchAltarServerMembersWithRole,
+  fetchLectorCommentatorMembersWithRole,
+} from "../../../assets/scripts/fetchMember";
 
 import "../../../assets/styles/member.css";
 import "../../../assets/styles/importMember.css";
@@ -21,14 +29,31 @@ export default function ImportMember() {
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const location = useLocation();
+  const department = location.state?.department || "Members";
+
+  const selectedDepartment = location.state?.selectedDepartment || "None";
+
+  function showAlert() {
+    alert(selectedDepartment);
+  }
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const membersData = await fetchAltarServerMembers();
+        let membersData = [];
+
+        if (selectedDepartment === "Altar Server") {
+          membersData = await fetchAltarServerMembersWithRole();
+        } else if (selectedDepartment === "Lector Commentator") {
+          membersData = await fetchLectorCommentatorMembersWithRole();
+        } else {
+          membersData = []; // fallback if department not recognized
+        }
+
         setMembers(membersData);
         setFilteredMembers(membersData);
-        setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -37,7 +62,7 @@ export default function ImportMember() {
     };
 
     fetchData();
-  }, []);
+  }, [selectedDepartment]);
 
   const handleSearchChange = (e) => {
     const query = e.target.value;
@@ -48,25 +73,46 @@ export default function ImportMember() {
     } else {
       const filtered = members.filter(
         (member) =>
-          member.firstName.toLowerCase().includes(query.toLowerCase()) ||
-          member.lastName.toLowerCase().includes(query.toLowerCase()) ||
-          member.status.toLowerCase().includes(query.toLowerCase()) ||
-          member.idNumber.toString().includes(query)
+          member.firstName?.toLowerCase().includes(query.toLowerCase()) ||
+          member.lastName?.toLowerCase().includes(query.toLowerCase()) ||
+          member.status?.toLowerCase().includes(query.toLowerCase()) ||
+          member.idNumber?.toString().includes(query)
       );
       setFilteredMembers(filtered);
     }
   };
 
-  const handleViewDetails = (record) => {
-    console.log("View details for:", record);
-    alert(record.idNumber);
+  const handleViewDetails = async (record) => {
+    const fullName = `${record.firstName} ${record.lastName}`;
+
+    const result = await Swal.fire({
+      icon: "question",
+      title: "Confirm Import",
+      text: `Are you sure you want to import ${fullName} to the ${
+        selectedDepartment === "Altar Server"
+          ? "Lector Commentator"
+          : "Altar Server"
+      } department?`,
+      showCancelButton: true,
+      confirmButtonText: "Yes, Import",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+
+    if (result.isConfirmed) {
+      if (selectedDepartment === "Altar Server") {
+        await importToLectorCommentatorDepartment(record.idNumber);
+      } else if (selectedDepartment === "Lector Commentator") {
+        await importToAltarServerDepartment(record.idNumber);
+      }
+    }
   };
 
   return (
     <div className="member-page-container">
       <div className="member-header">
         <div className="header-text-with-line">
-          <h3>MEMBERS</h3>
+          <h3>MEMBERS - {department.toUpperCase()}</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -79,14 +125,22 @@ export default function ImportMember() {
                 },
                 {
                   title: (
-                    <Link to="/membersList" className="breadcrumb-item">
+                    <Link
+                      to="/membersList"
+                      state={{ department }}
+                      className="breadcrumb-item"
+                    >
                       Members
                     </Link>
                   ),
                 },
                 {
                   title: (
-                    <Link to="/selectDepartment" className="breadcrumb-item">
+                    <Link
+                      to="/selectDepartment"
+                      state={{ department }}
+                      className="breadcrumb-item"
+                    >
                       Select Department
                     </Link>
                   ),
@@ -112,6 +166,8 @@ export default function ImportMember() {
 
       <div className="member-content">
         <div className="search-bar-container">
+          <button onClick={showAlert}>Show Selected Department</button>
+
           <input
             type="text"
             className="form-control"

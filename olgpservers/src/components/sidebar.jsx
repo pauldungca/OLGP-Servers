@@ -82,6 +82,7 @@ export function Sidebar({ collapsed, mobileOpen }) {
       path.startsWith("membersList") ||
       path.startsWith("addMember") ||
       path.startsWith("importMember") ||
+      path.startsWith("viewMemberInformation") ||
       path.startsWith("selectDepartment")
     ) {
       setActivePage("members");

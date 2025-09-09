@@ -324,8 +324,8 @@ export const insertMemberImage = async (idNumber, imageUrl) => {
   try {
     const { data, error } = await supabase.from("members-information").insert([
       {
-        idNumber: idNumber, // match your table column name
-        imageUrl: imageUrl || null, // optional
+        idNumber: idNumber, 
+        imageUrl: imageUrl || null, 
       },
     ]);
 

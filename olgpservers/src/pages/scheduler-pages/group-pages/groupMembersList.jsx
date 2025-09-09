@@ -1,88 +1,96 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Breadcrumb } from "antd";
 import Footer from "../../../components/footer";
 import icon from "../../../helper/icon";
-import { CustomTable } from "../../../components/table";
+import { GroupTable } from "../../../components/table";
 import DropDownButton from "../../../components/dropDownButton";
-import {
-  fetchAltarServerMembersWithRole,
-  fetchLectorCommentatorMembersWithRole,
-  exportTableAsPNG,
-  exportTableAsPDF,
-  printMemberList,
-} from "../../../assets/scripts/fetchMember";
+
 import {
   navigationAddMember,
   navigationSelectDepartment,
   handleViewInformation,
-  handleSearchChange,
-} from "../../../assets/scripts/member";
+} from "../../../assets/scripts/group";
 
 import "../../../assets/styles/member.css";
 
-export default function MembersList() {
-  useEffect(() => {
-    document.title = "OLGP Servers | Members";
-  }, []);
+export default function GroupMembersList() {
   const [members, setMembers] = useState([]);
-  const [filteredMembers, setFilteredMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-
   const navigate = useNavigate();
+
   const location = useLocation();
   const department = location.state?.department || "Members";
 
-  // Fetch members once
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        let result = [];
-        if (department === "Altar Server") {
-          result = await fetchAltarServerMembersWithRole();
-        } else if (department === "Lector Commentator") {
-          result = await fetchLectorCommentatorMembersWithRole();
-        }
-        setMembers(result);
-        setFilteredMembers(result);
-      } catch (err) {
-        console.error("Error fetching members:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    document.title = "OLGP Servers | Group";
 
-    fetchData();
-  }, [department]);
+    // Static dummy members
+    const dummyMembers = [
+      {
+        idNumber: "200890522",
+        firstName: "John",
+        middleName: "P",
+        lastName: "Dungca",
+        group: "Group 1", // <--- this is needed
+      },
+      {
+        idNumber: "200890523",
+        firstName: "Jane",
+        middleName: "A",
+        lastName: "Doe",
+        group: "Group 2",
+      },
+      {
+        idNumber: "200890524",
+        firstName: "Mark",
+        middleName: "",
+        lastName: "Smith",
+        group: "Group 1",
+      },
+    ];
 
-  const formatFullName = (member) => {
+    setMembers(dummyMembers);
+    setLoading(false);
+  }, []);
+
+  /*const formatFullName = (member) => {
     const middleInitial = member.middleName
       ? ` ${member.middleName.charAt(0).toUpperCase()}.`
       : "";
     return `${member.firstName}${middleInitial} ${member.lastName}`.trim();
-  };
+  };*/
 
-  const getExportData = () => {
+  /*const getExportData = () => {
     return members.map((member) => ({
       idNumber: member.idNumber,
       name: formatFullName(member),
     }));
-  };
+  };*/
 
   return (
-    <div className="member-page-container">
-      <div className="member-header">
+    <div className="group-page-container">
+      <div className="group-header">
         <div className="header-text-with-line">
-          <h3>MEMBERS - {department.toUpperCase()}</h3>
+          <h3>GROUP - {department.toUpperCase()}</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
                 {
                   title: (
-                    <Link to="/members" className="breadcrumb-item">
+                    <Link to="/group" className="breadcrumb-item">
                       Department
+                    </Link>
+                  ),
+                },
+                {
+                  title: (
+                    <Link
+                      to="/selectGroup"
+                      className="breadcrumb-item"
+                      state={{ department }}
+                    >
+                      Select Group
                     </Link>
                   ),
                 },
@@ -105,16 +113,14 @@ export default function MembersList() {
         </div>
       </div>
 
-      <div className="member-content">
+      <div className="group-content">
         <div className="search-bar-container">
           <input
             type="text"
             className="form-control"
             placeholder="Search Members"
-            value={searchQuery}
-            onChange={(e) =>
-              handleSearchChange(e, members, setSearchQuery, setFilteredMembers)
-            }
+            value="" // static, no functionality
+            readOnly
           />
           <button
             className="btn btn-blue"
@@ -137,8 +143,8 @@ export default function MembersList() {
         </div>
 
         <div className="table-container">
-          <CustomTable
-            data={filteredMembers}
+          <GroupTable
+            data={members}
             loading={loading}
             onViewDetails={(member) =>
               handleViewInformation(navigate, member, department)()
@@ -148,22 +154,17 @@ export default function MembersList() {
 
         <div className="action-buttons">
           <DropDownButton
-            onExportPNG={() => exportTableAsPNG(getExportData())}
-            onExportPDF={() => exportTableAsPDF(getExportData())}
+            onExportPNG={() => {}} // no functionality
+            onExportPDF={() => {}} // no functionality
           />
-          <button
-            className="btn btn-blue flex items-center gap-2"
-            onClick={() => printMemberList(getExportData())}
-          >
+          <button className="btn btn-blue flex items-center gap-2">
             <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
             Print Members List
           </button>
         </div>
       </div>
 
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

@@ -94,6 +94,11 @@ import ViewMemberInformation from "./pages/scheduler-pages/members-pages/viewMem
 // Group Pages
 import Group from "./pages/scheduler-pages/group";
 import SelectGroup from "./pages/scheduler-pages/group-pages/selectGroup";
+import GroupMembersList from "./pages/scheduler-pages/group-pages/groupMembersList.jsx";
+import GroupAddMember from "./pages/scheduler-pages/group-pages/groupAddMember.jsx";
+import GroupSelectDepartment from "./pages/scheduler-pages/group-pages/groupSelectDepartment.jsx";
+import GroupImportMember from "./pages/scheduler-pages/group-pages/groupImportMember.jsx";
+import GroupViewMemberInformation from "./pages/scheduler-pages/group-pages/groupViewMemberInformation.jsx";
 
 // Department Settings Pages
 import SelectMember from "./pages/scheduler-pages/department-settings-pages/selectMember";
@@ -258,9 +263,20 @@ function App() {
               element={<ViewMemberInformation />}
             />
 
-            {/* Group Pages */}
+            {/* Group Pages GroupViewMemberInformation */}
             <Route path="/group" element={<Group />} />
             <Route path="/selectGroup" element={<SelectGroup />} />
+            <Route path="/groupMembersList" element={<GroupMembersList />} />
+            <Route path="/groupAddMember" element={<GroupAddMember />} />
+            <Route
+              path="/groupSelectDepartment"
+              element={<GroupSelectDepartment />}
+            />
+            <Route path="/groupImportMember" element={<GroupImportMember />} />
+            <Route
+              path="/groupViewMemberInformation"
+              element={<GroupViewMemberInformation />}
+            />
 
             {/* Department Settings Pages */}
             <Route path="/selectMember" element={<SelectMember />} />

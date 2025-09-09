@@ -53,8 +53,8 @@
 }
 
 /* View Group Button */
-.btn-view-group {
-  background: #0a2471;
+.btn-view-group,
+.delete-btn {
   color: white;
   border: none;
   padding: 8px 16px;
@@ -66,6 +66,18 @@
 
 .btn-view-group:hover {
   background: #0a2471e0;
+}
+
+.btn-view-group {
+  background: #0a2471;
+}
+
+.delete-btn {
+  background: #ff5252;
+}
+
+.delete-btn:hover {
+  background: #de4747;
 }
 
 /* Add Group Section */
@@ -106,6 +118,19 @@
   margin: 0;
   font-weight: 500;
   font-size: 1rem; /* Smaller font size */
+}
+
+.group-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.group-actions .btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .add-group-card:hover {

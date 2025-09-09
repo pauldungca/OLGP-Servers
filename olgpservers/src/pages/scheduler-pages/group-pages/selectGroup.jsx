@@ -1,35 +1,62 @@
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { Breadcrumb } from "antd";
 import icon from "../../../helper/icon";
+import images from "../../../helper/images";
+import Footer from "../../../components/footer";
 
 import "../../../assets/styles/group.css";
 import "../../../assets/styles/selectGroup.css";
 
-import images from "../../../helper/images";
-import Footer from "../../../components/footer";
+import {
+  fetchEucharisticMinisterGroups,
+  addEucharisticMinisterGroup,
+  deleteEucharisticMinisterGroup,
+} from "../../../assets/scripts/group";
 
 export default function SelectGroup() {
+  const [groups, setGroups] = useState([]);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const department = location.state?.department || "Members";
+
   useEffect(() => {
     document.title = "OLGP Servers | Groups";
-  }, []);
-  const navigate = useNavigate();
-  const groups = ["GROUP 1", "GROUP 2", "GROUP 3"];
 
-  const handleViewGroup = (groupName) => {
-    navigate("/membersList");
+    const loadGroups = async () => {
+      const data = await fetchEucharisticMinisterGroups();
+      setGroups(data);
+    };
+
+    loadGroups();
+  }, []);
+
+  const handleViewGroup = (groupName, departmentName) => {
+    navigate("/groupMembersList", {
+      state: { group: groupName, department: departmentName },
+    });
   };
 
-  const handleAddGroup = () => {
-    alert("Add Group clicked");
+  const handleAddGroup = async () => {
+    const newGroup = await addEucharisticMinisterGroup();
+    if (newGroup) {
+      setGroups((prev) => [...prev, newGroup]);
+    }
+  };
+
+  const handleDeleteGroup = async (group) => {
+    const deleted = await deleteEucharisticMinisterGroup(group.id, group.name);
+    if (deleted) {
+      setGroups((prev) => prev.filter((g) => g.id !== group.id));
+    }
   };
 
   return (
     <div className="group-page-container">
       <div className="group-header">
         <div className="header-text-with-line">
-          <h3>GROUP</h3>
+          <h3>GROUP - {department.toUpperCase()}</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -64,22 +91,30 @@ export default function SelectGroup() {
       <div className="group-content">
         <h4 className="available-groups-heading">Available Groups</h4>
         <div className="group-cards-container">
-          {groups.map((group, index) => (
-            <div key={index} className="group-card">
+          {groups.map((group) => (
+            <div key={group.id} className="group-card">
               <div className="group-title-container">
                 <img
                   src={images.viewGroupImage}
                   alt="Group icon"
                   className="group-icon"
                 />
-                <h4 className="group-title">{group}</h4>
+                <h4 className="group-title">{group.name}</h4>
               </div>
-              <button
-                className="btn-view-group"
-                onClick={() => handleViewGroup(group)}
-              >
-                VIEW GROUP
-              </button>
+              <div className="group-actions d-flex gap-2">
+                <button
+                  className="btn-view-group"
+                  onClick={() => handleViewGroup(group.name, department)}
+                >
+                  VIEW GROUP
+                </button>
+                <button
+                  className="delete-btn"
+                  onClick={() => handleDeleteGroup(group)}
+                >
+                  DELETE GROUP
+                </button>
+              </div>
             </div>
           ))}
           <div className="add-group-section">

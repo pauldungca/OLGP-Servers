@@ -14,6 +14,8 @@ import {
 import {
   fetchAltarServerMembersWithRole,
   fetchLectorCommentatorMembersWithRole,
+  fetchEucharisticMinisterMembers,
+  fetchChoirMembers,
 } from "../../../assets/scripts/fetchMember";
 
 import "../../../assets/styles/member.css";
@@ -42,20 +44,37 @@ export default function ImportMember() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        let membersData = [];
 
-        if (selectedDepartment === "Altar Server") {
-          membersData = await fetchAltarServerMembersWithRole();
-        } else if (selectedDepartment === "Lector Commentator") {
-          membersData = await fetchLectorCommentatorMembersWithRole();
-        } else {
-          membersData = []; // fallback if department not recognized
+        let data = [];
+        switch (selectedDepartment) {
+          case "Altar Server":
+            data = await fetchAltarServerMembersWithRole();
+            break;
+          case "Lector Commentator":
+            data = await fetchLectorCommentatorMembersWithRole();
+            break;
+          case "Eucharistic Minister":
+            data = await fetchEucharisticMinisterMembers();
+            break;
+          case "Choir":
+            data = await fetchChoirMembers();
+            break;
+          default:
+            await Swal.fire(
+              "Unsupported",
+              `Importing from "${selectedDepartment}" isn't wired yet.`,
+              "info"
+            );
+            data = [];
         }
 
-        setMembers(membersData);
-        setFilteredMembers(membersData);
+        setMembers(data);
+        setFilteredMembers(data);
       } catch (error) {
         console.error("Error fetching data:", error);
+        await Swal.fire("Error", "Failed to load members to import.", "error");
+        setMembers([]);
+        setFilteredMembers([]);
       } finally {
         setLoading(false);
       }

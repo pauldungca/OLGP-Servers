@@ -24,6 +24,7 @@ export const createSelectedDepartmentCard = (images, navigate) => {
     toPage,
     selectedDepartment,
     originalDepartment,
+    group,
   }) {
     return (
       <button
@@ -34,6 +35,7 @@ export const createSelectedDepartmentCard = (images, navigate) => {
               department: originalDepartment,
               selectedDepartment,
               parish,
+              group,
             },
           })
         }

@@ -20,6 +20,7 @@ import {
   addMemberAuthentication,
   defineUserType,
   saveEucharisticMinisterGroup,
+  saveChoirMemberGroup,
 } from "../../../assets/scripts/addMember";
 
 import "../../../assets/styles/member.css";
@@ -151,9 +152,12 @@ export default function GroupAddMember() {
     await addMemberAuthentication(idNumber, "olgp2025-2026", email);
     await defineUserType(idNumber, department);
 
-    // Save group only when relevant (this page is for group flows)
-    // Table: eucharistic-minister-group (columns: id (serial), idNumber, group-name)
-    await saveEucharisticMinisterGroup(idNumber, group || "Group 1");
+    // ✅ Save group depending on department
+    if (department === "Eucharistic Minister") {
+      await saveEucharisticMinisterGroup(idNumber, group || "Group 1");
+    } else if (department === "Choir") {
+      await saveChoirMemberGroup(idNumber, group || "Group 1");
+    }
 
     // Reset UI
     setFirstName("");
@@ -171,7 +175,6 @@ export default function GroupAddMember() {
     setFileAttached(false);
     setIdNumber(generateUserID());
   };
-
   return (
     <div className="member-page-container">
       <div className="member-header">

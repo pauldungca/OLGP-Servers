@@ -150,7 +150,7 @@ const renderMemberPage = async (
 
 export const exportTableAsPNG = async (members, department = "Members") => {
   if (!members || members.length === 0) {
-    alert("No members to export.");
+    await Swal.fire("Error", "No members to export.", "error");
     return;
   }
 
@@ -245,7 +245,7 @@ export const exportTableAsPNG = async (members, department = "Members") => {
 
 export const exportTableAsPDF = async (members, department = "Members") => {
   if (!members || members.length === 0) {
-    alert("No members to export.");
+    await Swal.fire("Error", "No members to export.", "error");
     return;
   }
 
@@ -282,7 +282,7 @@ export const exportTableAsPDF = async (members, department = "Members") => {
 export const printMemberList = async (members, department = "Members") => {
   try {
     if (!members || members.length === 0) {
-      Swal.fire("Error", "No members data available to print.", "error");
+      await Swal.fire("Error", "No members to print.", "error");
       return;
     }
 
@@ -335,7 +335,6 @@ export const printMemberList = async (members, department = "Members") => {
   }
 };
 
-// Convert renderMemberPage design to HTML format
 const renderMemberPageHTML = async (
   pageMembers,
   pageNumber,
@@ -675,7 +674,6 @@ export const fetchLectorCommentatorMembersWithRole = async () => {
   }
 };
 
-// --- Eucharistic Minister: fetch members + their group (optionally filter by groupName)
 export const fetchEucharisticMinisterWithGroup = async (groupName) => {
   try {
     // 1) Get idNumbers that belong to this group (from eucharistic-minister-group)
@@ -720,6 +718,115 @@ export const fetchEucharisticMinisterWithGroup = async (groupName) => {
       title: "Error",
       text: "Failed to fetch group members: " + err.message,
     });
+    return [];
+  }
+};
+
+export const fetchChoirWithGroup = async (groupName) => {
+  try {
+    // 1) Get idNumbers that belong to this choir group
+    const { data: groupRows, error: groupErr } = await supabase
+      .from("choir-member-group")
+      .select('idNumber, "choir-group-name"')
+      .eq("choir-group-name", groupName);
+
+    if (groupErr) throw groupErr;
+
+    const idNumbers = (groupRows || []).map((r) => r.idNumber);
+
+    if (idNumbers.length === 0) {
+      Swal.fire({
+        icon: "info",
+        title: "No Members in Group",
+        text: `No Choir members found for ${groupName}.`,
+      });
+      return [];
+    }
+
+    // 2) Fetch members-information for those idNumbers
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", idNumbers)
+      .order("dateJoined", { ascending: false });
+
+    if (memErr) throw memErr;
+
+    // 3) Attach the group name for GroupTable display
+    const membersWithGroup = members.map((m) => ({
+      ...m,
+      group: groupName,
+    }));
+
+    return membersWithGroup;
+  } catch (err) {
+    console.error("fetchChoirWithGroup error:", err);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Failed to fetch choir group members: " + err.message,
+    });
+    return [];
+  }
+};
+
+// Get ALL Eucharistic Ministers (no group filter)
+export const fetchEucharisticMinisterMembers = async () => {
+  try {
+    const { data: userTypes, error: utErr } = await supabase
+      .from("user-type")
+      .select("idNumber")
+      .eq('"eucharistic-minister-member"', 1);
+    if (utErr) throw utErr;
+
+    const ids = (userTypes || []).map((u) => u.idNumber);
+    if (ids.length === 0) {
+      await Swal.fire("Info", "No Eucharistic Minister members found.", "info");
+      return [];
+    }
+
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", ids)
+      .order("dateJoined", { ascending: false });
+    if (memErr) throw memErr;
+
+    // Align to ImportMemberTable shape (role is optional)
+    return members.map((m) => ({ ...m, role: "-" }));
+  } catch (err) {
+    console.error("fetchEucharisticMinisterMembers error:", err);
+    await Swal.fire("Error", "Failed to fetch EM members.", "error");
+    return [];
+  }
+};
+
+// Get ALL Choir members (no group filter)
+export const fetchChoirMembers = async () => {
+  try {
+    const { data: userTypes, error: utErr } = await supabase
+      .from("user-type")
+      .select("idNumber")
+      .eq('"choir-member"', 1);
+    if (utErr) throw utErr;
+
+    const ids = (userTypes || []).map((u) => u.idNumber);
+    if (ids.length === 0) {
+      await Swal.fire("Info", "No Choir members found.", "info");
+      return [];
+    }
+
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", ids)
+      .order("dateJoined", { ascending: false });
+    if (memErr) throw memErr;
+
+    return members.map((m) => ({ ...m, role: "-" }));
+  } catch (err) {
+    console.error("fetchChoirMembers error:", err);
+    await Swal.fire("Error", "Failed to fetch Choir members.", "error");
     return [];
   }
 };

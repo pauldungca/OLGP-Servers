@@ -12,12 +12,12 @@ import "../../../assets/styles/member.css";
 
 export default function GroupSelectDepartment() {
   useEffect(() => {
-    document.title = "OLGP Servers | Group Members";
+    document.title = "OLGP Servers | Group";
   }, []);
 
   const navigate = useNavigate();
   const location = useLocation();
-  const department = location.state?.department || "Group Members";
+  const { department, group } = location.state || {};
 
   const SelectedDepartmentCard = createSelectedDepartmentCard(images, navigate);
 
@@ -44,7 +44,9 @@ export default function GroupSelectDepartment() {
     <div className="member-page-container">
       <div className="member-header">
         <div className="header-text-with-line">
-          <h3>GROUP - {department.toUpperCase()}</h3>
+          <h3>
+            GROUP - {department?.toUpperCase()} - {group?.toUpperCase()}
+          </h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -70,7 +72,7 @@ export default function GroupSelectDepartment() {
                   title: (
                     <Link
                       to="/groupMembersList"
-                      state={{ department }}
+                      state={{ department, group }}
                       className="breadcrumb-item"
                     >
                       Members
@@ -108,6 +110,7 @@ export default function GroupSelectDepartment() {
                 toPage="/groupImportMember"
                 selectedDepartment={d.department}
                 originalDepartment={department}
+                group={group}
               />
             ))}
         </div>

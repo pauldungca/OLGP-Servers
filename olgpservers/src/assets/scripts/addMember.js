@@ -279,7 +279,6 @@ export const saveLectorCommentatorRoles = async (
   return true;
 };
 
-// Save a member's group for the Eucharistic Minister department
 export const saveEucharisticMinisterGroup = async (idNumber, groupName) => {
   try {
     const { data, error } = await supabase
@@ -301,6 +300,32 @@ export const saveEucharisticMinisterGroup = async (idNumber, groupName) => {
       icon: "error",
       title: "Error",
       text: "Saving group failed: " + err.message,
+    });
+    throw err;
+  }
+};
+
+export const saveChoirMemberGroup = async (idNumber, groupName) => {
+  try {
+    const { data, error } = await supabase
+      .from("choir-member-group")
+      .insert([
+        {
+          idNumber: idNumber,
+          "choir-group-name": groupName, // must match the column name exactly
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error("Failed to save Choir member group:", err);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Saving Choir group failed: " + err.message,
     });
     throw err;
   }

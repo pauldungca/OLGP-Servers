@@ -15,12 +15,18 @@ import {
   formatContactNumber,
   fetchMemberData,
   editEucharisticMinisterGroup,
+  editChoirMemberGroup,
   editMemberInfo,
   ensureValidGroupSelection,
   removeEucharisticMinister,
+  removeChoirMember,
+  confirmCancelEdit,
 } from "../../../assets/scripts/viewMember";
 
-import { fetchEucharisticMinisterGroups } from "../../../assets/scripts/group";
+import {
+  fetchEucharisticMinisterGroups,
+  fetchChoirGroups,
+} from "../../../assets/scripts/group";
 
 import "../../../assets/styles/member.css";
 import "../../../assets/styles/viewMemberInformation.css";
@@ -33,11 +39,12 @@ export default function GroupViewMemberInformation() {
   const location = useLocation();
   const { department, group } = location.state || {};
   const idNumber = location.state?.idNumber;
-  const navigate = new useNavigate();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Member info
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -48,21 +55,25 @@ export default function GroupViewMemberInformation() {
   const [address, setAddress] = useState("");
   const [imageUrl, setImageUrl] = useState(null);
 
+  // Group drop-down
   const [groupNumber, setGroupNumber] = useState(group || "");
   const [emGroups, setEmGroups] = useState([]);
+  const [choirGroups, setChoirGroups] = useState([]);
 
+  // Address edit states
   const [editMode, setEditMode] = useState(false);
   const [addressDirty, setAddressDirty] = useState(false);
-
   const [houseNumber, setHouseNumber] = useState("");
   const [province, setProvince] = useState("");
   const [municipality, setMunicipality] = useState("");
   const [barangay, setBarangay] = useState("");
 
+  // PSGC lists
   const [provinces, setProvinces] = useState([]);
   const [municipalities, setMunicipalities] = useState([]);
   const [barangays, setBarangays] = useState([]);
 
+  // Fetch member data
   useEffect(() => {
     let mounted = true;
 
@@ -74,13 +85,11 @@ export default function GroupViewMemberInformation() {
 
       try {
         const { info, groupName } = await fetchMemberData(idNumber, department);
-
         if (!mounted || !info) {
           setLoading(false);
           return;
         }
 
-        // Basic info
         setFirstName(info.firstName || "");
         setMiddleName(info.middleName || "");
         setLastName(info.lastName || "");
@@ -91,16 +100,14 @@ export default function GroupViewMemberInformation() {
         setAddress(info.address || "");
         setImageUrl(info.imageUrl || null);
 
-        // Address codes (if stored)
         setProvince(info.province || "");
         setMunicipality(info.municipality || "");
         setBarangay(info.barangay || "");
         setHouseNumber(info.houseNumber || "");
 
-        // EM group name
         setGroupNumber(groupName || group || "");
       } catch (e) {
-        console.error("Failed to fetch EM member:", e);
+        console.error("Failed to fetch group member:", e);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -112,36 +119,11 @@ export default function GroupViewMemberInformation() {
     };
   }, [idNumber, department, group]);
 
-  // Load list of EM groups on mount and when department is EM
+  // Load EM groups
   useEffect(() => {
     let mounted = true;
-
-    const loadGroups = async () => {
-      if (department !== "Eucharistic Minister") return;
-      try {
-        const groups = await fetchEucharisticMinisterGroups();
-        if (!mounted) return;
-
-        const list = Array.isArray(groups) ? groups : [];
-        setEmGroups(list);
-
-        setGroupNumber((prev) => ensureValidGroupSelection(list, prev));
-      } catch (e) {
-        console.error("Failed to load EM groups:", e);
-        if (mounted) setEmGroups([]);
-      }
-    };
-
-    loadGroups();
-    return () => {
-      mounted = false;
-    };
-  }, [department]);
-
-  useEffect(() => {
-    let mounted = true;
-    const maybeReloadGroups = async () => {
-      if (editMode && department === "Eucharistic Minister") {
+    const loadEmGroups = async () => {
+      if (department === "Eucharistic Minister") {
         try {
           const groups = await fetchEucharisticMinisterGroups();
           if (!mounted) return;
@@ -149,17 +131,52 @@ export default function GroupViewMemberInformation() {
           setEmGroups(list);
           setGroupNumber((prev) => ensureValidGroupSelection(list, prev));
         } catch (e) {
-          console.error("Failed to reload EM groups:", e);
+          console.error("Failed to load EM groups:", e);
           if (mounted) setEmGroups([]);
         }
       }
     };
-    maybeReloadGroups();
+    loadEmGroups();
     return () => {
       mounted = false;
     };
-  }, [editMode, department]);
+  }, [department]);
 
+  // Load Choir groups
+  useEffect(() => {
+    let mounted = true;
+    const loadChoirGroups = async () => {
+      if (department === "Choir") {
+        try {
+          const groups = await fetchChoirGroups();
+          if (!mounted) return;
+          const list = Array.isArray(groups) ? groups : [];
+          setChoirGroups(list);
+
+          // Ensure groupNumber stores an abbreviation
+          setGroupNumber((prev) => {
+            const abbrs = list.map((g) => g.abbreviation);
+            if (abbrs.includes(prev)) return prev; // already an abbreviation
+
+            // If prev is a full name, map it to its abbreviation
+            const match = list.find((g) => g.name === prev);
+            if (match) return match.abbreviation;
+
+            // Otherwise default to the first abbreviation (or empty)
+            return abbrs[0] || "";
+          });
+        } catch (e) {
+          console.error("Failed to load Choir groups:", e);
+          if (mounted) setChoirGroups([]);
+        }
+      }
+    };
+    loadChoirGroups();
+    return () => {
+      mounted = false;
+    };
+  }, [department]);
+  // Address recompute
   useEffect(() => {
     if (!addressDirty) return;
 
@@ -184,7 +201,7 @@ export default function GroupViewMemberInformation() {
     addressDirty,
   ]);
 
-  // Load provinces only when entering edit mode
+  // PSGC loads
   useEffect(() => {
     if (editMode) {
       fetchProvinces()
@@ -193,7 +210,6 @@ export default function GroupViewMemberInformation() {
     }
   }, [editMode]);
 
-  // Load municipalities when province changes
   useEffect(() => {
     if (province) {
       fetchMunicipalities(province)
@@ -207,7 +223,6 @@ export default function GroupViewMemberInformation() {
     }
   }, [province]);
 
-  // Load barangays when municipality changes
   useEffect(() => {
     if (municipality) {
       fetchBarangays(municipality)
@@ -235,12 +250,11 @@ export default function GroupViewMemberInformation() {
     try {
       setSaving(true);
 
-      // normalize phone: digits only up to 11
       const normalizedContact = String(contactNumber || "")
         .replace(/\D/g, "")
         .slice(0, 11);
 
-      // 1) save basic member info
+      // 1) Basic info
       const infoOk = await editMemberInfo(
         idNumber,
         firstName,
@@ -252,7 +266,7 @@ export default function GroupViewMemberInformation() {
         normalizedContact
       );
 
-      // 2) save EM group mapping (upsert) — validate group is from DB
+      // 2) Group mapping
       let groupOk = true;
       if (department === "Eucharistic Minister") {
         const validNames = emGroups.map((g) => g.name);
@@ -265,8 +279,20 @@ export default function GroupViewMemberInformation() {
           setSaving(false);
           return;
         }
-
         groupOk = await editEucharisticMinisterGroup(idNumber, groupNumber);
+      } else if (department === "Choir") {
+        const validAbbrs = choirGroups.map((g) => g.abbreviation);
+        if (!groupNumber || !validAbbrs.includes(groupNumber)) {
+          await Swal.fire({
+            icon: "error",
+            title: "Invalid Group",
+            text: "Please select a valid group from the list.",
+          });
+          setSaving(false);
+          return;
+        }
+        // groupNumber is an abbreviation now
+        groupOk = await editChoirMemberGroup(idNumber, groupNumber);
       }
 
       if (infoOk && groupOk) {
@@ -294,11 +320,6 @@ export default function GroupViewMemberInformation() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleCancel = () => {
-    setEditMode(false);
-    setAddressDirty(false);
   };
 
   if (loading) {
@@ -558,12 +579,10 @@ export default function GroupViewMemberInformation() {
             </div>
           </div>
 
-          {/* Row 5 (Group Number + User ID) */}
+          {/* Row 5 — Group Number + User ID */}
           <div className="row mb-3">
             <div className="col-md-6">
               <label className="form-label">Group Number</label>
-
-              {/* Dropdown for EM groups (stores group name in state) */}
               {department === "Eucharistic Minister" ? (
                 <select
                   className="form-control"
@@ -581,8 +600,24 @@ export default function GroupViewMemberInformation() {
                     </option>
                   ))}
                 </select>
+              ) : department === "Choir" ? (
+                <select
+                  className="form-control"
+                  value={groupNumber || ""}
+                  onChange={(e) => setGroupNumber(e.target.value)}
+                  disabled={!editMode}
+                  required
+                >
+                  <option value="" disabled>
+                    — Select Group —
+                  </option>
+                  {choirGroups.map((g) => (
+                    <option key={g.id} value={g.abbreviation}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
               ) : (
-                // Fallback to read-only input for other departments
                 <input
                   type="text"
                   className="form-control"
@@ -591,7 +626,6 @@ export default function GroupViewMemberInformation() {
                 />
               )}
             </div>
-
             <div className="col-md-6">
               <label className="form-label">User ID</label>
               <input
@@ -610,7 +644,13 @@ export default function GroupViewMemberInformation() {
                 <button
                   type="button"
                   className="btn btn-danger flex-fill"
-                  onClick={handleCancel}
+                  onClick={async () => {
+                    const confirmed = await confirmCancelEdit();
+                    if (confirmed) {
+                      setEditMode(false);
+                      setAddressDirty(false); // reset
+                    }
+                  }}
                   disabled={saving}
                 >
                   Cancel Edit
@@ -632,6 +672,14 @@ export default function GroupViewMemberInformation() {
                   onClick={() => {
                     if (department === "Eucharistic Minister") {
                       removeEucharisticMinister(
+                        idNumber,
+                        setLoading,
+                        navigate,
+                        department,
+                        group
+                      );
+                    } else if (department === "Choir") {
+                      removeChoirMember(
                         idNumber,
                         setLoading,
                         navigate,

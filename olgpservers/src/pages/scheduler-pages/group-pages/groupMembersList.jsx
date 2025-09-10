@@ -14,14 +14,13 @@ import {
 
 import {
   fetchEucharisticMinisterWithGroup,
+  fetchChoirWithGroup,
   exportTableAsPNG,
   exportTableAsPDF,
   printMemberList,
 } from "../../../assets/scripts/fetchMember";
 
-import {
-  handleSearchChange, // ✅ for the search bar
-} from "../../../assets/scripts/member";
+import { handleSearchChange } from "../../../assets/scripts/member";
 
 import "../../../assets/styles/member.css";
 
@@ -41,9 +40,15 @@ export default function GroupMembersList() {
     const load = async () => {
       setLoading(true);
       try {
-        const rows = await fetchEucharisticMinisterWithGroup(group);
+        let rows = [];
+        if (department === "Eucharistic Minister") {
+          rows = await fetchEucharisticMinisterWithGroup(group);
+        } else if (department === "Choir") {
+          rows = await fetchChoirWithGroup(group);
+        }
+
         setMembers(rows);
-        setFilteredMembers(rows); 
+        setFilteredMembers(rows);
       } catch (e) {
         console.error("Error fetching group members:", e);
         setMembers([]);
@@ -54,8 +59,7 @@ export default function GroupMembersList() {
     };
 
     if (group) load();
-  }, [group]);
-
+  }, [group, department]);
   const formatFullName = (member) => {
     const middleInitial = member.middleName
       ? ` ${member.middleName.charAt(0).toUpperCase()}.`
@@ -136,7 +140,10 @@ export default function GroupMembersList() {
           </button>
           <button
             className="btn btn-blue"
-            onClick={navigationSelectDepartment(navigate, { department })}
+            onClick={navigationSelectDepartment(navigate, {
+              department,
+              group,
+            })}
           >
             <img
               src={icon.importUserIcons}
@@ -149,10 +156,15 @@ export default function GroupMembersList() {
 
         <div className="table-container">
           <GroupTable
-            data={filteredMembers} 
+            data={filteredMembers}
             loading={loading}
             onViewDetails={(member) =>
-              handleViewInformationWithGroup(navigate, member, department, group)()
+              handleViewInformationWithGroup(
+                navigate,
+                member,
+                department,
+                group
+              )()
             }
           />
         </div>

@@ -32,9 +32,9 @@ export default function SelectGroup() {
     loadGroups();
   }, []);
 
-  const handleViewGroup = (groupName, departmentName) => {
+  const handleViewGroup = (groupName, department) => {
     navigate("/groupMembersList", {
-      state: { group: groupName, department: departmentName },
+      state: { group: groupName, department },
     });
   };
 

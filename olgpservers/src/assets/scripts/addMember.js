@@ -2,14 +2,24 @@ import Swal from "sweetalert2";
 import { supabase } from "../../utils/supabase";
 import bcrypt from "bcryptjs";
 
-// Generate a user ID
+import {
+  fetchProvinces,
+  fetchMunicipalities,
+  fetchBarangays,
+} from "../../utils/axios";
+
+export const getProvinces = () => fetchProvinces();
+export const getMunicipalities = (provinceCode) =>
+  fetchMunicipalities(provinceCode);
+export const getBarangays = (municipalityCode) =>
+  fetchBarangays(municipalityCode);
+
 export const generateUserID = () => {
   const prefix = "2025";
   const suffix = Math.floor(1000 + Math.random() * 90000);
   return prefix + suffix;
 };
 
-// Format contact number
 export const formatContactNumber = (value) => {
   let digitsOnly = value.replace(/\D/g, "");
   if (digitsOnly.length > 11) digitsOnly = digitsOnly.slice(0, 11);
@@ -26,7 +36,6 @@ export const formatContactNumber = (value) => {
   }
 };
 
-// Insert into authentication
 function insertMemberAuthentication(idNumber, password, email) {
   return supabase
     .from("authentication")
@@ -44,7 +53,6 @@ export const addMemberAuthentication = async (idNumber, password, email) => {
   return await insertMemberAuthentication(idNumber, hashedPassword, email);
 };
 
-// Insert into members-information (no imageUrl)
 export const insertMemberInformation = async (
   idNumber,
   firstName,
@@ -78,7 +86,6 @@ export const insertMemberInformation = async (
   return data;
 };
 
-// Main addMember function
 export const addMember = async (
   idNumber,
   firstName,
@@ -154,6 +161,51 @@ export const addMember = async (
   return false;
 };
 
+export const defineUserType = async (idNumber, department) => {
+  const departmentMap = {
+    "ALTAR SERVER": "altar-server-member",
+    "EUCHARISTIC MINISTER": "eucharistic-minister-member",
+    CHOIR: "choir-member",
+    "LECTOR COMMENTATOR": "lector-commentator-member",
+  };
+
+  const userTypeData = {
+    idNumber: idNumber,
+    "parish-secretary": 0,
+    "altar-server-scheduler": 0,
+    "eucharistic-minister-scheduler": 0,
+    "choir-scheduler": 0,
+    "lector-commentator-scheduler": 0,
+    "altar-server-member": 0,
+    "eucharistic-minister-member": 0,
+    "choir-member": 0,
+    "lector-commentator-member": 0,
+  };
+
+  const key = departmentMap[department.toUpperCase()];
+  if (key) {
+    userTypeData[key] = 1;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("user-type")
+      .insert([userTypeData])
+      .select();
+
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error("User type creation failed:", err);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "User type definition failed: " + err.message,
+    });
+    throw new Error("User type definition failed: " + err.message);
+  }
+};
+
 export const saveAltarServerRoles = async (
   idNumber,
   selectedRole,
@@ -227,49 +279,30 @@ export const saveLectorCommentatorRoles = async (
   return true;
 };
 
-// Define user type
-export const defineUserType = async (idNumber, department) => {
-  const departmentMap = {
-    "ALTAR SERVER": "altar-server-member",
-    "EUCHARISTIC MINISTER": "eucharistic-minister-member",
-    CHOIR: "choir-member",
-    "LECTOR COMMENTATOR": "lector-commentator-member",
-  };
-
-  const userTypeData = {
-    idNumber: idNumber,
-    "parish-secretary": 0,
-    "altar-server-scheduler": 0,
-    "eucharistic-minister-scheduler": 0,
-    "choir-scheduler": 0,
-    "lector-commentator-scheduler": 0,
-    "altar-server-member": 0,
-    "eucharistic-minister-member": 0,
-    "choir-member": 0,
-    "lector-commentator-member": 0,
-  };
-
-  const key = departmentMap[department.toUpperCase()];
-  if (key) {
-    userTypeData[key] = 1;
-  }
-
+// Save a member's group for the Eucharistic Minister department
+export const saveEucharisticMinisterGroup = async (idNumber, groupName) => {
   try {
     const { data, error } = await supabase
-      .from("user-type")
-      .insert([userTypeData])
-      .select();
+      .from("eucharistic-minister-group")
+      .insert([
+        {
+          idNumber: idNumber,
+          "group-name": groupName, // hyphenated column name must be quoted as a key
+        },
+      ])
+      .select()
+      .single();
 
     if (error) throw error;
     return data;
   } catch (err) {
-    console.error("User type creation failed:", err);
+    console.error("Failed to save Eucharistic Minister group:", err);
     Swal.fire({
       icon: "error",
       title: "Error",
-      text: "User type definition failed: " + err.message,
+      text: "Saving group failed: " + err.message,
     });
-    throw new Error("User type definition failed: " + err.message);
+    throw err;
   }
 };
 
@@ -324,8 +357,8 @@ export const insertMemberImage = async (idNumber, imageUrl) => {
   try {
     const { data, error } = await supabase.from("members-information").insert([
       {
-        idNumber: idNumber, 
-        imageUrl: imageUrl || null, 
+        idNumber: idNumber,
+        imageUrl: imageUrl || null,
       },
     ]);
 

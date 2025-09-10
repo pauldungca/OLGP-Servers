@@ -9,70 +9,73 @@ import DropDownButton from "../../../components/dropDownButton";
 import {
   navigationAddMember,
   navigationSelectDepartment,
-  handleViewInformation,
+  handleViewInformationWithGroup,
 } from "../../../assets/scripts/group";
+
+import {
+  fetchEucharisticMinisterWithGroup,
+  exportTableAsPNG,
+  exportTableAsPDF,
+  printMemberList,
+} from "../../../assets/scripts/fetchMember";
+
+import {
+  handleSearchChange, // ✅ for the search bar
+} from "../../../assets/scripts/member";
 
 import "../../../assets/styles/member.css";
 
 export default function GroupMembersList() {
   const [members, setMembers] = useState([]);
+  const [filteredMembers, setFilteredMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
 
+  const navigate = useNavigate();
   const location = useLocation();
-  const department = location.state?.department || "Members";
+  const { department, group } = location.state || {};
 
   useEffect(() => {
     document.title = "OLGP Servers | Group";
 
-    // Static dummy members
-    const dummyMembers = [
-      {
-        idNumber: "200890522",
-        firstName: "John",
-        middleName: "P",
-        lastName: "Dungca",
-        group: "Group 1", // <--- this is needed
-      },
-      {
-        idNumber: "200890523",
-        firstName: "Jane",
-        middleName: "A",
-        lastName: "Doe",
-        group: "Group 2",
-      },
-      {
-        idNumber: "200890524",
-        firstName: "Mark",
-        middleName: "",
-        lastName: "Smith",
-        group: "Group 1",
-      },
-    ];
+    const load = async () => {
+      setLoading(true);
+      try {
+        const rows = await fetchEucharisticMinisterWithGroup(group);
+        setMembers(rows);
+        setFilteredMembers(rows); 
+      } catch (e) {
+        console.error("Error fetching group members:", e);
+        setMembers([]);
+        setFilteredMembers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    setMembers(dummyMembers);
-    setLoading(false);
-  }, []);
+    if (group) load();
+  }, [group]);
 
-  /*const formatFullName = (member) => {
+  const formatFullName = (member) => {
     const middleInitial = member.middleName
       ? ` ${member.middleName.charAt(0).toUpperCase()}.`
       : "";
     return `${member.firstName}${middleInitial} ${member.lastName}`.trim();
-  };*/
+  };
 
-  /*const getExportData = () => {
-    return members.map((member) => ({
+  const getExportData = () =>
+    members.map((member) => ({
       idNumber: member.idNumber,
       name: formatFullName(member),
     }));
-  };*/
 
   return (
     <div className="group-page-container">
       <div className="group-header">
         <div className="header-text-with-line">
-          <h3>GROUP - {department.toUpperCase()}</h3>
+          <h3>
+            GROUP - {department?.toUpperCase()} - {group?.toUpperCase()}
+          </h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -119,12 +122,14 @@ export default function GroupMembersList() {
             type="text"
             className="form-control"
             placeholder="Search Members"
-            value="" // static, no functionality
-            readOnly
+            value={searchQuery}
+            onChange={(e) =>
+              handleSearchChange(e, members, setSearchQuery, setFilteredMembers)
+            }
           />
           <button
             className="btn btn-blue"
-            onClick={navigationAddMember(navigate, { department })}
+            onClick={navigationAddMember(navigate, { department, group })}
           >
             <img src={icon.addUserIcon} alt="Add Icon" className="icon-btn" />
             Add Member
@@ -144,20 +149,23 @@ export default function GroupMembersList() {
 
         <div className="table-container">
           <GroupTable
-            data={members}
+            data={filteredMembers} 
             loading={loading}
             onViewDetails={(member) =>
-              handleViewInformation(navigate, member, department)()
+              handleViewInformationWithGroup(navigate, member, department, group)()
             }
           />
         </div>
 
         <div className="action-buttons">
           <DropDownButton
-            onExportPNG={() => {}} // no functionality
-            onExportPDF={() => {}} // no functionality
+            onExportPNG={() => exportTableAsPNG(getExportData(), department)}
+            onExportPDF={() => exportTableAsPDF(getExportData(), department)}
           />
-          <button className="btn btn-blue flex items-center gap-2">
+          <button
+            className="btn btn-blue flex items-center gap-2"
+            onClick={() => printMemberList(getExportData(), department)}
+          >
             <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
             Print Members List
           </button>

@@ -148,12 +148,12 @@ export default function MembersList() {
 
         <div className="action-buttons">
           <DropDownButton
-            onExportPNG={() => exportTableAsPNG(getExportData())}
-            onExportPDF={() => exportTableAsPDF(getExportData())}
+            onExportPNG={() => exportTableAsPNG(getExportData(), department)}
+            onExportPDF={() => exportTableAsPDF(getExportData(), department)}
           />
           <button
             className="btn btn-blue flex items-center gap-2"
-            onClick={() => printMemberList(getExportData())}
+            onClick={() => printMemberList(getExportData(), department)}
           >
             <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
             Print Members List

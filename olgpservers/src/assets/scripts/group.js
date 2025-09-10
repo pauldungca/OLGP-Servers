@@ -133,11 +133,13 @@ export const navigationSelectDepartment = (navigate, state) => () => {
   navigate("/groupSelectDepartment", { state });
 };
 
-export const handleViewInformation = (navigate, member, department) => () => {
-  navigate("/groupViewMemberInformation", {
-    state: {
-      idNumber: member.idNumber,
-      department: department,
-    },
-  });
-};
+export const handleViewInformationWithGroup =
+  (navigate, member, department, group) => () => {
+    navigate("/groupViewMemberInformation", {
+      state: {
+        idNumber: member?.idNumber,
+        department: department,
+        group: group,
+      },
+    });
+  };

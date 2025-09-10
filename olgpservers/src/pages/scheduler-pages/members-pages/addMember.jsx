@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useLocation } from "react-router-dom";
-import axios from "axios";
 import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
 
@@ -19,6 +18,9 @@ import {
   handleFileInputChange,
   handleFileChange,
   handleRemoveImage,
+  getProvinces as fetchProvinces,
+  getMunicipalities as fetchMunicipalities,
+  getBarangays as fetchBarangays,
 } from "../../../assets/scripts/addMember";
 
 export default function AddMember() {
@@ -54,50 +56,54 @@ export default function AddMember() {
   const [imageFile, setImageFile] = useState(null);
   const [fileAttached, setFileAttached] = useState(false);
 
-  // Fetch provinces
+  // ---- PSGC fetches (via addMember.js -> axios.js)
   useEffect(() => {
-    axios
-      .get("https://psgc.gitlab.io/api/provinces/")
-      .then((res) => setProvinces(res.data))
-      .catch((err) => console.error(err));
+    fetchProvinces()
+      .then(setProvinces)
+      .catch((err) => console.error("Provinces error:", err));
   }, []);
 
-  // Fetch municipalities
   useEffect(() => {
     if (selectedProvince) {
-      axios
-        .get(
-          `https://psgc.gitlab.io/api/provinces/${selectedProvince}/cities-municipalities/`
-        )
-        .then((res) => setMunicipalities(res.data))
-        .catch((err) => console.error(err));
+      fetchMunicipalities(selectedProvince)
+        .then(setMunicipalities)
+        .catch((err) => console.error("Municipalities error:", err));
     } else {
       setMunicipalities([]);
+      setSelectedMunicipality("");
+      setBarangays([]);
+      setSelectedBarangay("");
     }
   }, [selectedProvince]);
 
-  // Fetch barangays
   useEffect(() => {
     if (selectedMunicipality) {
-      axios
-        .get(
-          `https://psgc.gitlab.io/api/cities-municipalities/${selectedMunicipality}/barangays/`
-        )
-        .then((res) => setBarangays(res.data))
-        .catch((err) => console.error(err));
+      fetchBarangays(selectedMunicipality)
+        .then(setBarangays)
+        .catch((err) => console.error("Barangays error:", err));
     } else {
       setBarangays([]);
+      setSelectedBarangay("");
     }
   }, [selectedMunicipality]);
 
-  // Build full address
+  // ---- Build full address (UI only)
   useEffect(() => {
     const provinceName =
       provinces.find((p) => p.code === selectedProvince)?.name || "";
     const municipalityName =
       municipalities.find((m) => m.code === selectedMunicipality)?.name || "";
-    const fullAddress = `${houseNumber}, ${selectedBarangay}, ${municipalityName}, ${provinceName}`;
-    setAddress(fullAddress);
+    // You currently store barangay *name* in selectedBarangay (value={brgy.name})
+    const barangayName =
+      barangays.find((b) => b.name === selectedBarangay)?.name ||
+      selectedBarangay ||
+      "";
+
+    const fullAddress = `${houseNumber ? houseNumber + ", " : ""}${
+      barangayName ? barangayName + ", " : ""
+    }${municipalityName ? municipalityName + ", " : ""}${provinceName}`;
+
+    setAddress(fullAddress.trim());
   }, [
     houseNumber,
     selectedBarangay,
@@ -105,6 +111,7 @@ export default function AddMember() {
     selectedProvince,
     provinces,
     municipalities,
+    barangays,
   ]);
 
   // Set default date and user ID

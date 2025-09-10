@@ -1,35 +1,90 @@
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Breadcrumb } from "antd";
 import icon from "../../../helper/icon";
+import images from "../../../helper/images";
+import Footer from "../../../components/footer";
 
 import "../../../assets/styles/group.css";
 import "../../../assets/styles/selectGroup.css";
 
-import images from "../../../helper/images";
-import Footer from "../../../components/footer";
+import {
+  // Eucharistic Minister helpers
+  fetchEucharisticMinisterGroups,
+  addEucharisticMinisterGroup,
+  deleteEucharisticMinisterGroup,
+  // Choir helpers
+  fetchChoirGroups,
+  addChoirGroup,
+  deleteChoirGroup,
+} from "../../../assets/scripts/group";
 
 export default function SelectGroup() {
+  const [groups, setGroups] = useState([]);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const department = location.state?.department || "Members";
+
+  // Decide which set of helpers to use based on department (memoized to avoid hook warnings)
+  const groupApi = useMemo(() => {
+    if (department === "Eucharistic Minister") {
+      return {
+        fetch: fetchEucharisticMinisterGroups,
+        add: addEucharisticMinisterGroup,
+        del: deleteEucharisticMinisterGroup,
+      };
+    }
+    if (department === "Choir") {
+      return {
+        fetch: fetchChoirGroups,
+        add: addChoirGroup,
+        del: deleteChoirGroup,
+      };
+    }
+    // Fallback for unsupported departments
+    return {
+      fetch: async () => [],
+      add: async () => null,
+      del: async () => false,
+    };
+  }, [department]);
+
   useEffect(() => {
     document.title = "OLGP Servers | Groups";
-  }, []);
-  const navigate = useNavigate();
-  const groups = ["GROUP 1", "GROUP 2", "GROUP 3"];
+    const loadGroups = async () => {
+      const data = await groupApi.fetch();
+      setGroups(data);
+    };
+    loadGroups();
+  }, [groupApi]);
 
-  const handleViewGroup = (groupName) => {
-    navigate("/membersList");
+  const handleViewGroup = (group, department) => {
+    const groupValue = department === "Choir" ? group.abbreviation : group.name;
+
+    navigate("/groupMembersList", {
+      state: { group: groupValue, department },
+    });
   };
 
-  const handleAddGroup = () => {
-    alert("Add Group clicked");
+  const handleAddGroup = async () => {
+    const newGroup = await groupApi.add();
+    if (newGroup) {
+      setGroups((prev) => [...prev, newGroup]);
+    }
+  };
+
+  const handleDeleteGroup = async (group) => {
+    const deleted = await groupApi.del(group.id, group.name);
+    if (deleted) {
+      setGroups((prev) => prev.filter((g) => g.id !== group.id));
+    }
   };
 
   return (
     <div className="group-page-container">
       <div className="group-header">
         <div className="header-text-with-line">
-          <h3>GROUP</h3>
+          <h3>GROUP - {department.toUpperCase()}</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -49,10 +104,7 @@ export default function SelectGroup() {
                 <img
                   src={icon.chevronIcon}
                   alt="Chevron Icon"
-                  style={{
-                    width: "15px",
-                    height: "15px",
-                  }}
+                  style={{ width: "15px", height: "15px" }}
                 />
               }
               className="customized-breadcrumb"
@@ -61,27 +113,37 @@ export default function SelectGroup() {
           <div className="header-line"></div>
         </div>
       </div>
+
       <div className="group-content">
         <h4 className="available-groups-heading">Available Groups</h4>
         <div className="group-cards-container">
-          {groups.map((group, index) => (
-            <div key={index} className="group-card">
+          {groups.map((group) => (
+            <div key={group.id} className="group-card">
               <div className="group-title-container">
                 <img
                   src={images.viewGroupImage}
                   alt="Group icon"
                   className="group-icon"
                 />
-                <h4 className="group-title">{group}</h4>
+                <h4 className="group-title">{group.name}</h4>
               </div>
-              <button
-                className="btn-view-group"
-                onClick={() => handleViewGroup(group)}
-              >
-                VIEW GROUP
-              </button>
+              <div className="group-actions d-flex gap-2">
+                <button
+                  className="btn-view-group"
+                  onClick={() => handleViewGroup(group, department)}
+                >
+                  VIEW GROUP
+                </button>
+                <button
+                  className="delete-btn"
+                  onClick={() => handleDeleteGroup(group)}
+                >
+                  DELETE GROUP
+                </button>
+              </div>
             </div>
           ))}
+
           <div className="add-group-section">
             <div className="add-group-card" onClick={handleAddGroup}>
               <div className="add-group-content">
@@ -96,9 +158,8 @@ export default function SelectGroup() {
           </div>
         </div>
       </div>
-      <div>
-        <Footer />
-      </div>
+
+      <Footer />
     </div>
   );
 }

@@ -24,6 +24,7 @@ export const createSelectedDepartmentCard = (images, navigate) => {
     toPage,
     selectedDepartment,
     originalDepartment,
+    group,
   }) {
     return (
       <button
@@ -34,6 +35,7 @@ export const createSelectedDepartmentCard = (images, navigate) => {
               department: originalDepartment,
               selectedDepartment,
               parish,
+              group,
             },
           })
         }
@@ -117,13 +119,20 @@ export const handleSearchChange = (
   if (query === "") {
     setFilteredMembers(members);
   } else {
-    const filtered = members.filter(
-      (member) =>
-        member.firstName.toLowerCase().includes(query.toLowerCase()) ||
-        member.lastName.toLowerCase().includes(query.toLowerCase()) ||
-        member.role.toLowerCase().includes(query.toLowerCase()) ||
-        member.idNumber.toString().includes(query)
-    );
+    const filtered = members.filter((member) => {
+      const firstName = member.firstName?.toLowerCase() || "";
+      const lastName = member.lastName?.toLowerCase() || "";
+      const role = member.role?.toLowerCase() || "";
+      const idNumber = member.idNumber?.toString() || "";
+
+      return (
+        firstName.includes(query.toLowerCase()) ||
+        lastName.includes(query.toLowerCase()) ||
+        role.includes(query.toLowerCase()) ||
+        idNumber.includes(query)
+      );
+    });
+
     setFilteredMembers(filtered);
   }
 };

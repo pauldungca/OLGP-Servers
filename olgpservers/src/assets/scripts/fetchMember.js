@@ -59,7 +59,13 @@ export const sampleMembers = [
   // ...add more as needed
 ];
 
-const renderMemberPage = async (pdf, pageMembers, pageNumber, totalPages) => {
+const renderMemberPage = async (
+  pdf,
+  pageMembers,
+  pageNumber,
+  totalPages,
+  department = "Members"
+) => {
   // Layout values moved inside here
   const pdfWidth = 816; // 8.5in
   const pdfHeight = 1056; // 11in
@@ -70,7 +76,6 @@ const renderMemberPage = async (pdf, pageMembers, pageNumber, totalPages) => {
   const logoHeight = 60;
 
   // Logo
-  //pdf.addImage(image.OLGPlogo, "PNG", margin, margin, logoWidth, logoHeight);
   await pdf.addImage(
     image.OLGPlogo,
     "PNG",
@@ -91,7 +96,7 @@ const renderMemberPage = async (pdf, pageMembers, pageNumber, totalPages) => {
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(20);
-  pdf.text("Altar Servers", textX, textYSubtitle);
+  pdf.text(String(department), textX, textYSubtitle); // <-- dynamic subtitle
 
   // Main heading
   const mainHeadingY = margin + logoHeight + 40;
@@ -108,7 +113,7 @@ const renderMemberPage = async (pdf, pageMembers, pageNumber, totalPages) => {
   pdf.setDrawColor(51, 51, 51);
   pdf.setLineWidth(0.5);
 
-  // Header row
+  // Header row (2 columns: ID Number / Name)
   pdf.rect(margin, startY, 200, cellHeight);
   pdf.rect(margin + 200, startY, 536, cellHeight);
   pdf.text("ID Number", margin + 10, startY + cellHeight / 2 + 5);
@@ -143,9 +148,9 @@ const renderMemberPage = async (pdf, pageMembers, pageNumber, totalPages) => {
   );
 };
 
-export const exportTableAsPNG = async (members) => {
+export const exportTableAsPNG = async (members, department = "Members") => {
   if (!members || members.length === 0) {
-    alert("No members to export.");
+    await Swal.fire("Error", "No members to export.", "error");
     return;
   }
 
@@ -177,8 +182,8 @@ export const exportTableAsPNG = async (members) => {
       ctx.font = `${currentFontWeight} ${currentFontSize}px Arial`;
 
       const fakePDF = {
-        addImage: (imgSrc, type, x, y, w, h) => {
-          return new Promise((resolve, reject) => {
+        addImage: (imgSrc, type, x, y, w, h) =>
+          new Promise((resolve, reject) => {
             const imgEl = new Image();
             imgEl.crossOrigin = "anonymous";
             imgEl.src = imgSrc;
@@ -191,8 +196,7 @@ export const exportTableAsPNG = async (members) => {
               console.error("Failed to load logo:", err, imgSrc);
               reject(err);
             };
-          });
-        },
+          }),
         setFont: (font, weight) => {
           currentFontWeight = weight === "bold" ? "bold" : "normal";
           ctx.font = `${currentFontWeight} ${currentFontSize}px Arial`;
@@ -211,17 +215,19 @@ export const exportTableAsPNG = async (members) => {
           ctx.strokeRect(x, y, w, h);
         },
         text: (txt, x, y, options = {}) => {
-          if (options.align === "center") {
-            ctx.textAlign = "center";
-          } else {
-            ctx.textAlign = "start";
-          }
+          ctx.textAlign = options.align === "center" ? "center" : "start";
           ctx.fillStyle = "#000";
           ctx.fillText(txt, x, y);
         },
       };
 
-      await renderMemberPage(fakePDF, chunks[index], index + 1, totalPages);
+      await renderMemberPage(
+        fakePDF,
+        chunks[index],
+        index + 1,
+        totalPages,
+        department
+      );
 
       const imgData = canvas.toDataURL("image/png");
       zip.file(`members-list-page-${index + 1}.png`, imgData.split(",")[1], {
@@ -237,9 +243,9 @@ export const exportTableAsPNG = async (members) => {
   }
 };
 
-export const exportTableAsPDF = async (members) => {
+export const exportTableAsPDF = async (members, department = "Members") => {
   if (!members || members.length === 0) {
-    alert("No members to export.");
+    await Swal.fire("Error", "No members to export.", "error");
     return;
   }
 
@@ -255,10 +261,15 @@ export const exportTableAsPDF = async (members) => {
 
     const totalPages = chunks.length;
 
-    // ✅ Use for...of so we can await properly
     for (let index = 0; index < chunks.length; index++) {
       if (index > 0) pdf.addPage();
-      await renderMemberPage(pdf, chunks[index], index + 1, totalPages);
+      await renderMemberPage(
+        pdf,
+        chunks[index],
+        index + 1,
+        totalPages,
+        department
+      );
     }
 
     pdf.save(`members-list-${new Date().toISOString().split("T")[0]}.pdf`);
@@ -268,18 +279,16 @@ export const exportTableAsPDF = async (members) => {
   }
 };
 
-export const printMemberList = async (members) => {
+export const printMemberList = async (members, department = "Members") => {
   try {
     if (!members || members.length === 0) {
-      Swal.fire("Error", "No members data available to print.", "error");
+      await Swal.fire("Error", "No members to print.", "error");
       return;
     }
 
-    // Calculate pagination
-    const membersPerPage = 17; // Limited to 17 rows per page
+    const membersPerPage = 17;
     const totalPages = Math.ceil(members.length / membersPerPage);
 
-    // Generate all content in one single document without page breaks
     let htmlContent = '<div class="print-container">';
 
     for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
@@ -290,13 +299,13 @@ export const printMemberList = async (members) => {
       htmlContent += await renderMemberPageHTML(
         pageMembers,
         pageNumber,
-        totalPages
+        totalPages,
+        department // <-- pass it
       );
     }
 
     htmlContent += "</div>";
 
-    // Create print window
     const printWindow = window.open("", "_blank", "width=816,height=1056");
     if (!printWindow) {
       Swal.fire("Popup Blocked", "Please allow popups to print.", "error");
@@ -308,13 +317,9 @@ export const printMemberList = async (members) => {
       <html>
         <head>
           <title>Members List</title>
-          <style>
-            ${getPrintStyles()}
-          </style>
+          <style>${getPrintStyles()}</style>
         </head>
-        <body>
-          ${htmlContent}
-        </body>
+        <body>${htmlContent}</body>
       </html>
     `);
     printWindow.document.close();
@@ -330,8 +335,12 @@ export const printMemberList = async (members) => {
   }
 };
 
-// Convert renderMemberPage design to HTML format
-const renderMemberPageHTML = async (pageMembers, pageNumber, totalPages) => {
+const renderMemberPageHTML = async (
+  pageMembers,
+  pageNumber,
+  totalPages,
+  department
+) => {
   // Logo section
   const logoHtml = `<img src="${image.OLGPlogo}" class="logo" alt="OLGP Logo">`;
 
@@ -345,7 +354,7 @@ const renderMemberPageHTML = async (pageMembers, pageNumber, totalPages) => {
           </div>
           <div class="title-container">
             <h1 class="main-title">Our Lady of Guadalupe Parish</h1>
-            <h2 class="subtitle">Altar Servers</h2>
+            <h2 class="subtitle">${department}</h2>
           </div>
         </div>
       </div>
@@ -661,6 +670,163 @@ export const fetchLectorCommentatorMembersWithRole = async () => {
     return membersWithRole;
   } catch (err) {
     console.error("Supabase error:", err);
+    return [];
+  }
+};
+
+export const fetchEucharisticMinisterWithGroup = async (groupName) => {
+  try {
+    // 1) Get idNumbers that belong to this group (from eucharistic-minister-group)
+    const { data: groupRows, error: groupErr } = await supabase
+      .from("eucharistic-minister-group")
+      .select('idNumber, "group-name"')
+      .eq('"group-name"', groupName);
+
+    if (groupErr) throw groupErr;
+
+    const idNumbers = (groupRows || []).map((r) => r.idNumber);
+
+    if (idNumbers.length === 0) {
+      Swal.fire({
+        icon: "info",
+        title: "No Members in Group",
+        text: `No Eucharistic Minister members found for ${groupName}.`,
+      });
+      return [];
+    }
+
+    // 2) Fetch members-information for those idNumbers
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", idNumbers)
+      .order("dateJoined", { ascending: false });
+
+    if (memErr) throw memErr;
+
+    // 3) Attach the group name (3rd column used by GroupTable)
+    const membersWithGroup = members.map((m) => ({
+      ...m,
+      group: groupName,
+    }));
+
+    return membersWithGroup;
+  } catch (err) {
+    console.error("fetchEucharisticMinisterWithGroup error:", err);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Failed to fetch group members: " + err.message,
+    });
+    return [];
+  }
+};
+
+export const fetchChoirWithGroup = async (groupName) => {
+  try {
+    // 1) Get idNumbers that belong to this choir group
+    const { data: groupRows, error: groupErr } = await supabase
+      .from("choir-member-group")
+      .select('idNumber, "choir-group-name"')
+      .eq("choir-group-name", groupName);
+
+    if (groupErr) throw groupErr;
+
+    const idNumbers = (groupRows || []).map((r) => r.idNumber);
+
+    if (idNumbers.length === 0) {
+      Swal.fire({
+        icon: "info",
+        title: "No Members in Group",
+        text: `No Choir members found for ${groupName}.`,
+      });
+      return [];
+    }
+
+    // 2) Fetch members-information for those idNumbers
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", idNumbers)
+      .order("dateJoined", { ascending: false });
+
+    if (memErr) throw memErr;
+
+    // 3) Attach the group name for GroupTable display
+    const membersWithGroup = members.map((m) => ({
+      ...m,
+      group: groupName,
+    }));
+
+    return membersWithGroup;
+  } catch (err) {
+    console.error("fetchChoirWithGroup error:", err);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Failed to fetch choir group members: " + err.message,
+    });
+    return [];
+  }
+};
+
+// Get ALL Eucharistic Ministers (no group filter)
+export const fetchEucharisticMinisterMembers = async () => {
+  try {
+    const { data: userTypes, error: utErr } = await supabase
+      .from("user-type")
+      .select("idNumber")
+      .eq('"eucharistic-minister-member"', 1);
+    if (utErr) throw utErr;
+
+    const ids = (userTypes || []).map((u) => u.idNumber);
+    if (ids.length === 0) {
+      await Swal.fire("Info", "No Eucharistic Minister members found.", "info");
+      return [];
+    }
+
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", ids)
+      .order("dateJoined", { ascending: false });
+    if (memErr) throw memErr;
+
+    // Align to ImportMemberTable shape (role is optional)
+    return members.map((m) => ({ ...m, role: "-" }));
+  } catch (err) {
+    console.error("fetchEucharisticMinisterMembers error:", err);
+    await Swal.fire("Error", "Failed to fetch EM members.", "error");
+    return [];
+  }
+};
+
+// Get ALL Choir members (no group filter)
+export const fetchChoirMembers = async () => {
+  try {
+    const { data: userTypes, error: utErr } = await supabase
+      .from("user-type")
+      .select("idNumber")
+      .eq('"choir-member"', 1);
+    if (utErr) throw utErr;
+
+    const ids = (userTypes || []).map((u) => u.idNumber);
+    if (ids.length === 0) {
+      await Swal.fire("Info", "No Choir members found.", "info");
+      return [];
+    }
+
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", ids)
+      .order("dateJoined", { ascending: false });
+    if (memErr) throw memErr;
+
+    return members.map((m) => ({ ...m, role: "-" }));
+  } catch (err) {
+    console.error("fetchChoirMembers error:", err);
+    await Swal.fire("Error", "Failed to fetch Choir members.", "error");
     return [];
   }
 };

@@ -1,17 +1,49 @@
-import React, { useEffect } from "react";
+// Group.jsx
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import images from "../../helper/images";
 import { createButtonCard } from "../../assets/scripts/member";
-import "../../assets/styles/group.css";
+import {
+  isEucharisticMinisterScheduler,
+  isChoirScheduler,
+} from "../../assets/scripts/group";
 
+import "../../assets/styles/group.css";
 import Footer from "../../components/footer";
 
 export default function Group() {
-  useEffect(() => {
-    document.title = "OLGP Servers | Groups";
-  }, []);
+  const [isEucharisticMinister, setIsEucharisticMinister] = useState(false);
+  const [isChoir, setIsChoir] = useState(false);
+  const [, setIdNumber] = useState("");
+
   const navigate = useNavigate();
   const buttonCard = createButtonCard(images, navigate);
+
+  useEffect(() => {
+    document.title = "OLGP Servers | Groups";
+
+    const initializeGroupData = async () => {
+      const storedIdNumber = localStorage.getItem("idNumber");
+
+      if (storedIdNumber) {
+        setIdNumber(storedIdNumber);
+
+        const eucharisticMinisterStatus = await isEucharisticMinisterScheduler(
+          storedIdNumber
+        );
+        const choirStatus = await isChoirScheduler(storedIdNumber);
+
+        setIsEucharisticMinister(eucharisticMinisterStatus);
+        setIsChoir(choirStatus);
+      } else {
+        setIdNumber("No ID found");
+        setIsEucharisticMinister(false);
+        setIsChoir(false);
+      }
+    };
+
+    initializeGroupData();
+  }, []);
 
   return (
     <div className="group-page-container">
@@ -23,18 +55,22 @@ export default function Group() {
       </div>
       <div className="group-content">
         <div className="group-cards-container">
-          {buttonCard({
-            department: "Eucharistic Minister",
-            parish:
-              "Manage the groups and members of the Eucharistic Minister Department.",
-            toPage: "/selectGroup",
-          })}
+          {/* Show only if the user is Eucharistic Minister scheduler */}
+          {isEucharisticMinister &&
+            buttonCard({
+              department: "Eucharistic Minister",
+              parish:
+                "Manage the groups and members of the Eucharistic Minister Department.",
+              toPage: "/selectGroup",
+            })}
 
-          {buttonCard({
-            department: "Choir",
-            parish: "Manage the groups and members of the Choir Department.",
-            toPage: "/selectGroup",
-          })}
+          {/* Show only if the user is Choir scheduler */}
+          {isChoir &&
+            buttonCard({
+              department: "Choir",
+              parish: "Manage the groups and members of the Choir Department.",
+              toPage: "/selectGroup",
+            })}
         </div>
       </div>
       <div>

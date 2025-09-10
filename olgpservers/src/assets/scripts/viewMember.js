@@ -2,7 +2,6 @@ import { supabase } from "../../utils/supabase";
 import Swal from "sweetalert2";
 import axios from "axios";
 
-// ✅ Fetch provinces
 export const fetchProvinces = async () => {
   try {
     const response = await axios.get("https://psgc.gitlab.io/api/provinces/");
@@ -13,7 +12,6 @@ export const fetchProvinces = async () => {
   }
 };
 
-// ✅ Fetch municipalities based on province code
 export const fetchMunicipalities = async (provinceCode) => {
   try {
     const response = await axios.get(
@@ -26,7 +24,6 @@ export const fetchMunicipalities = async (provinceCode) => {
   }
 };
 
-// ✅ Fetch barangays based on municipality code
 export const fetchBarangays = async (municipalityCode) => {
   try {
     const response = await axios.get(
@@ -52,11 +49,20 @@ export const formatContactNumber = (value) => {
   )} ${digitsOnly.slice(7)}`;
 };
 
+export const ensureValidGroupSelection = (groups, current) => {
+  const names = (groups || []).map((g) => g.name);
+  if (names.length === 0) return "";
+  if (!current || !names.includes(current)) {
+    return names[0];
+  }
+  return current;
+};
+
 export const fetchMemberData = async (idNumber, department) => {
   if (!idNumber) return null;
 
   try {
-    // Fetch member info
+    // 1) Basic member info
     const { data: info, error: infoError } = await supabase
       .from("members-information")
       .select("*")
@@ -65,8 +71,10 @@ export const fetchMemberData = async (idNumber, department) => {
     if (infoError) throw infoError;
 
     let roleType = "";
+    let groupName = null;
+
+    // 2) Department-specific extras
     if (department === "Altar Server") {
-      // Fetch altar server roles
       const { data: roleData, error: roleError } = await supabase
         .from("altar-server-roles")
         .select("*")
@@ -83,10 +91,9 @@ export const fetchMemberData = async (idNumber, department) => {
         "main-server",
         "plate",
       ];
-      const isFlexible = allRoles.every((role) => roleData[role] === 1);
+      const isFlexible = allRoles.every((r) => roleData[r] === 1);
       roleType = isFlexible ? "Flexible" : "Non-Flexible";
     } else if (department === "Lector Commentator") {
-      // Fetch lector commentator roles
       const { data: roleData, error: roleError } = await supabase
         .from("lector-commentator-roles")
         .select("*")
@@ -95,18 +102,29 @@ export const fetchMemberData = async (idNumber, department) => {
       if (roleError) throw roleError;
 
       const allRoles = ["preface", "reading"];
-      const isFlexible = allRoles.every((role) => roleData[role] === 1);
+      const isFlexible = allRoles.every((r) => roleData[r] === 1);
       roleType = isFlexible ? "Flexible" : "Non-Flexible";
+    } else if (department === "Eucharistic Minister") {
+      // 3) Fetch group for Eucharistic Minister
+      const { data: groupRow, error: groupError } = await supabase
+        .from("eucharistic-minister-group")
+        .select('"group-name"')
+        .eq("idNumber", idNumber)
+        .single();
+
+      // Ignore "no rows" error; surface any other error
+      if (groupError && groupError.code !== "PGRST116") throw groupError;
+
+      groupName = groupRow ? groupRow["group-name"] : null;
     }
 
-    return { info, roleType };
+    return { info, roleType, groupName };
   } catch (err) {
     console.error("Error fetching member data:", err.message);
     throw err;
   }
 };
 
-// ✅ Cancel edit confirmation
 export const confirmCancelEdit = async () => {
   const result = await Swal.fire({
     title: "Cancel Editing?",
@@ -357,6 +375,125 @@ export const removeLectorCommentator = async (
   }
 };
 
+export const removeEucharisticMinister = async (
+  idNumber,
+  setLoading,
+  navigate,
+  department,
+  group
+) => {
+  if (!idNumber) return;
+
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    text: "Do you really want to remove this member from Eucharistic Minister?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Yes, remove",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    setLoading(true);
+
+    // 1) Fetch user-type record
+    const { data: userType, error: fetchError } = await supabase
+      .from("user-type")
+      .select("*")
+      .eq("idNumber", idNumber)
+      .single();
+    if (fetchError) throw fetchError;
+    if (!userType) throw new Error("User not found in user-type table.");
+
+    // Count active department memberships (value === 1)
+    const departmentMemberships = Object.values(userType).filter(
+      (val) => val === 1
+    ).length;
+
+    if (
+      departmentMemberships === 1 &&
+      userType["eucharistic-minister-member"] === 1
+    ) {
+      // ✅ Only in EM → full delete across related tables
+
+      // a) Delete EM group mapping (ignore 'no rows' cases)
+      const { error: errorGroup } = await supabase
+        .from("eucharistic-minister-group")
+        .delete()
+        .eq("idNumber", idNumber);
+      if (errorGroup && errorGroup.code !== "PGRST116") throw errorGroup;
+
+      // b) Remove from members-information
+      const { error: errorMembers } = await supabase
+        .from("members-information")
+        .delete()
+        .eq("idNumber", idNumber);
+      if (errorMembers) throw errorMembers;
+
+      // c) Remove from authentication
+      const { error: errorAuth } = await supabase
+        .from("authentication")
+        .delete()
+        .eq("idNumber", idNumber);
+      if (errorAuth) throw errorAuth;
+
+      // d) Remove from user-type
+      const { error: errorUserType } = await supabase
+        .from("user-type")
+        .delete()
+        .eq("idNumber", idNumber);
+      if (errorUserType) throw errorUserType;
+
+      await Swal.fire({
+        icon: "success",
+        title: "Member Removed",
+        text: "The member has been fully removed from all records.",
+      });
+    } else {
+      // ✅ Member has other departments → just remove EM membership
+
+      // a) Update user-type flag
+      const { error: updateError } = await supabase
+        .from("user-type")
+        .update({ "eucharistic-minister-member": 0 })
+        .eq("idNumber", idNumber);
+      if (updateError) throw updateError;
+
+      // b) Clear EM group mapping
+      const { error: roleError } = await supabase
+        .from("eucharistic-minister-group")
+        .delete()
+        .eq("idNumber", idNumber);
+      if (roleError && roleError.code !== "PGRST116") throw roleError;
+
+      await Swal.fire({
+        icon: "success",
+        title: "Eucharistic Minister Removed",
+        text: "The member has been removed from Eucharistic Minister but remains in other departments.",
+      });
+    }
+
+    // Optional: navigate back to list
+    if (navigate) {
+      navigate("/groupMembersList", {
+        state: { department, group },
+      });
+    }
+  } catch (err) {
+    console.error("Error removing Eucharistic Minister:", err);
+    await Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Failed to remove the member. Please try again.",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
 export const editMemberInfo = async (
   idNumber,
   firstName,
@@ -473,34 +610,6 @@ export const editLectorCommentatorRoles = async (
   }
 };
 
-/*export const fetchAltarServerRoles = async (idNumber) => {
-  try {
-    const { data, error } = await supabase
-      .from("altar-server-roles")
-      .select("*")
-      .eq("idNumber", idNumber)
-      .single();
-
-    if (error && error.code !== "PGRST116") throw error;
-
-    const roles = [];
-    if (data) {
-      if (data.CandleBearer === 1) roles.push("CandleBearer");
-      if (data.Beller === 1) roles.push("Beller");
-      if (data.CrossBearer === 1) roles.push("CrossBearer");
-      if (data.Thurifer === 1) roles.push("Thurifer");
-      if (data.IncenseBearer === 1) roles.push("IncenseBearer");
-      if (data.MainServers === 1) roles.push("MainServers");
-      if (data.Plates === 1) roles.push("Plates");
-    }
-
-    return roles;
-  } catch (err) {
-    console.error("Error fetching altar server roles:", err.message);
-    return [];
-  }
-};*/
-
 export const fetchAltarServerRoles = async (idNumber) => {
   try {
     const { data, error } = await supabase
@@ -518,8 +627,8 @@ export const fetchAltarServerRoles = async (idNumber) => {
       if (data["cross-bearer"] === 1) roles.push("CrossBearer");
       if (data["thurifer"] === 1) roles.push("Thurifer");
       if (data["incense-bearer"] === 1) roles.push("IncenseBearer");
-      if (data["main-servers"] === 1) roles.push("MainServers");
-      if (data["plates"] === 1) roles.push("Plates");
+      if (data["main-server"] === 1) roles.push("MainServers"); // ← singular
+      if (data["plate"] === 1) roles.push("Plates"); // ← singular
     }
 
     return roles;
@@ -549,5 +658,164 @@ export const fetchLectorCommentatorRoles = async (idNumber) => {
   } catch (err) {
     console.error("Error fetching lector commentator roles:", err.message);
     return [];
+  }
+};
+
+export const editEucharisticMinisterGroup = async (memberId, newGroupName) => {
+  try {
+    // 1) Try update first
+    const { data: updated, error: updErr } = await supabase
+      .from("eucharistic-minister-group")
+      .update({ "group-name": newGroupName || null })
+      .eq("idNumber", memberId)
+      .select();
+
+    if (updErr) throw updErr;
+
+    const noRows = !updated || (Array.isArray(updated) && updated.length === 0);
+
+    // 2) If nothing was updated, insert (create the row)
+    if (noRows) {
+      const { data: inserted, error: insErr } = await supabase
+        .from("eucharistic-minister-group")
+        .insert([{ idNumber: memberId, "group-name": newGroupName || null }])
+        .select();
+
+      if (insErr) throw insErr;
+      if (!inserted || (Array.isArray(inserted) && inserted.length === 0)) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error("editEucharisticMinisterGroup error:", err);
+    return false;
+  }
+};
+
+export const editChoirMemberGroup = async (memberId, newGroupName) => {
+  try {
+    // 1) Try update first
+    const { data: updated, error: updErr } = await supabase
+      .from("choir-member-group")
+      .update({ "choir-group-name": newGroupName || null })
+      .eq("idNumber", memberId)
+      .select();
+
+    if (updErr) throw updErr;
+
+    const noRows = !updated || (Array.isArray(updated) && updated.length === 0);
+
+    // 2) If nothing was updated, insert (create the row)
+    if (noRows) {
+      const { data: inserted, error: insErr } = await supabase
+        .from("choir-member-group")
+        .insert([
+          { idNumber: memberId, "choir-group-name": newGroupName || null },
+        ])
+        .select();
+
+      if (insErr) throw insErr;
+      if (!inserted || (Array.isArray(inserted) && inserted.length === 0)) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error("editChoirMemberGroup error:", err);
+    return false;
+  }
+};
+
+export const removeChoirMember = async (
+  idNumber,
+  setLoading,
+  navigate,
+  department,
+  group
+) => {
+  if (!idNumber) return;
+
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    text: "Do you really want to remove this member from Choir?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Yes, remove",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    setLoading(true);
+
+    // 1) Fetch user-type record
+    const { data: userType, error: fetchError } = await supabase
+      .from("user-type")
+      .select("*")
+      .eq("idNumber", idNumber)
+      .single();
+    if (fetchError) throw fetchError;
+    if (!userType) throw new Error("User not found in user-type table.");
+
+    const departmentMemberships = Object.values(userType).filter(
+      (val) => val === 1
+    ).length;
+
+    if (departmentMemberships === 1 && userType["choir-member"] === 1) {
+      // ✅ Only in Choir → full delete
+      await supabase
+        .from("choir-member-group")
+        .delete()
+        .eq("idNumber", idNumber);
+      await supabase
+        .from("members-information")
+        .delete()
+        .eq("idNumber", idNumber);
+      await supabase.from("authentication").delete().eq("idNumber", idNumber);
+      await supabase.from("user-type").delete().eq("idNumber", idNumber);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Member Removed",
+        text: "The member has been fully removed from all records.",
+      });
+    } else {
+      // ✅ Choir + other dept → just remove Choir membership
+      await supabase
+        .from("user-type")
+        .update({ "choir-member": 0 })
+        .eq("idNumber", idNumber);
+
+      await supabase
+        .from("choir-member-group")
+        .delete()
+        .eq("idNumber", idNumber);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Choir Removed",
+        text: "The member has been removed from Choir but remains in other departments.",
+      });
+    }
+
+    if (navigate) {
+      navigate("/groupMembersList", {
+        state: { department, group },
+      });
+    }
+  } catch (err) {
+    console.error("Error removing Choir member:", err);
+    await Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Failed to remove the member. Please try again.",
+    });
+  } finally {
+    setLoading(false);
   }
 };

@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from "react";
+// GroupImportMember.jsx
+import React, { useEffect, useState } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useLocation } from "react-router-dom";
-import icon from "../../../helper/icon";
-import Footer from "../../../components/footer";
 import Swal from "sweetalert2";
 
+import icon from "../../../helper/icon";
+import Footer from "../../../components/footer";
 import { ImportMemberTable } from "../../../components/table";
-import {
-  importToAltarServerDepartment,
-  importToLectorCommentatorDepartment,
-} from "../../../assets/scripts/importMember";
 
 import {
   fetchAltarServerMembersWithRole,
@@ -18,27 +15,28 @@ import {
   fetchChoirMembers,
 } from "../../../assets/scripts/fetchMember";
 
+import {
+  importToEucharisticMinisterDepartment,
+  importToChoirDepartment,
+} from "../../../assets/scripts/importMember";
+
 import "../../../assets/styles/member.css";
 import "../../../assets/styles/importMember.css";
 
-export default function ImportMember() {
+export default function GroupImportMember() {
   useEffect(() => {
-    document.title = "OLGP Servers | Members";
+    document.title = "OLGP Servers | Group";
   }, []);
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
 
+  const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
   const location = useLocation();
-  const department = location.state?.department || "Members";
-
+  const department = location.state?.department || "Group Members";
   const selectedDepartment = location.state?.selectedDepartment || "None";
-
-  function showAlert() {
-    alert(selectedDepartment);
-  }
+  const group = location.state?.group || "None";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -83,47 +81,78 @@ export default function ImportMember() {
     fetchData();
   }, [selectedDepartment]);
 
+  // simple search filter
   const handleSearchChange = (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
+    const q = e.target.value;
+    setSearchQuery(q);
 
-    if (query === "") {
+    if (!q) {
       setFilteredMembers(members);
-    } else {
-      const filtered = members.filter(
-        (member) =>
-          member.firstName?.toLowerCase().includes(query.toLowerCase()) ||
-          member.lastName?.toLowerCase().includes(query.toLowerCase()) ||
-          member.status?.toLowerCase().includes(query.toLowerCase()) ||
-          member.idNumber?.toString().includes(query)
-      );
-      setFilteredMembers(filtered);
+      return;
     }
+
+    const query = q.toLowerCase();
+    const filtered = members.filter((m) => {
+      const first = m.firstName?.toLowerCase() || "";
+      const last = m.lastName?.toLowerCase() || "";
+      const role = m.role?.toLowerCase() || "";
+      const id = String(m.idNumber || "");
+      return (
+        first.includes(query) ||
+        last.includes(query) ||
+        role.includes(query) ||
+        id.includes(q)
+      );
+    });
+
+    setFilteredMembers(filtered);
   };
 
-  const handleViewDetails = async (record) => {
+  const handleImport = async (record) => {
     const fullName = `${record.firstName} ${record.lastName}`;
 
-    const result = await Swal.fire({
+    const confirm = await Swal.fire({
       icon: "question",
       title: "Confirm Import",
-      text: `Are you sure you want to import ${fullName} to the ${
-        selectedDepartment === "Altar Server"
-          ? "Lector Commentator"
-          : "Altar Server"
-      } department?`,
+      text: `Import ${fullName} into ${department} (Group: ${group})?`,
       showCancelButton: true,
       confirmButtonText: "Yes, Import",
       cancelButtonText: "Cancel",
       reverseButtons: true,
     });
 
-    if (result.isConfirmed) {
-      if (selectedDepartment === "Altar Server") {
-        await importToLectorCommentatorDepartment(record.idNumber);
-      } else if (selectedDepartment === "Lector Commentator") {
-        await importToAltarServerDepartment(record.idNumber);
+    if (!confirm.isConfirmed) return;
+
+    try {
+      let ok = false;
+
+      if (department === "Eucharistic Minister") {
+        ok = await importToEucharisticMinisterDepartment(
+          record.idNumber,
+          group
+        );
+      } else if (department === "Choir") {
+        ok = await importToChoirDepartment(record.idNumber, group);
+      } else {
+        await Swal.fire(
+          "Unsupported",
+          `Importing into "${department}" isn't implemented here.`,
+          "info"
+        );
+        return;
       }
+
+      if (ok) {
+        setMembers((prev) =>
+          prev.filter((m) => m.idNumber !== record.idNumber)
+        );
+        setFilteredMembers((prev) =>
+          prev.filter((m) => m.idNumber !== record.idNumber)
+        );
+      }
+    } catch (err) {
+      console.error("Import failed:", err);
+      await Swal.fire("Error", "Failed to import the member.", "error");
     }
   };
 
@@ -131,13 +160,15 @@ export default function ImportMember() {
     <div className="member-page-container">
       <div className="member-header">
         <div className="header-text-with-line">
-          <h3>MEMBERS - {department.toUpperCase()}</h3>
+          <h3>
+            GROUP - {department?.toUpperCase()} - {group?.toUpperCase()}
+          </h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
                 {
                   title: (
-                    <Link to="/members" className="breadcrumb-item">
+                    <Link to="/group" className="breadcrumb-item">
                       Department
                     </Link>
                   ),
@@ -145,8 +176,19 @@ export default function ImportMember() {
                 {
                   title: (
                     <Link
-                      to="/membersList"
+                      to="/selectGroup"
+                      className="breadcrumb-item"
                       state={{ department }}
+                    >
+                      Select Group
+                    </Link>
+                  ),
+                },
+                {
+                  title: (
+                    <Link
+                      to="/groupMembersList"
+                      state={{ department, group }}
                       className="breadcrumb-item"
                     >
                       Members
@@ -156,8 +198,8 @@ export default function ImportMember() {
                 {
                   title: (
                     <Link
-                      to="/selectDepartment"
-                      state={{ department }}
+                      to="/groupSelectDepartment"
+                      state={{ department, group }}
                       className="breadcrumb-item"
                     >
                       Select Department
@@ -185,27 +227,25 @@ export default function ImportMember() {
 
       <div className="member-content">
         <div className="search-bar-container">
-          <button onClick={showAlert}>Show Selected Department</button>
-
           <input
             type="text"
             className="form-control"
-            placeholder="Search Members"
+            placeholder={`Search ${selectedDepartment} Members`}
             value={searchQuery}
             onChange={handleSearchChange}
           />
         </div>
+
         <div className="table-container">
           <ImportMemberTable
             data={filteredMembers}
             loading={loading}
-            onViewDetails={handleViewDetails}
+            onViewDetails={handleImport}
           />
         </div>
       </div>
-      <div>
-        <Footer />
-      </div>
+
+      <Footer />
     </div>
   );
 }

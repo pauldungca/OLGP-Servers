@@ -1,73 +1,79 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useLocation } from "react-router-dom";
-import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
+import icon from "../../../helper/icon";
+
+import {
+  // UI helpers
+  generateUserID,
+  handleContactNumberChange,
+  handleFileChange,
+  handleFileInputChange,
+  handleRemoveImage,
+  // PSGC via axios.js
+  getProvinces as fetchProvinces,
+  getMunicipalities as fetchMunicipalities,
+  getBarangays as fetchBarangays,
+  // DB helpers (same flow as AddMember.jsx)
+  addMember,
+  addMemberAuthentication,
+  defineUserType,
+  saveEucharisticMinisterGroup,
+  saveChoirMemberGroup,
+} from "../../../assets/scripts/addMember";
 
 import "../../../assets/styles/member.css";
 import "../../../assets/styles/addMember.css";
 
-import {
-  generateUserID,
-  addMember,
-  addMemberAuthentication,
-  defineUserType,
-  saveAltarServerRoles,
-  saveLectorCommentatorRoles,
-  handleContactNumberChange,
-  handleFileInputChange,
-  handleFileChange,
-  handleRemoveImage,
-  getProvinces as fetchProvinces,
-  getMunicipalities as fetchMunicipalities,
-  getBarangays as fetchBarangays,
-} from "../../../assets/scripts/addMember";
-
-export default function AddMember() {
+export default function GroupAddMember() {
   useEffect(() => {
-    document.title = "OLGP Servers | Members";
+    document.title = "OLGP Servers | Groups";
   }, []);
 
   const location = useLocation();
-  const department = location.state?.department || "Members";
+  const { department, group } = location.state || {};
 
+  // File/image UI state
   const fileInputRef = useRef(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [fileAttached, setFileAttached] = useState(false);
+
+  // Form fields
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
   const [sex, setSex] = useState("");
   const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
-  const [selectedRole, setSelectedRole] = useState("");
-  const [dateJoined, setDateJoined] = useState("");
-  const [idNumber, setIdNumber] = useState("");
-  const [address, setAddress] = useState("");
 
-  const [selectedRolesArray, setSelectedRolesArray] = useState([]);
-
+  // Address state
   const [provinces, setProvinces] = useState([]);
   const [municipalities, setMunicipalities] = useState([]);
   const [barangays, setBarangays] = useState([]);
+
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedBarangay, setSelectedBarangay] = useState("");
   const [houseNumber, setHouseNumber] = useState("");
+  const [address, setAddress] = useState("");
 
-  const [imageFile, setImageFile] = useState(null);
-  const [fileAttached, setFileAttached] = useState(false);
+  // Meta fields
+  const [dateJoined, setDateJoined] = useState("");
+  const [idNumber, setIdNumber] = useState("");
 
-  // ---- PSGC fetches (via addMember.js -> axios.js)
+  // ---- PSGC (via addMember.js -> axios.js)
   useEffect(() => {
     fetchProvinces()
       .then(setProvinces)
-      .catch((err) => console.error("Provinces error:", err));
+      .catch((e) => console.error("Provinces error:", e));
   }, []);
 
   useEffect(() => {
     if (selectedProvince) {
       fetchMunicipalities(selectedProvince)
         .then(setMunicipalities)
-        .catch((err) => console.error("Municipalities error:", err));
+        .catch((e) => console.error("Municipalities error:", e));
     } else {
       setMunicipalities([]);
       setSelectedMunicipality("");
@@ -80,20 +86,19 @@ export default function AddMember() {
     if (selectedMunicipality) {
       fetchBarangays(selectedMunicipality)
         .then(setBarangays)
-        .catch((err) => console.error("Barangays error:", err));
+        .catch((e) => console.error("Barangays error:", e));
     } else {
       setBarangays([]);
       setSelectedBarangay("");
     }
   }, [selectedMunicipality]);
 
-  // ---- Build full address (UI only)
+  // ---- Build full address
   useEffect(() => {
     const provinceName =
       provinces.find((p) => p.code === selectedProvince)?.name || "";
     const municipalityName =
       municipalities.find((m) => m.code === selectedMunicipality)?.name || "";
-    // You currently store barangay *name* in selectedBarangay (value={brgy.name})
     const barangayName =
       barangays.find((b) => b.name === selectedBarangay)?.name ||
       selectedBarangay ||
@@ -114,7 +119,7 @@ export default function AddMember() {
     barangays,
   ]);
 
-  // Set default date and user ID
+  // ---- Default date & generated ID
   useEffect(() => {
     const today = new Date();
     const formattedDate = `${String(today.getMonth() + 1).padStart(
@@ -125,7 +130,8 @@ export default function AddMember() {
     setIdNumber(generateUserID());
   }, []);
 
-  const addMemberHandler = async (e) => {
+  // ---- Submit handler (DB flow like AddMember.jsx + group save)
+  const handleAdd = async (e) => {
     e.preventDefault();
 
     const isAdded = await addMember(
@@ -140,57 +146,48 @@ export default function AddMember() {
       contactNumber
     );
 
-    if (isAdded) {
-      await addMemberAuthentication(idNumber, "olgp2025-2026", email);
-      await defineUserType(idNumber, department);
+    if (!isAdded) return;
 
-      let selectedRolesArray = [];
-      if (selectedRole === "Non-Flexible") {
-        const checkboxes = document.querySelectorAll(
-          '.role-options input[type="checkbox"]:checked'
-        );
-        selectedRolesArray = Array.from(checkboxes).map((cb) => cb.value);
-      }
-      if (department.toUpperCase() === "ALTAR SERVER") {
-        await saveAltarServerRoles(idNumber, selectedRole, selectedRolesArray);
-      } else if (department.toUpperCase() === "LECTOR COMMENTATOR") {
-        await saveLectorCommentatorRoles(
-          idNumber,
-          selectedRole,
-          selectedRolesArray
-        );
-      }
+    // Auth + user type (same as AddMember.jsx)
+    await addMemberAuthentication(idNumber, "olgp2025-2026", email);
+    await defineUserType(idNumber, department);
 
-      // Reset form
-      setFirstName("");
-      setMiddleName("");
-      setLastName("");
-      setAddress("");
-      setHouseNumber("");
-      setSelectedProvince("");
-      setSelectedMunicipality("");
-      setSelectedBarangay("");
-      setSex("");
-      setEmail("");
-      setContactNumber("");
-      setSelectedRole("");
-      setIdNumber(generateUserID());
-      setImageFile(null);
-      setFileAttached(false);
+    // ✅ Save group depending on department
+    if (department === "Eucharistic Minister") {
+      await saveEucharisticMinisterGroup(idNumber, group || "Group 1");
+    } else if (department === "Choir") {
+      await saveChoirMemberGroup(idNumber, group || "Group 1");
     }
-  };
 
+    // Reset UI
+    setFirstName("");
+    setMiddleName("");
+    setLastName("");
+    setSex("");
+    setEmail("");
+    setContactNumber("");
+    setHouseNumber("");
+    setSelectedProvince("");
+    setSelectedMunicipality("");
+    setSelectedBarangay("");
+    setAddress("");
+    setImageFile(null);
+    setFileAttached(false);
+    setIdNumber(generateUserID());
+  };
   return (
     <div className="member-page-container">
       <div className="member-header">
         <div className="header-text-with-line">
-          <h3>MEMBERS - {department.toUpperCase()}</h3>
+          <h3>
+            GROUP - {department?.toUpperCase()} - {group?.toUpperCase()}
+          </h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
                 {
                   title: (
-                    <Link to="/members" className="breadcrumb-item">
+                    <Link to="/group" className="breadcrumb-item">
                       Department
                     </Link>
                   ),
@@ -198,24 +195,32 @@ export default function AddMember() {
                 {
                   title: (
                     <Link
-                      to="/membersList"
+                      to="/selectGroup"
+                      className="breadcrumb-item"
                       state={{ department }}
+                    >
+                      Select Group
+                    </Link>
+                  ),
+                },
+                {
+                  title: (
+                    <Link
+                      to="/groupMembersList"
+                      state={{ department, group }}
                       className="breadcrumb-item"
                     >
                       Members
                     </Link>
                   ),
                 },
-                {
-                  title: "Add Member",
-                  className: "breadcrumb-item-active",
-                },
+                { title: "Add Member", className: "breadcrumb-item-active" },
               ]}
               separator={
                 <img
                   src={icon.chevronIcon}
                   alt="Chevron Icon"
-                  style={{ width: "15px", height: "15px" }}
+                  style={{ width: 15, height: 15 }}
                 />
               }
               className="customized-breadcrumb"
@@ -228,7 +233,6 @@ export default function AddMember() {
       <form className="form-content">
         {/* File Attachment */}
         <div className="attachment-container">
-          {/* Preview */}
           {imageFile && (
             <div
               className="preview-container mt-3"
@@ -249,7 +253,6 @@ export default function AddMember() {
             </div>
           )}
 
-          {/* Add file button */}
           <button
             type="button"
             className="add-image-btn"
@@ -265,7 +268,6 @@ export default function AddMember() {
             )}
           </div>
 
-          {/* Hidden input */}
           <input
             type="file"
             ref={fileInputRef}
@@ -322,9 +324,9 @@ export default function AddMember() {
                 onChange={(e) => setSelectedProvince(e.target.value)}
               >
                 <option value="">Select Province</option>
-                {provinces.map((province) => (
-                  <option key={province.code} value={province.code}>
-                    {province.name}
+                {provinces.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.name}
                   </option>
                 ))}
               </select>
@@ -338,9 +340,9 @@ export default function AddMember() {
                 disabled={!selectedProvince}
               >
                 <option value="">Select Municipality</option>
-                {municipalities.map((mun) => (
-                  <option key={mun.code} value={mun.code}>
-                    {mun.name}
+                {municipalities.map((m) => (
+                  <option key={m.code} value={m.code}>
+                    {m.name}
                   </option>
                 ))}
               </select>
@@ -354,9 +356,9 @@ export default function AddMember() {
                 disabled={!selectedMunicipality}
               >
                 <option value="">Select Barangay</option>
-                {barangays.map((brgy) => (
-                  <option key={brgy.code} value={brgy.name}>
-                    {brgy.name}
+                {barangays.map((b) => (
+                  <option key={b.code} value={b.name}>
+                    {b.name}
                   </option>
                 ))}
               </select>
@@ -433,16 +435,13 @@ export default function AddMember() {
           {/* Row 5 */}
           <div className="row mb-3">
             <div className="col-md-6">
-              <label className="form-label">Role</label>
-              <select
+              <label className="form-label">Group Number</label>
+              <input
+                type="text"
                 className="form-control"
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-              >
-                <option value="">Select Role</option>
-                <option value="Flexible">Flexible</option>
-                <option value="Non-Flexible">Non-Flexible</option>
-              </select>
+                value={group || ""}
+                disabled
+              />
             </div>
             <div className="col-md-6">
               <label className="form-label">User ID</label>
@@ -455,81 +454,16 @@ export default function AddMember() {
             </div>
           </div>
 
-          {/* Non-Flexible Role Options */}
-          {selectedRole === "Non-Flexible" && (
-            <div className="role-options mt-3">
-              {(department === "ALTAR SERVER"
-                ? [
-                    { label: "Candle Bearer", value: "CandleBearer" },
-                    { label: "Beller", value: "Beller" },
-                    { label: "Cross Bearer", value: "CrossBearer" },
-                    { label: "Thurifer", value: "Thurifer" },
-                    { label: "Incense Bearer", value: "IncenseBearer" },
-                    {
-                      label: "Main Servers (Book and Mic)",
-                      value: "MainServers",
-                    },
-                    { label: "Plates", value: "Plates" },
-                  ]
-                : [
-                    { label: "Reading", value: "Reading" },
-                    { label: "Preface", value: "Preface" },
-                  ]
-              ).map((role) => (
-                <label key={role.value} style={{ marginRight: "15px" }}>
-                  <input
-                    type="checkbox"
-                    value={role.value}
-                    checked={selectedRolesArray.includes(role.value)}
-                    onChange={(e) => {
-                      let updatedRoles;
-
-                      if (e.target.checked) {
-                        updatedRoles = [...selectedRolesArray, role.value];
-                      } else {
-                        updatedRoles = selectedRolesArray.filter(
-                          (r) => r !== role.value
-                        );
-                      }
-
-                      setSelectedRolesArray(updatedRoles);
-
-                      // 🔹 Check against all roles in this department
-                      const allRoles =
-                        department === "ALTAR SERVER"
-                          ? [
-                              "CandleBearer",
-                              "Beller",
-                              "CrossBearer",
-                              "Thurifer",
-                              "IncenseBearer",
-                              "MainServers",
-                              "Plates",
-                            ]
-                          : ["Reading", "Preface"];
-
-                      if (updatedRoles.length === allRoles.length) {
-                        setSelectedRole("Flexible");
-                      } else {
-                        setSelectedRole("Non-Flexible");
-                      }
-                    }}
-                  />{" "}
-                  {role.label}
-                </label>
-              ))}
-            </div>
-          )}
-
           <button
             type="button"
             className="btn btn-add mt-4"
-            onClick={addMemberHandler}
+            onClick={handleAdd}
           >
             Add Member
           </button>
         </div>
       </form>
+
       <Footer />
     </div>
   );

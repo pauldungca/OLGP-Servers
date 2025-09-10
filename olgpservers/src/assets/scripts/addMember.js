@@ -1,5 +1,6 @@
 import Swal from "sweetalert2";
 import { supabase } from "../../utils/supabase";
+import { sendWelcomeEmail } from "../../utils/emails";
 import bcrypt from "bcryptjs";
 
 import {
@@ -141,11 +142,39 @@ export const addMember = async (
         contactNumber
       );
 
+      // 🔹 Show loading alert before sending email
       Swal.fire({
-        icon: "success",
-        title: "Member Added",
-        text: "The member was successfully added!",
+        title: "Processing...",
+        text: "Please wait a moment.",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
       });
+
+      try {
+        await sendWelcomeEmail({
+          email,
+          firstName,
+          middleName,
+          lastName,
+          idNumber,
+        });
+
+        Swal.fire({
+          icon: "success",
+          title: "Member Added",
+          text: "The member was successfully added and a welcome email was sent.",
+        });
+      } catch (mailErr) {
+        console.warn("Welcome email failed:", mailErr);
+        Swal.fire({
+          icon: "warning",
+          title: "Member Added (Email Failed)",
+          text: "Member was added, but sending the welcome email failed.",
+        });
+      }
 
       return true;
     } catch (err) {

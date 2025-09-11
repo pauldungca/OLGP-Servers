@@ -494,6 +494,97 @@ export const removeEucharisticMinister = async (
   }
 };
 
+export const removeChoirMember = async (
+  idNumber,
+  setLoading,
+  navigate,
+  department,
+  group
+) => {
+  if (!idNumber) return;
+
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    text: "Do you really want to remove this member from Choir?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Yes, remove",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    setLoading(true);
+
+    // 1) Fetch user-type record
+    const { data: userType, error: fetchError } = await supabase
+      .from("user-type")
+      .select("*")
+      .eq("idNumber", idNumber)
+      .single();
+    if (fetchError) throw fetchError;
+    if (!userType) throw new Error("User not found in user-type table.");
+
+    const departmentMemberships = Object.values(userType).filter(
+      (val) => val === 1
+    ).length;
+
+    if (departmentMemberships === 1 && userType["choir-member"] === 1) {
+      // ✅ Only in Choir → full delete
+      await supabase
+        .from("choir-member-group")
+        .delete()
+        .eq("idNumber", idNumber);
+      await supabase
+        .from("members-information")
+        .delete()
+        .eq("idNumber", idNumber);
+      await supabase.from("authentication").delete().eq("idNumber", idNumber);
+      await supabase.from("user-type").delete().eq("idNumber", idNumber);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Member Removed",
+        text: "The member has been fully removed from all records.",
+      });
+    } else {
+      // ✅ Choir + other dept → just remove Choir membership
+      await supabase
+        .from("user-type")
+        .update({ "choir-member": 0 })
+        .eq("idNumber", idNumber);
+
+      await supabase
+        .from("choir-member-group")
+        .delete()
+        .eq("idNumber", idNumber);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Choir Removed",
+        text: "The member has been removed from Choir but remains in other departments.",
+      });
+    }
+
+    if (navigate) {
+      navigate("/groupMembersList", {
+        state: { department, group },
+      });
+    }
+  } catch (err) {
+    console.error("Error removing Choir member:", err);
+    await Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Failed to remove the member. Please try again.",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
 export const editMemberInfo = async (
   idNumber,
   firstName,
@@ -726,96 +817,5 @@ export const editChoirMemberGroup = async (memberId, newGroupName) => {
   } catch (err) {
     console.error("editChoirMemberGroup error:", err);
     return false;
-  }
-};
-
-export const removeChoirMember = async (
-  idNumber,
-  setLoading,
-  navigate,
-  department,
-  group
-) => {
-  if (!idNumber) return;
-
-  const result = await Swal.fire({
-    title: "Are you sure?",
-    text: "Do you really want to remove this member from Choir?",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonText: "Yes, remove",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
-  });
-
-  if (!result.isConfirmed) return;
-
-  try {
-    setLoading(true);
-
-    // 1) Fetch user-type record
-    const { data: userType, error: fetchError } = await supabase
-      .from("user-type")
-      .select("*")
-      .eq("idNumber", idNumber)
-      .single();
-    if (fetchError) throw fetchError;
-    if (!userType) throw new Error("User not found in user-type table.");
-
-    const departmentMemberships = Object.values(userType).filter(
-      (val) => val === 1
-    ).length;
-
-    if (departmentMemberships === 1 && userType["choir-member"] === 1) {
-      // ✅ Only in Choir → full delete
-      await supabase
-        .from("choir-member-group")
-        .delete()
-        .eq("idNumber", idNumber);
-      await supabase
-        .from("members-information")
-        .delete()
-        .eq("idNumber", idNumber);
-      await supabase.from("authentication").delete().eq("idNumber", idNumber);
-      await supabase.from("user-type").delete().eq("idNumber", idNumber);
-
-      await Swal.fire({
-        icon: "success",
-        title: "Member Removed",
-        text: "The member has been fully removed from all records.",
-      });
-    } else {
-      // ✅ Choir + other dept → just remove Choir membership
-      await supabase
-        .from("user-type")
-        .update({ "choir-member": 0 })
-        .eq("idNumber", idNumber);
-
-      await supabase
-        .from("choir-member-group")
-        .delete()
-        .eq("idNumber", idNumber);
-
-      await Swal.fire({
-        icon: "success",
-        title: "Choir Removed",
-        text: "The member has been removed from Choir but remains in other departments.",
-      });
-    }
-
-    if (navigate) {
-      navigate("/groupMembersList", {
-        state: { department, group },
-      });
-    }
-  } catch (err) {
-    console.error("Error removing Choir member:", err);
-    await Swal.fire({
-      icon: "error",
-      title: "Error",
-      text: "Failed to remove the member. Please try again.",
-    });
-  } finally {
-    setLoading(false);
   }
 };

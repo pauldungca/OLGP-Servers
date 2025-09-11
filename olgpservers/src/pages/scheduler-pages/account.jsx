@@ -1,7 +1,21 @@
-import React, { useEffect } from "react";
+// pages/account/Account.jsx
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
+
 import images from "../../helper/images";
 import Footer from "../../components/footer";
+
+import {
+  fetchMemberInformation,
+  editMemberInfo,
+} from "../../assets/scripts/account";
+
+import {
+  getProvinces,
+  getMunicipalities,
+  getBarangays,
+} from "../../assets/scripts/addMember";
 
 import "../../assets/styles/account.css";
 
@@ -9,10 +23,183 @@ export default function Account() {
   useEffect(() => {
     document.title = "OLGP Servers | Account";
   }, []);
-  const navigate = useNavigate();
 
-  function handleChangePassword() {
-    navigate("/verifyOTPAccount");
+  const navigate = useNavigate();
+  const storedIdNumber = localStorage.getItem("idNumber");
+
+  const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [sex, setSex] = useState("");
+  const [email, setEmail] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
+  const [address, setAddress] = useState("");
+  const [dateJoined, setDateJoined] = useState("");
+  const [imageUrl, setImageUrl] = useState(null);
+
+  const [houseNumber, setHouseNumber] = useState("");
+  const [province, setProvince] = useState("");
+  const [municipality, setMunicipality] = useState("");
+  const [barangay, setBarangay] = useState("");
+  const [addressDirty, setAddressDirty] = useState(false);
+
+  const [provinces, setProvinces] = useState([]);
+  const [municipalities, setMunicipalities] = useState([]);
+  const [barangays, setBarangays] = useState([]);
+
+  // ✅ Single source of truth for loading the member
+  const loadMember = useCallback(async () => {
+    if (!storedIdNumber) {
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      const info = await fetchMemberInformation(storedIdNumber);
+      if (!info) return;
+
+      setFirstName(info.firstName || "");
+      setMiddleName(info.middleName || "");
+      setLastName(info.lastName || "");
+      setSex(info.sex || "");
+      setEmail(info.email || "");
+      setContactNumber(info.contactNumber || "");
+      setAddress(info.address || "");
+      setDateJoined(info.dateJoined || "");
+      setImageUrl(info.imageUrl || null);
+    } catch (err) {
+      console.error("Failed to load account info:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [storedIdNumber]);
+
+  // ✅ Only this effect is needed
+  useEffect(() => {
+    loadMember();
+  }, [loadMember]);
+
+  useEffect(() => {
+    if (editMode) {
+      getProvinces()
+        .then(setProvinces)
+        .catch(() => setProvinces([]));
+    }
+  }, [editMode]);
+
+  useEffect(() => {
+    if (province) {
+      getMunicipalities(province)
+        .then(setMunicipalities)
+        .catch(() => setMunicipalities([]));
+    } else {
+      setMunicipalities([]);
+      setMunicipality("");
+      setBarangays([]);
+      setBarangay("");
+    }
+  }, [province]);
+
+  useEffect(() => {
+    if (municipality) {
+      getBarangays(municipality)
+        .then(setBarangays)
+        .catch(() => setBarangays([]));
+    } else {
+      setBarangays([]);
+      setBarangay("");
+    }
+  }, [municipality]);
+
+  useEffect(() => {
+    if (!addressDirty) return;
+
+    const provinceName = provinces.find((p) => p.code === province)?.name || "";
+    const municipalityName =
+      municipalities.find((m) => m.code === municipality)?.name || "";
+    const barangayName = barangays.find((b) => b.code === barangay)?.name || "";
+
+    const fullAddress = `${houseNumber ? houseNumber + ", " : ""}${
+      barangayName ? barangayName + ", " : ""
+    }${municipalityName ? municipalityName + ", " : ""}${provinceName}`.trim();
+
+    setAddress(fullAddress);
+  }, [
+    houseNumber,
+    barangay,
+    municipality,
+    province,
+    provinces,
+    municipalities,
+    barangays,
+    addressDirty,
+  ]);
+
+  const handleChangePassword = () => navigate("/verifyOTPAccount");
+
+  const handleEdit = () => {
+    setEditMode(true);
+    setAddressDirty(false);
+  };
+
+  const handleCancelEdit = async () => {
+    const cancel = await Swal.fire({
+      title: "Cancel Editing?",
+      text: "Discard your changes?",
+      icon: "warning",
+      showCancelButton: true,
+      reverseButtons: true,
+      confirmButtonText: "Yes, cancel",
+    });
+    if (!cancel.isConfirmed) return;
+
+    await loadMember(); // reload from DB
+    setEditMode(false);
+    setAddressDirty(false);
+  };
+
+  const handleSave = async () => {
+    if (!storedIdNumber) return;
+
+    const ok = await editMemberInfo(
+      storedIdNumber,
+      firstName,
+      middleName,
+      lastName,
+      address,
+      sex,
+      email,
+      contactNumber
+    );
+
+    if (ok) {
+      await loadMember();
+      setEditMode(false);
+      setAddressDirty(false);
+    }
+  };
+
+  const headerFullName = [
+    firstName || "",
+    middleName ? `${middleName[0].toUpperCase()}.` : "",
+    lastName || "",
+  ]
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (loading) {
+    return (
+      <div
+        className="account-page-container d-flex align-items-center justify-content-center"
+        style={{ minHeight: 300 }}
+      >
+        Loading account…
+      </div>
+    );
   }
 
   return (
@@ -25,79 +212,290 @@ export default function Account() {
       </div>
 
       <div className="account-content">
-        {/* Profile section */}
+        {/* Profile */}
         <div className="d-flex align-items-center mb-4">
           <img
-            src={images.accountImage}
+            src={imageUrl || images.accountImage}
             alt="Profile"
             className="profile-image"
           />
           <div>
-            <h4 className="fw-bold fs-3 m-0">Juan Dela Cruz</h4>
-            <small className="text-muted">ID: 200890522</small>
+            {!editMode && (
+              <div>
+                <h4 className="fw-bold fs-3 m-0">
+                  {headerFullName || "Member"}
+                </h4>
+                <small className="text-muted">ID: {storedIdNumber}</small>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Form Section */}
+        {/* Form */}
         <form>
-          {/* Row 1 */}
+          {/* Row 1 — Names */}
           <div className="row mb-3">
             <div className="col">
               <label className="form-label">First Name</label>
-              <input type="text" className="form-control" disabled />
+              <input
+                type="text"
+                className="form-control"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                disabled={!editMode}
+              />
             </div>
             <div className="col">
               <label className="form-label">Middle Name</label>
-              <input type="text" className="form-control" disabled />
+              <input
+                type="text"
+                className="form-control"
+                value={middleName}
+                onChange={(e) => setMiddleName(e.target.value)}
+                disabled={!editMode}
+              />
             </div>
             <div className="col">
               <label className="form-label">Last Name</label>
-              <input type="text" className="form-control" disabled />
+              <input
+                type="text"
+                className="form-control"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                disabled={!editMode}
+              />
             </div>
           </div>
 
-          {/* Row 2 */}
-          <div className="row mb-3">
-            <div className="col-9">
-              <label className="form-label">Address</label>
-              <input type="text" className="form-control" disabled />
+          {/* Row 2 — Edit: PSGC pickers; View: Address + Date */}
+          {editMode ? (
+            <div className="row mb-3">
+              <div className="col-3">
+                <label className="form-label">Province</label>
+                <select
+                  className="form-control"
+                  value={province}
+                  onChange={(e) => {
+                    setProvince(e.target.value);
+                    setAddressDirty(true);
+                  }}
+                >
+                  <option value="">Select Province</option>
+                  {provinces.map((p) => (
+                    <option key={p.code} value={p.code}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-3">
+                <label className="form-label">Municipality</label>
+                <select
+                  className="form-control"
+                  value={municipality}
+                  onChange={(e) => {
+                    setMunicipality(e.target.value);
+                    setAddressDirty(true);
+                  }}
+                  disabled={!province}
+                >
+                  <option value="">Select Municipality</option>
+                  {municipalities.map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-3">
+                <label className="form-label">Barangay</label>
+                <select
+                  className="form-control"
+                  value={barangay}
+                  onChange={(e) => {
+                    setBarangay(e.target.value);
+                    setAddressDirty(true);
+                  }}
+                  disabled={!municipality}
+                >
+                  <option value="">Select Barangay</option>
+                  {barangays.map((b) => (
+                    <option key={b.code} value={b.code}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-3">
+                <label className="form-label">House Number</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={houseNumber}
+                  onChange={(e) => {
+                    setHouseNumber(e.target.value);
+                    setAddressDirty(true);
+                  }}
+                />
+              </div>
             </div>
-            <div className="col-3">
-              <label className="form-label">Sex</label>
-              <input type="text" className="form-control" disabled />
+          ) : (
+            <div className="row mb-3">
+              <div className="col-8">
+                <label className="form-label">Full Address</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={address}
+                  disabled
+                />
+              </div>
+              <div className="col-4">
+                <label className="form-label">Date Joined</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={dateJoined}
+                  disabled
+                />
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Row 3 */}
-          <div className="row mb-4">
-            <div className="col-4">
-              <label className="form-label">Contact Number</label>
-              <input type="text" className="form-control" disabled />
+          {/* Row 3 — Full Address + Date (edit) OR Sex/Email/Contact (view) */}
+          {editMode ? (
+            <div className="row mb-3">
+              <div className="col-8">
+                <label className="form-label">Full Address</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={address}
+                  disabled
+                />
+              </div>
+              <div className="col-4">
+                <label className="form-label">Date Joined</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={dateJoined}
+                  disabled
+                />
+              </div>
             </div>
-            <div className="col-8">
-              <label className="form-label">Email Address</label>
-              <input type="email" className="form-control" disabled />
+          ) : (
+            <div className="row mb-4">
+              <div className="col-3">
+                <label className="form-label">Sex</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={sex}
+                  disabled
+                />
+              </div>
+              <div className="col-5">
+                <label className="form-label">Email Address</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={email}
+                  disabled
+                />
+              </div>
+              <div className="col-4">
+                <label className="form-label">Contact Number</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={contactNumber}
+                  disabled
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Row 4 — Sex/Email/Contact (edit only) */}
+          {editMode && (
+            <div className="row mb-4">
+              <div className="col-3">
+                <label className="form-label">Sex</label>
+                <select
+                  className="form-control"
+                  value={sex}
+                  onChange={(e) => setSex(e.target.value)}
+                >
+                  <option value="">Select Sex</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+              <div className="col-5">
+                <label className="form-label">Email Address</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="col-4">
+                <label className="form-label">Contact Number</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={contactNumber}
+                  onChange={(e) => setContactNumber(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Buttons */}
           <div className="d-flex justify-content-end gap-2">
-            <button
-              type="button"
-              className="btn btn-action"
-              onClick={handleChangePassword}
-            >
-              Change Password
-            </button>
-            <button type="button" className="btn btn-action">
-              Edit Information
-            </button>
-            <button type="button" className="btn btn-action">
-              Backup Data
-            </button>
+            {!editMode ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-action"
+                  onClick={handleChangePassword}
+                >
+                  Change Password
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-action"
+                  onClick={handleEdit}
+                >
+                  Edit Information
+                </button>
+                <button type="button" className="btn btn-action">
+                  Backup Data
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-action"
+                  onClick={handleCancelEdit}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-action"
+                  onClick={handleSave}
+                >
+                  Save
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>
+
       <div>
         <Footer />
       </div>

@@ -1,55 +1,125 @@
+/* OTP card */
+.otp-card {
+  max-width: 640px; /* wider card */
+  margin: 0 auto;
+  padding: 40px 36px 28px; /* more padding */
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+}
+
+/* Logo */
 .logo {
-  width: 150px;
-  margin-top: -5%;
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  margin-bottom: 16px;
 }
 
-.message {
-  margin-top: -0.8%;
+/* OTP input row */
+#otp-inputs {
+  gap: 18px !important;
 }
 
-.email {
-  color: #3454b4;
-  background: none;
-  border: none;
+/* BIG OTP boxes */
+.otp-input {
+  width: 78px;
+  height: 78px;
+  flex: 0 0 78px;
+  text-align: center !important;
+  font-size: 32px; /* larger font */
+  letter-spacing: 2px;
   padding: 0;
-  font: inherit;
-  cursor: pointer;
+  border-radius: 14px;
+  border: 2px solid #d0d5dd;
+  background: #fff;
+  box-shadow: none;
+  font-weight: 600;
 }
 
-.otp-style {
-  width: 50px;
-  height: 60px;
-  font-size: 24px;
+.otp-input:focus {
+  border-color: #4f46e5;
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.18);
 }
 
+/* Buttons row */
+.action-row {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  max-width: 640px;
+  margin: 0 auto 16px;
+}
+
+/* Bigger buttons */
+.btn-cancel,
 .btn-verify {
-  height: 45px;
-  background-color: #596ad9;
-  border: none;
-  border-radius: 4px;
-  font-weight: 500;
-  color: white;
-  width: 45%;
-  transition: background-color 0.2s ease;
+  min-width: 200px;
+  height: 56px;
+  font-size: 18px;
+  border-radius: 12px;
+  font-weight: 600;
 }
 
-.btn-verify:hover {
-  background-color: #ffffff;
-  color: #596ad9;
-  border: 2px solid #596ad9;
-}
-
+/* Cancel */
 .btn-cancel {
-  height: 45px;
-  width: 45%;
-  border: 1px solid #ccc;
-  background-color: white;
-  border-radius: 4px;
-  font-weight: 500;
-  color: #3454b4;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  background: #fff;
+  color: #0f172a;
+  border: 2px solid #d0d5dd;
 }
 
 .btn-cancel:hover {
-  background-color: #f0f0f0;
+  background: #f9fafb;
+}
+
+/* Verify */
+.btn-verify {
+  background: #4f46e5;
+  border: 2px solid #4f46e5;
+  color: #fff;
+}
+
+.btn-verify:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Email link */
+button.email {
+  background: transparent;
+  border: 0;
+  color: #4f46e5;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+button.email:hover {
+  text-decoration: underline;
+}
+
+/* Responsive for small screens */
+@media (max-width: 480px) {
+  .otp-card {
+    padding: 24px 18px;
+  }
+
+  .action-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-cancel,
+  .btn-verify {
+    width: 100%;
+    min-width: unset;
+    font-size: 16px;
+  }
+
+  .otp-input {
+    width: 64px;
+    height: 72px;
+    font-size: 28px;
+  }
 }

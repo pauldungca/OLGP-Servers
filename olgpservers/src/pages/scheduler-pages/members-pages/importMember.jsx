@@ -1,3 +1,4 @@
+// ImportMember.jsx
 import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useLocation } from "react-router-dom";
@@ -6,10 +7,7 @@ import Footer from "../../../components/footer";
 import Swal from "sweetalert2";
 
 import { ImportMemberTable } from "../../../components/table";
-import {
-  importToAltarServerDepartment,
-  importToLectorCommentatorDepartment,
-} from "../../../assets/scripts/importMember";
+import { createImportRequestNotification } from "../../../assets/scripts/importMember";
 
 import {
   fetchAltarServerMembersWithRole,
@@ -25,15 +23,14 @@ export default function ImportMember() {
   useEffect(() => {
     document.title = "OLGP Servers | Members";
   }, []);
+
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
   const location = useLocation();
   const department = location.state?.department || "Members";
-
   const selectedDepartment = location.state?.selectedDepartment || "None";
 
   function showAlert() {
@@ -87,18 +84,20 @@ export default function ImportMember() {
     const query = e.target.value;
     setSearchQuery(query);
 
-    if (query === "") {
+    if (!query) {
       setFilteredMembers(members);
-    } else {
-      const filtered = members.filter(
-        (member) =>
-          member.firstName?.toLowerCase().includes(query.toLowerCase()) ||
-          member.lastName?.toLowerCase().includes(query.toLowerCase()) ||
-          member.status?.toLowerCase().includes(query.toLowerCase()) ||
-          member.idNumber?.toString().includes(query)
-      );
-      setFilteredMembers(filtered);
+      return;
     }
+
+    const q = query.toLowerCase();
+    const filtered = members.filter(
+      (m) =>
+        m.firstName?.toLowerCase().includes(q) ||
+        m.lastName?.toLowerCase().includes(q) ||
+        m.status?.toLowerCase().includes(q) ||
+        String(m.idNumber || "").includes(query)
+    );
+    setFilteredMembers(filtered);
   };
 
   const handleViewDetails = async (record) => {
@@ -106,24 +105,22 @@ export default function ImportMember() {
 
     const result = await Swal.fire({
       icon: "question",
-      title: "Confirm Import",
-      text: `Are you sure you want to import ${fullName} to the ${
-        selectedDepartment === "Altar Server"
-          ? "Lector Commentator"
-          : "Altar Server"
-      } department?`,
+      title: "Send Approval Request",
+      text: `Send a request for ${fullName} to join the ${department} department?`,
       showCancelButton: true,
-      confirmButtonText: "Yes, Import",
+      confirmButtonText: "Yes, Send Request",
       cancelButtonText: "Cancel",
       reverseButtons: true,
     });
 
     if (result.isConfirmed) {
-      if (selectedDepartment === "Altar Server") {
-        await importToLectorCommentatorDepartment(record.idNumber);
-      } else if (selectedDepartment === "Lector Commentator") {
-        await importToAltarServerDepartment(record.idNumber);
-      }
+      // pass: (idNumber, department, fullName, groupName=null)
+      await createImportRequestNotification(
+        record.idNumber,
+        department,
+        fullName,
+        null
+      );
     }
   };
 
@@ -203,9 +200,7 @@ export default function ImportMember() {
           />
         </div>
       </div>
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

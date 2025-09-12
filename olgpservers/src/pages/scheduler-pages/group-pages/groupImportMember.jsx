@@ -15,10 +15,7 @@ import {
   fetchChoirMembers,
 } from "../../../assets/scripts/fetchMember";
 
-import {
-  importToEucharisticMinisterDepartment,
-  importToChoirDepartment,
-} from "../../../assets/scripts/importMember";
+import { createImportRequestNotification } from "../../../assets/scripts/importMember";
 
 import "../../../assets/styles/member.css";
 import "../../../assets/styles/importMember.css";
@@ -110,49 +107,42 @@ export default function GroupImportMember() {
 
   const handleImport = async (record) => {
     const fullName = `${record.firstName} ${record.lastName}`;
+    const deptNeedingGroup =
+      department === "Eucharistic Minister" || department === "Choir";
 
-    const confirm = await Swal.fire({
+    // Guard: require a valid group for EM/Choir
+    if (deptNeedingGroup && (!group || group === "None")) {
+      await Swal.fire({
+        icon: "info",
+        title: "Select a Group",
+        text: `Please select a ${
+          department === "Choir" ? "choir group" : "minister group"
+        } first.`,
+      });
+      return;
+    }
+
+    const result = await Swal.fire({
       icon: "question",
-      title: "Confirm Import",
-      text: `Import ${fullName} into ${department} (Group: ${group})?`,
+      title: "Send Approval Request",
+      text:
+        `Do you want to send a request for ${fullName} to join the ${department}` +
+        (deptNeedingGroup ? ` (${group})` : "") +
+        ` department?`,
       showCancelButton: true,
-      confirmButtonText: "Yes, Import",
+      confirmButtonText: "Yes, Send Request",
       cancelButtonText: "Cancel",
       reverseButtons: true,
     });
 
-    if (!confirm.isConfirmed) return;
-
-    try {
-      let ok = false;
-
-      if (department === "Eucharistic Minister") {
-        ok = await importToEucharisticMinisterDepartment(
-          record.idNumber,
-          group
-        );
-      } else if (department === "Choir") {
-        ok = await importToChoirDepartment(record.idNumber, group);
-      } else {
-        await Swal.fire(
-          "Unsupported",
-          `Importing into "${department}" isn't implemented here.`,
-          "info"
-        );
-        return;
-      }
-
-      if (ok) {
-        setMembers((prev) =>
-          prev.filter((m) => m.idNumber !== record.idNumber)
-        );
-        setFilteredMembers((prev) =>
-          prev.filter((m) => m.idNumber !== record.idNumber)
-        );
-      }
-    } catch (err) {
-      console.error("Import failed:", err);
-      await Swal.fire("Error", "Failed to import the member.", "error");
+    if (result.isConfirmed) {
+      // pass: idNumber, department, fullName, groupName (only for EM/Choir)
+      await createImportRequestNotification(
+        record.idNumber,
+        department,
+        fullName,
+        deptNeedingGroup ? group : null
+      );
     }
   };
 

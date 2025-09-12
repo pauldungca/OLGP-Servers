@@ -1,43 +1,27 @@
-import React, { useEffect } from "react";
+// Notification.jsx
+import React, { useEffect, useState } from "react";
 import { FaTrash } from "react-icons/fa";
 import Swal from "sweetalert2";
 import { Link } from "react-router-dom";
+import { fetchRequestNotification } from "../../assets/scripts/notification";
 
 import "../../assets/styles/notification.css";
-
 import Footer from "../../components/footer";
 
 export default function Notification() {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const storedIdNumber = localStorage.getItem("idNumber");
+
   useEffect(() => {
     document.title = "OLGP Servers | Notifications";
-  }, []);
-  const notifications = [
-    {
-      id: 1,
-      message:
-        "Your scheduled event for Sunday 9 AM has been updated. Please confirm the changes.",
-      time: "2h ago",
-      link: "/viewNotification",
-    },
-    {
-      id: 2,
-      message: "A replacement has been assigned to your role in the choir.",
-      time: "5h ago",
-      link: "/viewNotification",
-    },
-    {
-      id: 3,
-      message: "System maintenance scheduled for tonight at 10 PM.",
-      time: "1d ago",
-      link: "/viewNotification",
-    },
-    {
-      id: 4,
-      message: "Reminder: Meeting tomorrow at 6 PM in the parish hall.",
-      time: "3d ago",
-      link: "/viewNotification",
-    },
-  ];
+    (async () => {
+      setLoading(true);
+      const rows = await fetchRequestNotification(storedIdNumber);
+      setNotifications(rows);
+      setLoading(false);
+    })();
+  }, [storedIdNumber]);
 
   function handleDelete(e) {
     Swal.fire({
@@ -54,40 +38,51 @@ export default function Notification() {
     <div className="notification-page-container">
       <div className="notification-header">
         <div className="header-text-with-line">
-          <h3>NOTIFICATION ({notifications.length})</h3>
+          <h3>NOTIFICATIONS ({notifications.length})</h3>
           <div className="header-line"></div>
         </div>
       </div>
+
       <div className="notification-content">
-        {notifications.map((notif) => (
-          <Link
-            to={notif.link}
-            className="notification-row"
-            key={notif.id}
-            style={{ textDecoration: "none" }}
-          >
-            <div className="notification-message" title={notif.message}>
-              {notif.message}
-            </div>
-            <div className="notification-actions">
-              <span className="notification-time">{notif.time}</span>
-              <button
-                className="notification-btn delete-btn"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleDelete(e);
-                }}
+        {loading ? (
+          <p>Loading notifications...</p>
+        ) : notifications.length === 0 ? (
+          <p>No notifications found.</p>
+        ) : (
+          notifications.map((notif) => (
+            <Link
+              to={`/viewNotification/${notif.id}`}
+              className="notification-row"
+              key={notif.id}
+              style={{ textDecoration: "none" }}
+            >
+              <div
+                className="notification-message"
+                title={`Type ${notif["notification-type"]} • ${notif.department}`}
               >
-                <FaTrash />
-              </button>
-            </div>
-          </Link>
-        ))}
+                {/* Short label to display */}
+                {notif.department} Request
+              </div>
+              <div className="notification-actions">
+                <span className="notification-time">
+                  {notif.date} {notif.time}
+                </span>
+                <button
+                  className="notification-btn delete-btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDelete(e);
+                  }}
+                >
+                  <FaTrash />
+                </button>
+              </div>
+            </Link>
+          ))
+        )}
       </div>
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

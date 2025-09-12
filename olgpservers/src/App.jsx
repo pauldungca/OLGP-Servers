@@ -177,13 +177,13 @@ function App() {
           <Route element={<Layout />}>
             {/*Schheduler Routes*/}
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="notification" element={<Notification />} />
             <Route path="members" element={<Members />} />
             <Route path="departmentSettings" element={<DepartmentSettings />} />
             <Route path="logout" element={<Logout />} />
 
             {/* Notification Pages */}
-            <Route path="viewNotification" element={<ViewNotification />} />
+            <Route path="notification" element={<Notification />} />
+            <Route path="viewNotification/:id" element={<ViewNotification />} />
 
             {/* Schedule Pages */}
             <Route path="/openSchedule" element={<OpenSchedule />} />

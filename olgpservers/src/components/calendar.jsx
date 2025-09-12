@@ -1,5 +1,7 @@
+// calendar.jsx
 import React from "react";
 import { Badge, Calendar } from "antd";
+import Swal from "sweetalert2";
 
 const getListData = (value) => {
   let listData = [];
@@ -37,8 +39,8 @@ const CalendarPage = () => {
     const listData = getListData(value);
     return (
       <ul className="events">
-        {listData.map((item) => (
-          <li key={item.content}>
+        {listData.map((item, idx) => (
+          <li key={`${value.format("YYYY-MM-DD")}-${idx}`}>
             <Badge status={item.type} text={item.content} />
           </li>
         ))}
@@ -51,7 +53,42 @@ const CalendarPage = () => {
     return info.originNode;
   };
 
-  return <Calendar cellRender={cellRender} />;
+  // NEW: handle day clicks
+  const handleSelect = (value /* dayjs */, info) => {
+    // Ignore selects triggered by header/panel changes
+    if (info?.source && info.source !== "date") return;
+
+    const listData = getListData(value);
+    if (!listData.length) {
+      Swal.fire({
+        icon: "info",
+        title: value.format("MMMM D, YYYY"),
+        text: "No event",
+        confirmButtonText: "OK",
+      });
+      return;
+    }
+
+    const htmlList = `
+      <ul style="text-align:left;margin:0;padding-left:1rem;">
+        ${listData
+          .map(
+            (e) =>
+              `<li><strong>${e.type.toUpperCase()}</strong>: ${e.content}</li>`
+          )
+          .join("")}
+      </ul>
+    `;
+
+    Swal.fire({
+      icon: "success",
+      title: value.format("MMMM D, YYYY"),
+      html: htmlList,
+      confirmButtonText: "Got it",
+    });
+  };
+
+  return <Calendar cellRender={cellRender} onSelect={handleSelect} />;
 };
 
 export default CalendarPage;

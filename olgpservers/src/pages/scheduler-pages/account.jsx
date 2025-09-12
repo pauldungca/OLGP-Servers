@@ -1,4 +1,3 @@
-// pages/account/Account.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -12,9 +11,20 @@ import {
 } from "../../assets/scripts/account";
 
 import {
+  isEucharisticMinisterScheduler,
+  isChoirScheduler,
+} from "../../assets/scripts/group";
+
+import {
+  isAltarServerScheduler,
+  isLectorCommentatorScheduler,
+} from "../../assets/scripts/member";
+
+import {
   getProvinces,
   getMunicipalities,
   getBarangays,
+  handleContactNumberChange,
 } from "../../assets/scripts/addMember";
 
 import "../../assets/styles/account.css";
@@ -26,6 +36,11 @@ export default function Account() {
 
   const navigate = useNavigate();
   const storedIdNumber = localStorage.getItem("idNumber");
+
+  const [isEucharisticMinister, setIsEucharisticMinister] = useState(false);
+  const [isChoir, setIsChoir] = useState(false);
+  const [isAltarServer, setIsAltarServer] = useState(false);
+  const [isLectorCommentator, setIsLectorCommentator] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -50,7 +65,29 @@ export default function Account() {
   const [municipalities, setMunicipalities] = useState([]);
   const [barangays, setBarangays] = useState([]);
 
-  // ✅ Single source of truth for loading the member
+  useEffect(() => {
+    const initializeMemberData = async () => {
+      const eucharisticMinisterStatus = await isEucharisticMinisterScheduler(
+        storedIdNumber
+      );
+      const choirStatus = await isChoirScheduler(storedIdNumber);
+      const serverStatus = await isAltarServerScheduler(storedIdNumber);
+      const lectorStatus = await isLectorCommentatorScheduler(storedIdNumber);
+
+      setIsAltarServer(serverStatus);
+      setIsLectorCommentator(lectorStatus);
+      setIsEucharisticMinister(eucharisticMinisterStatus);
+      setIsChoir(choirStatus);
+    };
+    initializeMemberData();
+  }, [storedIdNumber]);
+
+  const isAnyScheduler =
+    isEucharisticMinister || isChoir || isAltarServer || isLectorCommentator;
+
+  const canEditAll = editMode && isAnyScheduler; // schedulers in edit: full edit
+  const canEditEmailOnly = editMode && !isAnyScheduler; // member-only in edit: email only
+
   const loadMember = useCallback(async () => {
     if (!storedIdNumber) {
       setLoading(false);
@@ -77,18 +114,17 @@ export default function Account() {
     }
   }, [storedIdNumber]);
 
-  // ✅ Only this effect is needed
   useEffect(() => {
     loadMember();
   }, [loadMember]);
 
   useEffect(() => {
-    if (editMode) {
+    if (canEditAll) {
       getProvinces()
         .then(setProvinces)
         .catch(() => setProvinces([]));
     }
-  }, [editMode]);
+  }, [canEditAll]);
 
   useEffect(() => {
     if (province) {
@@ -156,7 +192,7 @@ export default function Account() {
     });
     if (!cancel.isConfirmed) return;
 
-    await loadMember(); // reload from DB
+    await loadMember();
     setEditMode(false);
     setAddressDirty(false);
   };
@@ -231,225 +267,271 @@ export default function Account() {
           </div>
         </div>
 
-        {/* Form */}
+        {/* FORM */}
         <form>
-          {/* Row 1 — Names */}
-          <div className="row mb-3">
-            <div className="col">
-              <label className="form-label">First Name</label>
-              <input
-                type="text"
-                className="form-control"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                disabled={!editMode}
-              />
-            </div>
-            <div className="col">
-              <label className="form-label">Middle Name</label>
-              <input
-                type="text"
-                className="form-control"
-                value={middleName}
-                onChange={(e) => setMiddleName(e.target.value)}
-                disabled={!editMode}
-              />
-            </div>
-            <div className="col">
-              <label className="form-label">Last Name</label>
-              <input
-                type="text"
-                className="form-control"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                disabled={!editMode}
-              />
-            </div>
-          </div>
+          {canEditAll ? (
+            <>
+              {/* EDIT MODE (Scheduler) */}
 
-          {/* Row 2 — Edit: PSGC pickers; View: Address + Date */}
-          {editMode ? (
-            <div className="row mb-3">
-              <div className="col-3">
-                <label className="form-label">Province</label>
-                <select
-                  className="form-control"
-                  value={province}
-                  onChange={(e) => {
-                    setProvince(e.target.value);
-                    setAddressDirty(true);
-                  }}
-                >
-                  <option value="">Select Province</option>
-                  {provinces.map((p) => (
-                    <option key={p.code} value={p.code}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+              {/* Row 1 — Names */}
+              <div className="row mb-3">
+                <div className="col">
+                  <label className="form-label">First Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                </div>
+                <div className="col">
+                  <label className="form-label">Middle Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={middleName}
+                    onChange={(e) => setMiddleName(e.target.value)}
+                  />
+                </div>
+                <div className="col">
+                  <label className="form-label">Last Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="col-3">
-                <label className="form-label">Municipality</label>
-                <select
-                  className="form-control"
-                  value={municipality}
-                  onChange={(e) => {
-                    setMunicipality(e.target.value);
-                    setAddressDirty(true);
-                  }}
-                  disabled={!province}
-                >
-                  <option value="">Select Municipality</option>
-                  {municipalities.map((m) => (
-                    <option key={m.code} value={m.code}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+
+              {/* Row 2 — PSGC pickers */}
+              <div className="row mb-3">
+                <div className="col-3">
+                  <label className="form-label">Province</label>
+                  <select
+                    className="form-control"
+                    value={province}
+                    onChange={(e) => {
+                      setProvince(e.target.value);
+                      setAddressDirty(true);
+                    }}
+                  >
+                    <option value="">Select Province</option>
+                    {provinces.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-3">
+                  <label className="form-label">Municipality</label>
+                  <select
+                    className="form-control"
+                    value={municipality}
+                    onChange={(e) => {
+                      setMunicipality(e.target.value);
+                      setAddressDirty(true);
+                    }}
+                    disabled={!province}
+                  >
+                    <option value="">Select Municipality</option>
+                    {municipalities.map((m) => (
+                      <option key={m.code} value={m.code}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-3">
+                  <label className="form-label">Barangay</label>
+                  <select
+                    className="form-control"
+                    value={barangay}
+                    onChange={(e) => {
+                      setBarangay(e.target.value);
+                      setAddressDirty(true);
+                    }}
+                    disabled={!municipality}
+                  >
+                    <option value="">Select Barangay</option>
+                    {barangays.map((b) => (
+                      <option key={b.code} value={b.code}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-3">
+                  <label className="form-label">House Number</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={houseNumber}
+                    onChange={(e) => {
+                      setHouseNumber(e.target.value);
+                      setAddressDirty(true);
+                    }}
+                  />
+                </div>
               </div>
-              <div className="col-3">
-                <label className="form-label">Barangay</label>
-                <select
-                  className="form-control"
-                  value={barangay}
-                  onChange={(e) => {
-                    setBarangay(e.target.value);
-                    setAddressDirty(true);
-                  }}
-                  disabled={!municipality}
-                >
-                  <option value="">Select Barangay</option>
-                  {barangays.map((b) => (
-                    <option key={b.code} value={b.code}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
+
+              {/* Row 3 — Full Address + Date Joined */}
+              <div className="row mb-3">
+                <div className="col-8">
+                  <label className="form-label">Full Address</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={address}
+                    disabled
+                  />
+                </div>
+                <div className="col-4">
+                  <label className="form-label">Date Joined</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={dateJoined}
+                    disabled
+                  />
+                </div>
               </div>
-              <div className="col-3">
-                <label className="form-label">House Number</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={houseNumber}
-                  onChange={(e) => {
-                    setHouseNumber(e.target.value);
-                    setAddressDirty(true);
-                  }}
-                />
+
+              {/* Row 4 — Sex / Email / Contact */}
+              <div className="row mb-4">
+                <div className="col-3">
+                  <label className="form-label">Sex</label>
+                  <select
+                    className="form-control"
+                    value={sex}
+                    onChange={(e) => setSex(e.target.value)}
+                  >
+                    <option value="">Select Sex</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+                <div className="col-5">
+                  <label className="form-label">Email Address</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div className="col-4">
+                  <label className="form-label">Contact Number</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={contactNumber}
+                    onChange={(e) =>
+                      handleContactNumberChange(e, setContactNumber)
+                    }
+                    inputMode="numeric"
+                    pattern="\d*"
+                    maxLength={13}
+                  />
+                </div>
               </div>
-            </div>
+            </>
           ) : (
-            <div className="row mb-3">
-              <div className="col-8">
-                <label className="form-label">Full Address</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={address}
-                  disabled
-                />
-              </div>
-              <div className="col-4">
-                <label className="form-label">Date Joined</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={dateJoined}
-                  disabled
-                />
-              </div>
-            </div>
-          )}
+            <>
+              {/* NOT EDIT MODE (and Member-only edit layout) */}
 
-          {/* Row 3 — Full Address + Date (edit) OR Sex/Email/Contact (view) */}
-          {editMode ? (
-            <div className="row mb-3">
-              <div className="col-8">
-                <label className="form-label">Full Address</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={address}
-                  disabled
-                />
+              {/* Row 1 — Names */}
+              <div className="row mb-3">
+                <div className="col">
+                  <label className="form-label">First Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={firstName}
+                    disabled
+                  />
+                </div>
+                <div className="col">
+                  <label className="form-label">Middle Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={middleName}
+                    disabled
+                  />
+                </div>
+                <div className="col">
+                  <label className="form-label">Last Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={lastName}
+                    disabled
+                  />
+                </div>
               </div>
-              <div className="col-4">
-                <label className="form-label">Date Joined</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={dateJoined}
-                  disabled
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="row mb-4">
-              <div className="col-3">
-                <label className="form-label">Sex</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={sex}
-                  disabled
-                />
-              </div>
-              <div className="col-5">
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={email}
-                  disabled
-                />
-              </div>
-              <div className="col-4">
-                <label className="form-label">Contact Number</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={contactNumber}
-                  disabled
-                />
-              </div>
-            </div>
-          )}
 
-          {/* Row 4 — Sex/Email/Contact (edit only) */}
-          {editMode && (
-            <div className="row mb-4">
-              <div className="col-3">
-                <label className="form-label">Sex</label>
-                <select
-                  className="form-control"
-                  value={sex}
-                  onChange={(e) => setSex(e.target.value)}
-                >
-                  <option value="">Select Sex</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
+              {/* Row 2 — Full Address + Date Joined */}
+              <div className="row mb-3">
+                <div className="col-8">
+                  <label className="form-label">Full Address</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={address}
+                    disabled
+                  />
+                </div>
+                <div className="col-4">
+                  <label className="form-label">Date Joined</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={dateJoined}
+                    disabled
+                  />
+                </div>
               </div>
-              <div className="col-5">
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+
+              {/* Row 3 — Sex / Email / Contact (email editable only if member in edit) */}
+              <div className="row mb-4">
+                <div className="col-3">
+                  <label className="form-label">Sex</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={sex}
+                    disabled
+                  />
+                </div>
+                <div className="col-5">
+                  <label className="form-label">Email Address</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={!canEditEmailOnly}
+                  />
+                </div>
+                <div className="col-4">
+                  <label className="form-label">Contact Number</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={contactNumber}
+                    onChange={(e) =>
+                      handleContactNumberChange(e, setContactNumber)
+                    }
+                    inputMode="numeric"
+                    pattern="\d*"
+                    maxLength={13}
+                    disabled
+                  />
+                </div>
               </div>
-              <div className="col-4">
-                <label className="form-label">Contact Number</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={contactNumber}
-                  onChange={(e) => setContactNumber(e.target.value)}
-                />
-              </div>
-            </div>
+            </>
           )}
 
           {/* Buttons */}

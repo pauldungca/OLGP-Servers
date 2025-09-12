@@ -3,14 +3,6 @@ import { sendOtpEmail } from "../../utils/emails";
 import Swal from "sweetalert2";
 import bcrypt from "bcryptjs";
 
-export const normalizeContactNumber = (value) => {
-  return (
-    String(value || "")
-      .replace(/\D/g, "")
-      .slice(0, 11) || null
-  );
-};
-
 export const formatMMSS = (s) => {
   const m = Math.floor(s / 60)
     .toString()
@@ -84,7 +76,7 @@ export const editMemberInfo = async (
         address,
         sex,
         email,
-        contactNumber: normalizeContactNumber(contactNumber),
+        contactNumber: contactNumber,
       })
       .eq("idNumber", idNumber)
       .select()

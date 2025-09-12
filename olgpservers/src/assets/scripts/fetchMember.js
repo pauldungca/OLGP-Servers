@@ -830,3 +830,83 @@ export const fetchChoirMembers = async () => {
     return [];
   }
 };
+
+export const isAltarServerMember = async (idNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from("user-type")
+      .select(`altar-server-member`)
+      .eq("idNumber", idNumber)
+      .single();
+
+    if (error) {
+      console.error("Error fetching altar server status:", error);
+      return false;
+    }
+
+    return data["altar-server-member"] === 1;
+  } catch (err) {
+    console.error("Error in fetchAltarServerStatus:", err);
+    return false;
+  }
+};
+
+export const isLectorCommentatorMember = async (idNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from("user-type")
+      .select(`lector-commentator-member`)
+      .eq("idNumber", idNumber)
+      .single();
+
+    if (error) {
+      console.error("Error fetching lector commentator status:", error);
+      return false;
+    }
+
+    return data["lector-commentator-member"] === 1;
+  } catch (err) {
+    console.error("Error in fetchLectorCommentatorStatus:", err);
+    return false;
+  }
+};
+
+export const isEucharisticMinisterMember = async (idNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from("user-type")
+      .select(`eucharistic-minister-member`)
+      .eq("idNumber", idNumber)
+      .single();
+
+    if (error) {
+      console.error("Error fetching eucharistic minister status:", error);
+      return false;
+    }
+
+    return data["eucharistic-minister-member"] === 1;
+  } catch (err) {
+    console.error("Error in fetchEucharisticMinisterStatus:", err);
+    return false;
+  }
+};
+
+export const isChoirMember = async (idNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from("user-type")
+      .select(`choir-member`)
+      .eq("idNumber", idNumber)
+      .single();
+
+    if (error) {
+      console.error("Error fetching choir status:", error);
+      return false;
+    }
+
+    return data["choir-member"] === 1;
+  } catch (err) {
+    console.error("Error in fetchChoirStatus:", err);
+    return false;
+  }
+};

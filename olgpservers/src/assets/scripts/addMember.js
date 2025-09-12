@@ -37,6 +37,11 @@ export const formatContactNumber = (value) => {
   }
 };
 
+export const handleContactNumberChange = (e, setContactNumber) => {
+  const formatted = formatContactNumber(e.target.value);
+  setContactNumber(formatted);
+};
+
 function insertMemberAuthentication(idNumber, password, email) {
   return supabase
     .from("authentication")
@@ -427,11 +432,6 @@ export const insertMemberImage = async (idNumber, imageUrl) => {
     console.error("Unexpected error:", err);
     alert("Unexpected error: " + err.message);
   }
-};
-
-export const handleContactNumberChange = (e, setContactNumber) => {
-  const formatted = formatContactNumber(e.target.value);
-  setContactNumber(formatted);
 };
 
 export const handleFileInputChange = (e, setImageFile, setFileAttached) => {

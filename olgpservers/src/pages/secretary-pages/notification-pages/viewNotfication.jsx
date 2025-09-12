@@ -1,4 +1,3 @@
-// src/pages/secretary-pages/ViewNotfication.jsx
 import React, { useEffect, useState } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useParams } from "react-router-dom";

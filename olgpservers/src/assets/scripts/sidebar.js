@@ -205,3 +205,37 @@ export const createNavigationLinkWithSubmenu = (icons, navigate) => {
     );
   };
 };
+
+export const buildDisplayName = async (idNumber) => {
+  if (!idNumber) return "";
+
+  try {
+    // 1) Basic member info
+    const { data: info, error: infoError } = await supabase
+      .from("members-information")
+      .select("*")
+      .eq("idNumber", idNumber)
+      .single();
+    if (infoError) throw infoError;
+
+    // 🔹 Build name string from whatever fields exist
+    return (
+      info.name ||
+      [info.firstName, info.middleName, info.lastName, info.suffix]
+        .filter(Boolean)
+        .join(" ")
+        .trim() ||
+      [info.firstname, info.middlename, info.lastname, info.suffix]
+        .filter(Boolean)
+        .join(" ")
+        .trim() ||
+      info.displayName ||
+      info.fullname ||
+      info.fullName ||
+      String(info.idNumber || "")
+    );
+  } catch (err) {
+    console.error("Error building display name:", err.message);
+    return String(idNumber); // fallback
+  }
+};

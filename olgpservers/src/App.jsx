@@ -159,7 +159,7 @@ function App() {
               element={<NotificationSecretary />}
             />
             <Route
-              path="/viewNotificationSecretary"
+              path="/viewNotificationSecretary/:id"
               element={<ViewNotificationSecretary />}
             />
 

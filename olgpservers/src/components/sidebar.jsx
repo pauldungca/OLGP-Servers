@@ -7,6 +7,7 @@ import {
   fetchUserRoles,
   createNavigationLinks,
   createNavigationLinkWithSubmenu,
+  buildDisplayName,
 } from "../assets/scripts/sidebar.js";
 
 // 🔹 Regular Sidebar
@@ -25,7 +26,9 @@ export function Sidebar({ collapsed, mobileOpen }) {
     isLectorCommentatorMember: false,
     isChoirMember: false,
   });
+
   const [, setUserId] = useState();
+  const [displayName, setDisplayName] = useState("");
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -112,9 +115,13 @@ export function Sidebar({ collapsed, mobileOpen }) {
     if (userIdNumber) {
       setUserId(userIdNumber);
       fetchUserRoles(userIdNumber, setUserRoles, setUserRoleType);
+      buildDisplayName(userIdNumber)
+        .then(setDisplayName)
+        .catch(() => setDisplayName(""));
     } else {
       setUserId("None");
       setUserRoleType("None");
+      setDisplayName("None");
     }
   }, [location]);
 
@@ -138,7 +145,7 @@ export function Sidebar({ collapsed, mobileOpen }) {
         />
         {!collapsed && (
           <div className="user-details">
-            <span className="username">John Doe</span>
+            <span className="username">{displayName}</span>
             <span className="user-role">{userRoleType}</span>
           </div>
         )}
@@ -300,6 +307,10 @@ export function Sidebar({ collapsed, mobileOpen }) {
 // 🔹 Parish Secretary Sidebar
 export function SecretarySidebar({ collapsed, mobileOpen }) {
   const [activePage, setActivePage] = useState("secretaryDashboard");
+
+  const [, setUserId] = useState();
+  const [displayName, setDisplayName] = useState("");
+
   const location = useLocation();
   const navigate = useNavigate();
   const navigationLinks = createNavigationLinks(navigate);
@@ -350,6 +361,17 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
     if (path.includes("schedule")) {
       setActiveSubmenu("schedule-submenu");
     }
+
+    const userIdNumber = localStorage.getItem("idNumber");
+    if (userIdNumber) {
+      setUserId(userIdNumber);
+      buildDisplayName(userIdNumber)
+        .then(setDisplayName)
+        .catch(() => setDisplayName(""));
+    } else {
+      setUserId("None");
+      setDisplayName("None");
+    }
   }, [location]);
 
   return (
@@ -368,8 +390,8 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
         />
         {!collapsed && (
           <div className="user-details">
-            <span className="username">Ate lala</span>
-            <span className="user-role">Secretary</span>
+            <span className="username">{displayName}</span>
+            <span className="user-role">Parish Secretary</span>
           </div>
         )}
       </div>

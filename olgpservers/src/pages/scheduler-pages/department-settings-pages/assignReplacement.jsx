@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
 
@@ -38,6 +38,8 @@ export default function AssignReplacement() {
   const [isAltarServer, setIsAltarServer] = useState(false);
   const [isLectorCommentator, setIsLectorCommentator] = useState(false);
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     const initializeMemberData = async () => {
       const eucharisticMinisterStatus = await isEucharisticMinisterScheduler(
@@ -74,7 +76,7 @@ export default function AssignReplacement() {
       fullName,
     });
 
-    //navigate("/selectMember", { state: { department } });
+    navigate("/selectMember", { state: { department } });
   };
 
   return (

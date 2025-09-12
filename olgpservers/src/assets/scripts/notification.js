@@ -21,7 +21,36 @@ const schedulerColMap = {
   "Lector Commentator": "lector-commentator-scheduler",
 };
 
-/** List notifications for a user (by idNumber) */
+// Resolve a friendly full name by idNumber from members-information
+const resolveMemberFullName = async (idNumber) => {
+  const safeId = String(idNumber || "");
+  if (!safeId) return "A member";
+
+  const { data, error } = await supabase
+    .from("members-information")
+    .select("firstName, middleName, lastName")
+    .eq("idNumber", safeId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error("resolveMemberFullName error:", error);
+    return "A member";
+  }
+
+  const first = data.firstName || "";
+  const last = data.lastName || "";
+  const mid = (data.middleName || "").trim();
+  const middleInitial = mid ? ` ${mid.charAt(0).toUpperCase()}.` : "";
+
+  const fullName = `${first}${middleInitial} ${last}`.trim();
+  return fullName || "A member";
+};
+
+/* ===========================
+   PERSONAL (member-request-notification)
+   =========================== */
+
 export const fetchRequestNotification = async (idNumber) => {
   if (!idNumber) return [];
 
@@ -30,14 +59,15 @@ export const fetchRequestNotification = async (idNumber) => {
     .select("*")
     .eq("idNumber", idNumber)
     .order("date", { ascending: false })
-    .order("time", { ascending: false }); // ✅ fixed: complete object
+    .order("time", { ascending: false });
 
   if (error) {
     console.error("Error fetching notifications:", error);
     return [];
   }
 
-  return data || [];
+  // tag them so UI can route delete appropriately
+  return (data || []).map((row) => ({ _kind: "personal", ...row }));
 };
 
 /** Fetch a single notification by id (optionally scoped to idNumber for safety) */
@@ -101,7 +131,6 @@ export const renderNotificationBody = (notif, handleApprove, handleDeny) => {
   }
 
   if (type === 2) {
-    // 👇 New: scheduler transfer design
     const dept = notif.department;
     return (
       <>
@@ -162,7 +191,6 @@ export const renderNotificationTitle = (notif) => {
   }
 
   if (type === 2) {
-    // 👇 New: scheduler transfer title
     return `Scheduler Transfer Request – ${notif.department}`;
   }
 
@@ -230,6 +258,7 @@ export const approveRequest = async (notif, navigate) => {
         text: `Request approved. You are now a ${department}${groupText} member.`,
       });
     } else if (type === 2) {
+      // ===== TYPE 2: Transfer scheduler rights =====
       const schedulerCol = schedulerColMap[department];
       if (!schedulerCol) {
         await Swal.fire(
@@ -253,17 +282,19 @@ export const approveRequest = async (notif, navigate) => {
           ? currentSched[0].idNumber
           : null;
 
-      // ❗ DO NOT pass navigate here — let the caller navigate after deletion
+      // 🔎 Resolve display name (with middle initial if any)
+      const displayName = await resolveMemberFullName(idNumber);
+
+      // Promote (no navigate here; we will delete then caller can navigate)
       const ok = await promoteMemberToScheduler({
         selectedRole: department,
         targetIdNumber: idNumber,
         storedIdNumber: currentSchedulerId,
-        fullName: "",
-        // navigate: undefined
+        fullName: displayName,
       });
       if (!ok) return false;
 
-      // Now delete the request (this code will actually run)
+      // delete the request
       const { error: del2 } = await supabase
         .from("member-request-notification")
         .delete()
@@ -279,8 +310,29 @@ export const approveRequest = async (notif, navigate) => {
         return false;
       }
 
-      // One success alert is already shown inside promoteMemberToScheduler.
-      // After deletion, you can redirect wherever you want:
+      // 📣 create a global (broadcast) message visible to all users
+      try {
+        const bcOk = await createSchedulerBroadcast({
+          department,
+          memberName: displayName,
+        });
+        if (!bcOk) {
+          await Swal.fire(
+            "Warning",
+            "Scheduler transfer succeeded, but broadcast notification failed.",
+            "warning"
+          );
+        }
+      } catch (err) {
+        console.error("Broadcast error:", err);
+        await Swal.fire(
+          "Error",
+          "Scheduler transfer succeeded, but broadcast notification threw an error.",
+          "error"
+        );
+      }
+
+      // Optional redirect
       if (typeof navigate === "function") {
         navigate("/dashboard");
         window.location.reload();
@@ -337,4 +389,251 @@ export const denyRequest = async (notif, navigate) => {
     await Swal.fire("Failed", "Could not deny the request.", "error");
     return false;
   }
+};
+
+export const deleteNotification = async (notifId, setNotifications) => {
+  const result = await Swal.fire({
+    icon: "question",
+    title: "Delete Notification?",
+    text: "Are you sure you want to delete this notification?",
+    showCancelButton: true,
+    confirmButtonText: "Yes, Delete",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+
+  if (!result.isConfirmed) return false;
+
+  try {
+    const { error } = await supabase
+      .from("member-request-notification")
+      .delete()
+      .eq("id", notifId);
+
+    if (error) throw error;
+
+    if (typeof setNotifications === "function") {
+      setNotifications((prev) =>
+        prev.filter((n) => !(n._kind === "personal" && n.id === notifId))
+      );
+    }
+
+    await Swal.fire({
+      icon: "success",
+      title: "Deleted",
+      text: "Notification has been deleted.",
+    });
+    return true;
+  } catch (err) {
+    console.error("deleteNotification error:", err);
+    await Swal.fire("Error", "Failed to delete the notification.", "error");
+    return false;
+  }
+};
+
+/* ===========================
+   GLOBAL (user_notifications + user_notification_receipts)
+   =========================== */
+
+/** Create a global broadcast when a scheduler transfer is approved */
+export const createSchedulerBroadcast = async ({ department, memberName }) => {
+  try {
+    const { error } = await supabase.from("user_notifications").insert([
+      {
+        title: "Scheduler Transfer Approved",
+        message: `${memberName} is now the ${department} scheduler.`,
+        level: "success",
+      },
+    ]);
+
+    if (error) {
+      console.error("createSchedulerBroadcast error:", error);
+      await Swal.fire("Error", `Broadcast failed: ${error.message}`, "error");
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("createSchedulerBroadcast exception:", err);
+    await Swal.fire("Error", "Broadcast failed (exception).", "error");
+    return false;
+  }
+};
+
+/** Fetch global broadcasts that the current user hasn't dismissed */
+export const fetchGlobalNotificationsForUser = async (idNumber) => {
+  try {
+    // 1) Fetch broadcasts
+    const { data: broadcasts, error: bErr } = await supabase
+      .from("user_notifications")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (bErr) {
+      console.error("[Global] SELECT user_notifications failed:", bErr);
+      await Swal.fire(
+        "Error",
+        `Cannot load broadcasts: ${bErr.message}`,
+        "error"
+      );
+      return [];
+    }
+
+    // If no broadcasts, return early (but log for debugging)
+    if (!broadcasts || broadcasts.length === 0) {
+      console.log("[Global] No broadcasts found");
+      return [];
+    }
+
+    // 2) Receipts are optional; if idNumber is falsy, skip filtering
+    if (!idNumber) {
+      console.warn(
+        "[Global] No idNumber provided; returning all broadcasts (undismissed filter skipped)."
+      );
+      return broadcasts.map((n) => ({
+        _kind: "global",
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        level: n.level,
+        created_at: n.created_at,
+      }));
+    }
+
+    const { data: receipts, error: rErr } = await supabase
+      .from("user_notification_receipts")
+      .select("notification_id, dismissed_at")
+      .eq("idNumber", String(idNumber || ""));
+
+    if (rErr) {
+      console.error("[Global] SELECT receipts failed:", rErr);
+      // Don’t fail the entire list; show broadcasts anyway
+      return broadcasts.map((n) => ({
+        _kind: "global",
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        level: n.level,
+        created_at: n.created_at,
+      }));
+    }
+
+    const dismissedIds = new Set(
+      (receipts || [])
+        .filter((r) => r.dismissed_at)
+        .map((r) => r.notification_id)
+    );
+
+    const visible = (broadcasts || []).filter((n) => !dismissedIds.has(n.id));
+
+    return visible.map((n) => ({
+      _kind: "global",
+      id: n.id,
+      title: n.title,
+      message: n.message,
+      level: n.level,
+      created_at: n.created_at,
+    }));
+  } catch (err) {
+    console.error("[Global] Unexpected error:", err);
+    await Swal.fire(
+      "Error",
+      "Failed to load broadcasts (unexpected).",
+      "error"
+    );
+    return [];
+  }
+};
+
+/** Dismiss a global broadcast for this user only */
+export const dismissGlobalNotification = async (
+  notificationId,
+  idNumber,
+  setNotifications
+) => {
+  try {
+    const res = await Swal.fire({
+      icon: "question",
+      title: "Delete Notification?",
+      text: "Are you sure you want to delete this notification?",
+      showCancelButton: true,
+      confirmButtonText: "Hide",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!res.isConfirmed) return false;
+
+    const safeIdNum = String(idNumber || "");
+    const now = new Date().toISOString();
+
+    // 1) Try update first
+    const { data: updData, error: updErr } = await supabase
+      .from("user_notification_receipts")
+      .update({ dismissed_at: now })
+      .eq("idNumber", safeIdNum)
+      .eq("notification_id", notificationId)
+      .select(); // select so we can see affected rows for supabase-js
+
+    if (updErr) {
+      console.error("[GlobalDismiss] update error:", updErr);
+    }
+
+    const updatedCount = Array.isArray(updData) ? updData.length : 0;
+
+    // 2) If nothing updated, insert
+    if (updatedCount === 0) {
+      const { error: insErr } = await supabase
+        .from("user_notification_receipts")
+        .insert([
+          {
+            idNumber: safeIdNum,
+            notification_id: notificationId,
+            dismissed_at: now,
+          },
+        ]);
+      if (insErr) {
+        console.error("[GlobalDismiss] insert error:", insErr);
+        await Swal.fire(
+          "Error",
+          `Could not hide broadcast. ${insErr.message || ""}`,
+          "error"
+        );
+        return false;
+      }
+    }
+
+    // 3) Update local list
+    if (typeof setNotifications === "function") {
+      setNotifications((prev) =>
+        prev.filter((n) => !(n._kind === "global" && n.id === notificationId))
+      );
+    }
+
+    await Swal.fire({
+      icon: "success",
+      title: "Deleted",
+      text: "Notification deleted.",
+    });
+    return true;
+  } catch (err) {
+    console.error("dismissGlobalNotification error:", err);
+    await Swal.fire("Error", "Could not hide broadcast.", "error");
+    return false;
+  }
+};
+
+/** Fetch a single GLOBAL (broadcast) notification by id */
+export const fetchGlobalNotificationById = async (id) => {
+  const { data, error } = await supabase
+    .from("user_notifications")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    console.error("Error fetching global notification by id:", error);
+    return null;
+  }
+
+  // tag for UI
+  return data ? { _kind: "global", ...data } : null;
 };

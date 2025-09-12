@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../utils/supabase.js";
-
+import bcrypt from "bcryptjs";
 import images from "../../helper/images";
 
 export default function Login() {
@@ -31,20 +31,26 @@ export default function Login() {
     navigate("/createAccoount"); // Navigate to the Create Account page
   };
 
-  const login = async (idNumber, password) => {
+  const login = async (idNumber, plainPassword) => {
     try {
+      // 1) Get the auth row by idNumber only
       const { data, error } = await supabase
         .from("authentication")
-        .select("*")
+        .select("idNumber, password") // include only what you need
         .eq("idNumber", idNumber)
-        .eq("password", password)
         .single();
 
       if (error || !data) {
-        return { error: "Invalid credentials" };
+        return { error: "Invalid ID number or password." };
       }
 
-      return { user: data, token: data.token };
+      // 2) Compare plaintext vs bcrypt hash
+      const isMatch = await bcrypt.compare(plainPassword, data.password);
+      if (!isMatch) {
+        return { error: "Invalid ID number or password. plain pass" };
+      }
+
+      return { user: { idNumber: data.idNumber }, token: data.token };
     } catch (err) {
       return { error: "Error during login: " + err.message };
     }
@@ -52,44 +58,44 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!idNumber || !password) {
       alert("Please enter both ID number and password.");
       return;
     }
 
     const result = await login(idNumber, password);
-
     if (result.error) {
       alert(result.error);
+      return;
+    }
+
+    const { user, token } = result;
+
+    // fetch user-type flags you need (e.g., parish-secretary)
+    const { data: userType, error: userTypeError } = await supabase
+      .from("user-type")
+      .select("parish-secretary")
+      .eq("idNumber", idNumber)
+      .single();
+
+    if (userTypeError) {
+      alert("Error fetching user type.");
+      return;
+    }
+
+    // Persist session
+    localStorage.setItem("authToken", token);
+    localStorage.setItem("userData", JSON.stringify(user));
+    localStorage.setItem("idNumber", idNumber);
+    localStorage.setItem("userType", JSON.stringify(userType));
+
+    alert("Login successful!");
+
+    if (userType["parish-secretary"] === 1) {
+      navigate("/secretaryDashboard");
     } else {
-      const { user, token } = result;
-
-      // 🔹 Step 1: Get user-type row using the idNumber
-      const { data: userType, error: userTypeError } = await supabase
-        .from("user-type")
-        .select("parish-secretary")
-        .eq("idNumber", idNumber)
-        .single();
-
-      if (userTypeError) {
-        alert("Error fetching user type.");
-        return;
-      }
-
-      // 🔹 Save to localStorage
-      localStorage.setItem("authToken", token);
-      localStorage.setItem("userData", JSON.stringify(user));
-      localStorage.setItem("idNumber", idNumber);
-      localStorage.setItem("userType", JSON.stringify(userType));
-
-      alert("Login successful!");
-
-      // 🔹 Step 2: Navigate depending on parish-secretary
-      if (userType["parish-secretary"] === 1) {
-        navigate("/secretaryDashboard");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate("/dashboard");
     }
   };
 

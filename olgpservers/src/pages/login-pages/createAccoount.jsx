@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { supabase } from "../../utils/supabase.js";
 
 export default function CreateAccoount() {
-  const [idNumber, setIdNumber] = useState(""); // Correct variable name here
+  const [idNumber, setIdNumber] = useState(""); 
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");

@@ -4,6 +4,9 @@ import { useNavigate, Link } from "react-router-dom";
 import images from "../../../helper/images";
 import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
+import Swal from "sweetalert2";
+
+import { changePasswordForAccount } from "../../../assets/scripts/account";
 
 import "../../../assets/styles/account.css";
 import "../../../assets/styles/changePasswordAccount.css";
@@ -16,6 +19,7 @@ export default function ChangePasswordAccount() {
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const storedIdNumber = localStorage.getItem("idNumber");
   const navigate = useNavigate();
 
   const toggleVisibility = (which) => {
@@ -23,9 +27,41 @@ export default function ChangePasswordAccount() {
     else setConfirmPasswordVisible((v) => !v);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Add your password reset logic here
+
+    if (!storedIdNumber) {
+      await Swal.fire({
+        icon: "error",
+        title: "Missing ID",
+        text: "Please sign in again.",
+      });
+      return;
+    }
+
+    // Ask for confirmation first
+    const confirm = await Swal.fire({
+      icon: "question",
+      title: "Change Password?",
+      text: "Are you sure you want to update your password?",
+      showCancelButton: true,
+      confirmButtonText: "Yes, change it",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+
+    if (!confirm.isConfirmed) return; // user cancelled
+
+    // Proceed with password change
+    const ok = await changePasswordForAccount(
+      storedIdNumber,
+      newPassword,
+      confirmPassword
+    );
+
+    if (ok) {
+      navigate("/account");
+    }
   };
 
   const handleCancel = () => {

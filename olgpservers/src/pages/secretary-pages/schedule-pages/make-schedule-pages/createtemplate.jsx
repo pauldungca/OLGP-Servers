@@ -1,17 +1,32 @@
+// Createtemplate.jsx
 import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import icon from "../../../../helper/icon";
 import image from "../../../../helper/images";
 import Footer from "../../../../components/footer";
+
+import {
+  createTemplate,
+  confirmCancel,
+} from "../../../../assets/scripts/template";
 
 import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/createTemplate.css";
 
 export default function Createtemplate() {
+  const navigate = useNavigate();
+
   useEffect(() => {
     document.title = "OLGP Servers | Make Schedule";
   }, []);
+
+  // NEW: controlled inputs for template name + mass type
+  const [templateName, setTemplateName] = useState("");
+  const [massType, setMassType] = useState("High Mass");
+  const [saving, setSaving] = useState(false);
+
+  // Original local UI state
   const [selectedDepartments, setSelectedDepartments] = useState([]);
   const [mode, setMode] = useState({
     altar: "standard",
@@ -50,11 +65,9 @@ export default function Createtemplate() {
   ];
 
   const toggleDepartment = (id) => {
-    if (selectedDepartments.includes(id)) {
-      setSelectedDepartments(selectedDepartments.filter((d) => d !== id));
-    } else {
-      setSelectedDepartments([...selectedDepartments, id]);
-    }
+    setSelectedDepartments((prev) =>
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+    );
   };
 
   const toggleRole = (dept, role) => {
@@ -65,6 +78,23 @@ export default function Createtemplate() {
         [role]: !prev[dept][role],
       },
     }));
+  };
+
+  // ACTIONS
+  const onCreate = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await createTemplate({ templateName, massType });
+      navigate("/selectTemplate");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onCancel = async () => {
+    const ok = await confirmCancel();
+    if (ok) navigate("/selectTemplate");
   };
 
   return (
@@ -111,13 +141,23 @@ export default function Createtemplate() {
               type="text"
               className="form-control template-name-input"
               placeholder="Enter template name"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
             />
           </div>
           <div className="col-md-4">
-            <select className="form-select mass-type-dropdown">
+            <select
+              className="form-select mass-type-dropdown"
+              value={massType}
+              onChange={(e) => setMassType(e.target.value)}
+            >
               <option>High Mass</option>
               <option>Low Mass</option>
-              <option>Special Mass</option>
+              <option>Solemn Mass</option>
+              <option>Votive Mass</option>
+              <option>Vigil Mass</option>
+              <option>Pontifical Mass</option>
+              <option>Concelebrated Mass</option>
             </select>
           </div>
         </div>
@@ -391,7 +431,7 @@ export default function Createtemplate() {
 
         {/* Action Buttons */}
         <div className="d-flex justify-content-end gap-3 mt-5 mb-4">
-          <button type="button" className="btn btn-cancel">
+          <button type="button" className="btn-cancelButton" onClick={onCancel}>
             <img
               src={image.noButtonImage}
               alt="Cancel"
@@ -401,7 +441,12 @@ export default function Createtemplate() {
             />
             Cancel
           </button>
-          <button type="button" className="btn btn-create">
+          <button
+            type="button"
+            className="btn-create"
+            onClick={onCreate}
+            disabled={saving}
+          >
             <img
               src={image.createButtonImage}
               alt="Create"
@@ -409,7 +454,7 @@ export default function Createtemplate() {
               width="20"
               height="20"
             />
-            Create
+            {saving ? "Creating..." : "Create"}
           </button>
         </div>
       </div>

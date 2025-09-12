@@ -14,7 +14,7 @@ import {
   isChoirScheduler,
 } from "../../../assets/scripts/group";
 
-import { promoteMemberToScheduler } from "../../../assets/scripts/departmentSettings";
+import { requestSchedulerTransfer } from "../../../assets/scripts/departmentSettings";
 
 import "../../../assets/styles/departmentSettings.css";
 import "../../../assets/styles/assignReplacement.css";
@@ -26,7 +26,6 @@ export default function AssignReplacement() {
 
   const [selectedRole, setSelectedRole] = useState(null);
 
-  const navigate = useNavigate();
   const location = useLocation();
   const storedIdNumber = localStorage.getItem("idNumber");
 
@@ -38,6 +37,8 @@ export default function AssignReplacement() {
   const [isChoir, setIsChoir] = useState(false);
   const [isAltarServer, setIsAltarServer] = useState(false);
   const [isLectorCommentator, setIsLectorCommentator] = useState(false);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const initializeMemberData = async () => {
@@ -68,13 +69,14 @@ export default function AssignReplacement() {
   const handleConfirm = async () => {
     if (!selectedRole) return;
 
-    await promoteMemberToScheduler({
+    await requestSchedulerTransfer({
       selectedRole,
-      targetIdNumber: idNumber,
-      storedIdNumber,
+      targetIdNumber: idNumber, // the member you're assigning to
+      requesterIdNumber: storedIdNumber,
       fullName,
-      navigate,
     });
+
+    navigate("/selectMember", { state: { department } });
   };
 
   return (

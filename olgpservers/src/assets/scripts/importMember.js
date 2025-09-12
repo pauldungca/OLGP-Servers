@@ -1,7 +1,6 @@
 import { supabase } from "../../utils/supabase";
 import Swal from "sweetalert2";
 
-// ✅ Import member into Altar Server Department
 export const importToAltarServerDepartment = async (idNumber) => {
   try {
     // Step 1: Update user-type → set altar-server-member = 1
@@ -30,14 +29,6 @@ export const importToAltarServerDepartment = async (idNumber) => {
 
     if (roleError) throw roleError;
 
-    // ✅ Success alert
-    Swal.fire({
-      icon: "success",
-      title: "Import Successful",
-      text: "Member has been imported to Altar Server Department.",
-      confirmButtonText: "OK",
-    });
-
     return true;
   } catch (err) {
     console.error("Import to Altar Server error:", err.message);
@@ -53,7 +44,6 @@ export const importToAltarServerDepartment = async (idNumber) => {
   }
 };
 
-// ✅ Import member into Lector Commentator Department
 export const importToLectorCommentatorDepartment = async (idNumber) => {
   try {
     // Step 1: Update user-type → set lector-commentator-member = 1
@@ -76,14 +66,6 @@ export const importToLectorCommentatorDepartment = async (idNumber) => {
       .insert([resetRoles]);
 
     if (roleError) throw roleError;
-
-    // ✅ Success alert
-    Swal.fire({
-      icon: "success",
-      title: "Import Successful",
-      text: "Member has been imported to Lector Commentator Department.",
-      confirmButtonText: "OK",
-    });
 
     return true;
   } catch (err) {
@@ -130,11 +112,6 @@ export const importToEucharisticMinisterDepartment = async (
       if (insErr) throw insErr;
     }
 
-    await Swal.fire({
-      icon: "success",
-      title: "Import Successful",
-      text: "Member has been imported to Eucharistic Minister and assigned to the group.",
-    });
     return true;
   } catch (err) {
     console.error("Import to Eucharistic Minister error:", err);
@@ -173,11 +150,6 @@ export const importToChoirDepartment = async (idNumber, choirAbbreviation) => {
       if (insErr) throw insErr;
     }
 
-    await Swal.fire({
-      icon: "success",
-      title: "Import Successful",
-      text: "Member has been imported to Choir and assigned to the group.",
-    });
     return true;
   } catch (err) {
     console.error("Import to Choir error:", err);
@@ -185,6 +157,93 @@ export const importToChoirDepartment = async (idNumber, choirAbbreviation) => {
       icon: "error",
       title: "Import Failed",
       text: "Something went wrong while importing to Choir.",
+    });
+    return false;
+  }
+};
+
+export const createImportRequestNotification = async (
+  idNumber,
+  department,
+  fullName = "",
+  groupName = null
+) => {
+  try {
+    const deptNeedingGroup =
+      department === "Eucharistic Minister" || department === "Choir";
+
+    // 🔍 Step 1: Duplicate check
+    let checkQuery = supabase
+      .from("member-request-notification")
+      .select('idNumber, department, "group"') // quote "group" (reserved word)
+      .eq("idNumber", idNumber)
+      .eq("department", department);
+
+    if (deptNeedingGroup) {
+      checkQuery = checkQuery.eq("group", groupName || null);
+    }
+
+    const { data: existing, error: checkError } = await checkQuery;
+    if (checkError) throw checkError;
+
+    if (existing && existing.length > 0) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Duplicate Request",
+        text:
+          `A request has already been made for ${fullName || "this member"} ` +
+          `in the ${department}` +
+          (deptNeedingGroup && groupName ? ` (${groupName})` : "") +
+          ` department.`,
+      });
+      return false; // 🚫 stop here
+    }
+
+    // Step 2: Format date → MM-DD-YYYY
+    const now = new Date();
+    const date = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+      now.getDate()
+    ).padStart(2, "0")}-${now.getFullYear()}`;
+
+    // Step 3: Format time → h:mm AM/PM
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    const time = `${hours}:${minutes} ${ampm}`;
+
+    // Step 4: Insert new request
+    const payload = {
+      idNumber,
+      "notification-type": 1, // 1 = import/approval request
+      date, // e.g. "09-11-2025"
+      time, // e.g. "8:10 AM"
+      department,
+      ...(deptNeedingGroup ? { group: groupName || null } : {}), // only include when needed
+    };
+
+    const { error } = await supabase
+      .from("member-request-notification")
+      .insert([payload]);
+    if (error) throw error;
+
+    await Swal.fire({
+      icon: "success",
+      title: "Request Submitted",
+      text:
+        `The approval request for ${fullName || "this member"} ` +
+        `to join ${department}` +
+        (deptNeedingGroup && groupName ? ` (${groupName})` : "") +
+        ` has been sent.`,
+    });
+
+    return true;
+  } catch (err) {
+    console.error("Insert notification error:", err);
+    await Swal.fire({
+      icon: "error",
+      title: "Failed",
+      text: "Could not create the import request notification.",
     });
     return false;
   }

@@ -16,16 +16,12 @@ const roleMap = {
   },
 };
 
-/**
- * Ask confirmation, then demote current scheduler and promote the target member.
- * Only updates scheduler col, no member flag and no inserts.
- */
 export const promoteMemberToScheduler = async ({
   selectedRole,
   targetIdNumber,
   storedIdNumber,
-  fullName, // optional, for confirmation message
-  navigate, // pass navigate() from react-router
+  fullName,
+  navigate,
 }) => {
   if (!selectedRole || !roleMap[selectedRole]) {
     await Swal.fire("Error", "Unknown or empty role selected.", "error");
@@ -35,20 +31,6 @@ export const promoteMemberToScheduler = async ({
     await Swal.fire("Error", "No target member selected.", "error");
     return false;
   }
-
-  // ✅ Ask for confirmation
-  const confirm = await Swal.fire({
-    title: "Confirm Promotion?",
-    text: `Are you sure you want to assign ${
-      fullName || "this member"
-    } as the ${selectedRole} scheduler?`,
-    icon: "question",
-    showCancelButton: true,
-    confirmButtonText: "Yes, promote",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
-  });
-  if (!confirm.isConfirmed) return false;
 
   const { schedulerCol } = roleMap[selectedRole];
 
@@ -120,5 +102,89 @@ export const handleBasicSearchChange = (
     });
 
     setFilteredMembers(filtered);
+  }
+};
+
+const formatNow = () => {
+  const now = new Date();
+  const date = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate()
+  ).padStart(2, "0")}-${now.getFullYear()}`;
+
+  let h = now.getHours();
+  const m = String(now.getMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  const time = `${h}:${m} ${ampm}`;
+
+  return { date, time };
+};
+
+/**
+ * Sends a scheduler transfer request (notification-type = 2) to the target member.
+ * The notification is stored against the TARGET member's idNumber so it shows up for them.
+ */
+export const requestSchedulerTransfer = async ({
+  selectedRole,
+  targetIdNumber,
+  requesterIdNumber,
+  fullName,
+}) => {
+  if (!selectedRole || !targetIdNumber) {
+    await Swal.fire("Error", "Missing role or target member.", "error");
+    return false;
+  }
+
+  try {
+    // 🔎 Only check duplicates for the SAME department
+    const { data: existing, error: checkErr } = await supabase
+      .from("member-request-notification")
+      .select("id")
+      .eq("idNumber", targetIdNumber)
+      .eq("department", selectedRole)
+      .eq("notification-type", 2);
+    if (checkErr) throw checkErr;
+
+    if (existing && existing.length > 0) {
+      await Swal.fire(
+        "Duplicate",
+        `There's already a pending scheduler transfer request for ${
+          fullName || "this member"
+        } in ${selectedRole}.`,
+        "info"
+      );
+      return false;
+    }
+
+    const { date, time } = formatNow();
+
+    // ✅ Insert a new row (even if another department already exists)
+    const payload = {
+      idNumber: targetIdNumber,
+      "notification-type": 2,
+      date,
+      time,
+      department: selectedRole,
+    };
+
+    const { error: insErr } = await supabase
+      .from("member-request-notification")
+      .insert([payload]);
+
+    if (insErr) throw insErr;
+
+    await Swal.fire(
+      "Request Sent",
+      `Scheduler rights transfer request sent to ${
+        fullName || "the member"
+      } for ${selectedRole}.`,
+      "success"
+    );
+
+    return true;
+  } catch (err) {
+    console.error("requestSchedulerTransfer error:", err);
+    await Swal.fire("Error", "Failed to send transfer request.", "error");
+    return false;
   }
 };

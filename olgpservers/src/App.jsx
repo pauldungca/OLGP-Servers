@@ -175,23 +175,19 @@ function App() {
             />
           </Route>
           <Route element={<Layout />}>
-            {/*Schheduler Routes*/}
+            {/*Scheduler Routes*/}
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="notification" element={<Notification />} />
             <Route path="members" element={<Members />} />
             <Route path="departmentSettings" element={<DepartmentSettings />} />
             <Route path="logout" element={<Logout />} />
-
             {/* Notification Pages */}
-            <Route path="viewNotification" element={<ViewNotification />} />
-
+            <Route path="notification" element={<Notification />} />{" "}
+            <Route path="viewNotification/:id" element={<ViewNotification />} />
             {/* Schedule Pages */}
             <Route path="/openSchedule" element={<OpenSchedule />} />
             <Route path="/viewSchedule" element={<ViewSchedule />} />
             <Route path="/makeSchedule" element={<MakeSchedule />} />
-
             {/* Make Schedule Pages */}
-
             {/* Altar Server Schedule Pages */}
             <Route
               path="/selectScheduleAltarServer"
@@ -200,7 +196,6 @@ function App() {
             <Route path="/selectMassAltarServer" element={<SelectMass />} />
             <Route path="/selectRoleAltarServer" element={<SelectRole />} />
             <Route path="/assignMemberAltarServer" element={<AssignMember />} />
-
             {/* Eucharistic Minister Schedule Pages */}
             <Route
               path="/selectScheduleEucharisticMinister"
@@ -218,7 +213,6 @@ function App() {
               path="/assignMemberEucharisticMinister"
               element={<AssignMemberEM />}
             />
-
             {/* Choir Schedule Pages */}
             <Route
               path="/selectScheduleChoir"
@@ -226,7 +220,6 @@ function App() {
             />
             <Route path="/selectMassChoir" element={<SelectMassChoir />} />
             <Route path="/assignGroupChoir" element={<AssignGroupChoir />} />
-
             {/* Lector Commentator Schedule Pages */}
             <Route
               path="/selectScheduleLectorCommentator"
@@ -244,15 +237,12 @@ function App() {
               path="/assignMemberLectorCommentator"
               element={<AssignMemberLectorCommentator />}
             />
-
             {/* View Schedule Pages */}
             <Route path="/updateSchedule" element={<UpdateSchedule />} />
             <Route path="/cancelSchedule" element={<CancelSchedule />} />
-
             {/* Open Schedule Pages */}
             <Route path="/selectTime" element={<SelectTime />} />
             <Route path="/updateStatus" element={<UpdateStatus />} />
-
             {/* Members Pages */}
             <Route path="/membersList" element={<MembersList />} />
             <Route path="/addMember" element={<AddMember />} />
@@ -262,7 +252,6 @@ function App() {
               path="/viewMemberInformation"
               element={<ViewMemberInformation />}
             />
-
             {/* Group Pages GroupViewMemberInformation */}
             <Route path="/group" element={<Group />} />
             <Route path="/selectGroup" element={<SelectGroup />} />
@@ -277,11 +266,9 @@ function App() {
               path="/groupViewMemberInformation"
               element={<GroupViewMemberInformation />}
             />
-
             {/* Department Settings Pages */}
             <Route path="/selectMember" element={<SelectMember />} />
             <Route path="/assignReplacement" element={<AssignReplacement />} />
-
             {/* Account Pages */}
             <Route path="/account" element={<Account />} />
             <Route path="/verifyOTPAccount" element={<VerifyOTPAccount />} />

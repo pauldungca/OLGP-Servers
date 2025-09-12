@@ -232,7 +232,7 @@ export const validateNewPassword = (password, confirmPassword) => {
     };
   }
 
-  // at least one number
+  // must contain at least one digit
   if (!/\d/.test(password)) {
     return {
       valid: false,
@@ -240,8 +240,8 @@ export const validateNewPassword = (password, confirmPassword) => {
     };
   }
 
-  // at least one special character
-  if (!/[!@#$%^&*(),.?":{}|<>_\-[\];'/+=`~]/.test(password)) {
+  // must contain at least one special (non-alphanumeric)
+  if (!/[^A-Za-z0-9]/.test(password)) {
     return {
       valid: false,
       message: "Password must contain at least one special character.",
@@ -289,11 +289,6 @@ export const changePasswordForAccount = async (
 
     // Close loading then show success
     Swal.close();
-    await Swal.fire({
-      icon: "success",
-      title: "Password Updated",
-      text: "Your password has been changed successfully.",
-    });
 
     return true;
   } catch (err) {

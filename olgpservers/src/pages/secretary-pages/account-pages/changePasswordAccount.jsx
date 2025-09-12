@@ -4,6 +4,9 @@ import { useNavigate, Link } from "react-router-dom";
 import images from "../../../helper/images";
 import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
+import Swal from "sweetalert2";
+
+import { changePasswordForAccount } from "../../../assets/scripts/account";
 
 import "../../../assets/styles/account.css";
 import "../../../assets/styles/changePasswordAccount.css";
@@ -12,25 +15,83 @@ export default function ChangePasswordAccount() {
   useEffect(() => {
     document.title = "OLGP Servers | Account";
   }, []);
+
   const [newPasswordVisible, setNewPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const navigate = useNavigate();
 
+  const storedIdNumber = localStorage.getItem("idNumber");
+
   const toggleVisibility = (which) => {
     if (which === "new") setNewPasswordVisible((v) => !v);
     else setConfirmPasswordVisible((v) => !v);
   };
 
-  const handleSubmit = (e) => {
+  const validate = () => {
+    if (!storedIdNumber) {
+      Swal.fire({
+        icon: "error",
+        title: "Missing session",
+        text: "Your session expired. Please sign in again.",
+      });
+      return false;
+    }
+    if (!newPassword || !confirmPassword) {
+      Swal.fire({
+        icon: "warning",
+        title: "Incomplete",
+        text: "Please enter and confirm your new password.",
+      });
+      return false;
+    }
+    if (newPassword !== confirmPassword) {
+      Swal.fire({
+        icon: "error",
+        title: "Passwords don’t match",
+        text: "Make sure both fields are the same.",
+      });
+      return false;
+    }
+    // basic strength: 8+ chars with letter & number
+    const strong = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+    if (!strong.test(newPassword)) {
+      Swal.fire({
+        icon: "info",
+        title: "Weak password",
+        html: "Use at least <b>8 characters</b> with <b>letters and numbers</b>.",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Add your password reset logic here
+    if (!validate()) return;
+
+    const ok = await changePasswordForAccount(
+      storedIdNumber,
+      newPassword,
+      confirmPassword
+    );
+
+    if (ok) {
+      await Swal.fire({
+        icon: "success",
+        title: "Password updated",
+        timer: 1200,
+        showConfirmButton: false,
+      });
+      navigate("/secretaryAccount");
+    }
   };
 
   const handleCancel = () => {
     navigate("/secretaryAccount");
   };
+
   return (
     <div className="account-page-container">
       <div className="account-header">
@@ -52,7 +113,7 @@ export default function ChangePasswordAccount() {
                       to="/verifyOTPAccountSecretary"
                       className="breadcrumb-item"
                     >
-                      Veriy OTP
+                      Verify OTP
                     </Link>
                   ),
                 },
@@ -74,6 +135,7 @@ export default function ChangePasswordAccount() {
           <div className="header-line"></div>
         </div>
       </div>
+
       <div className="account-content">
         <div className="d-flex justify-content-center">
           <img src={images.securityLogo} alt="Security" className="logo" />
@@ -144,6 +206,7 @@ export default function ChangePasswordAccount() {
           </form>
         </div>
       </div>
+
       <div>
         <Footer />
       </div>

@@ -1,4 +1,3 @@
-// Createtemplate.jsx
 import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useNavigate } from "react-router-dom";
@@ -21,12 +20,12 @@ export default function Createtemplate() {
     document.title = "OLGP Servers | Make Schedule";
   }, []);
 
-  // NEW: controlled inputs for template name + mass type
+  // Controlled inputs
   const [templateName, setTemplateName] = useState("");
   const [massType, setMassType] = useState("High Mass");
   const [saving, setSaving] = useState(false);
 
-  // Original local UI state
+  // Department UI state
   const [selectedDepartments, setSelectedDepartments] = useState([]);
   const [mode, setMode] = useState({
     altar: "standard",
@@ -35,11 +34,28 @@ export default function Createtemplate() {
     lector: "standard",
   });
 
+  // Role toggles (optional visual checkboxes)
   const [enabledRoles, setEnabledRoles] = useState({
     altar: {},
     eucharistic: {},
     choir: {},
     lector: {},
+  });
+
+  // Editable counts (used when mode[dept] === "custom")
+  const [counts, setCounts] = useState({
+    altar: {
+      "Candle Bearers": 0,
+      Bellers: 0,
+      "Cross Bearer": 0,
+      "Incense Bearer": 0,
+      Thurifer: 0,
+      "Main Servers": 0,
+      Plates: 0,
+    },
+    eucharistic: { Minister: 0 },
+    choir: { Choir: 0 },
+    lector: { Readings: 0, Intercession: 0 },
   });
 
   const departments = [
@@ -70,13 +86,65 @@ export default function Createtemplate() {
     );
   };
 
-  const toggleRole = (dept, role) => {
-    setEnabledRoles((prev) => ({
-      ...prev,
-      [dept]: {
-        ...prev[dept],
-        [role]: !prev[dept][role],
-      },
+  const toggleRole = (dept, role, defaultVal = 0) => {
+    setEnabledRoles((prev) => {
+      const next = !prev[dept]?.[role];
+      // If in custom: toggling off -> force count 0; toggling on with 0 -> set to default
+      if (mode[dept] === "custom") {
+        setCounts((c) => ({
+          ...c,
+          [dept]: {
+            ...c[dept],
+            [role]: next ? c[dept]?.[role] || defaultVal : 0,
+          },
+        }));
+      }
+      return {
+        ...prev,
+        [dept]: { ...(prev[dept] || {}), [role]: next },
+      };
+    });
+  };
+
+  const setDeptMode = (dept, nextMode) => {
+    setMode((m) => ({ ...m, [dept]: nextMode }));
+    if (nextMode === "custom") {
+      // On entering custom, initialize that department's counts to 0
+      setCounts((c) => {
+        if (dept === "altar") {
+          return {
+            ...c,
+            altar: {
+              "Candle Bearers": 0,
+              Bellers: 0,
+              "Cross Bearer": 0,
+              "Incense Bearer": 0,
+              Thurifer: 0,
+              "Main Servers": 0,
+              Plates: 0,
+            },
+          };
+        }
+        if (dept === "eucharistic") {
+          return { ...c, eucharistic: { Minister: 0 } };
+        }
+        if (dept === "choir") {
+          return { ...c, choir: { Choir: 0 } };
+        }
+        if (dept === "lector") {
+          return { ...c, lector: { Readings: 0, Intercession: 0 } };
+        }
+        return c;
+      });
+    }
+    // If switching back to standard, UI will show defaults automatically.
+  };
+
+  const onCustomCountChange = (dept, role, value) => {
+    const n = Number(value);
+    setCounts((c) => ({
+      ...c,
+      [dept]: { ...c[dept], [role]: isNaN(n) ? 0 : n },
     }));
   };
 
@@ -85,8 +153,15 @@ export default function Createtemplate() {
     if (saving) return;
     setSaving(true);
     try {
-      await createTemplate({ templateName, massType });
-      navigate("/selectTemplate");
+      const res = await createTemplate({
+        templateName,
+        massType,
+        selectedDepartments,
+        mode,
+        enabledRoles, // optional now
+        counts, // <-- pass custom counts
+      });
+      if (res) navigate("/selectTemplate");
     } finally {
       setSaving(false);
     }
@@ -189,7 +264,7 @@ export default function Createtemplate() {
                 className={`btn custom-standard-btn ${
                   mode.altar === "standard" ? "enabled" : ""
                 }`}
-                onClick={() => setMode({ ...mode, altar: "standard" })}
+                onClick={() => setDeptMode("altar", "standard")}
               >
                 Standard
               </button>
@@ -197,7 +272,7 @@ export default function Createtemplate() {
                 className={`btn custom-standard-btn ${
                   mode.altar === "custom" ? "enabled" : ""
                 }`}
-                onClick={() => setMode({ ...mode, altar: "custom" })}
+                onClick={() => setDeptMode("altar", "custom")}
               >
                 Custom
               </button>
@@ -205,7 +280,11 @@ export default function Createtemplate() {
 
             <div className="row g-3">
               {altarRoles.map((role, idx) => {
-                const enabled = enabledRoles.altar[role.label];
+                const enabled = !!enabledRoles.altar[role.label];
+                const isStd = mode.altar === "standard";
+                const value = isStd
+                  ? role.default
+                  : counts.altar[role.label] ?? 0;
                 return (
                   <div
                     key={idx}
@@ -214,24 +293,22 @@ export default function Createtemplate() {
                     <input
                       type="checkbox"
                       className="form-check-input"
-                      disabled={mode.altar === "standard"}
-                      checked={!!enabled}
-                      onChange={() => toggleRole("altar", role.label)}
+                      disabled={isStd} // disable only in standard
+                      checked={enabled}
+                      onChange={() =>
+                        toggleRole("altar", role.label, role.default)
+                      }
                     />
                     <label className="form-check-label flex-grow-1">
                       {role.label}
                     </label>
                     <select
                       className="form-select form-select-sm w-auto"
-                      disabled={mode.altar === "standard" || !enabled}
-                      value={
-                        mode.altar === "standard"
-                          ? role.default
-                          : enabled
-                          ? role.default
-                          : 0
+                      disabled={isStd} // editable in custom
+                      value={value}
+                      onChange={(e) =>
+                        onCustomCountChange("altar", role.label, e.target.value)
                       }
-                      readOnly
                     >
                       {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
                         <option key={n} value={n}>
@@ -256,7 +333,7 @@ export default function Createtemplate() {
                 className={`btn custom-standard-btn ${
                   mode.eucharistic === "standard" ? "enabled" : ""
                 }`}
-                onClick={() => setMode({ ...mode, eucharistic: "standard" })}
+                onClick={() => setDeptMode("eucharistic", "standard")}
               >
                 Standard
               </button>
@@ -264,7 +341,7 @@ export default function Createtemplate() {
                 className={`btn custom-standard-btn ${
                   mode.eucharistic === "custom" ? "enabled" : ""
                 }`}
-                onClick={() => setMode({ ...mode, eucharistic: "custom" })}
+                onClick={() => setDeptMode("eucharistic", "custom")}
               >
                 Custom
               </button>
@@ -276,23 +353,22 @@ export default function Createtemplate() {
                 className="form-check-input"
                 disabled={mode.eucharistic === "standard"}
                 checked={!!enabledRoles.eucharistic["Minister"]}
-                onChange={() => toggleRole("eucharistic", "Minister")}
+                onChange={() =>
+                  toggleRole("eucharistic", "Minister", 4 /* default */)
+                }
               />
               <label className="form-check-label">Minister’s Count:</label>
               <select
                 className="form-select form-select-sm w-auto"
-                disabled={
-                  mode.eucharistic === "standard" ||
-                  !enabledRoles.eucharistic["Minister"]
-                }
+                disabled={mode.eucharistic === "standard"}
                 value={
                   mode.eucharistic === "standard"
                     ? 4
-                    : enabledRoles.eucharistic["Minister"]
-                    ? 4
-                    : 0
+                    : counts.eucharistic["Minister"] ?? 0
                 }
-                readOnly
+                onChange={(e) =>
+                  onCustomCountChange("eucharistic", "Minister", e.target.value)
+                }
               >
                 {[...Array(10)].map((_, i) => (
                   <option key={i + 1} value={i + 1}>
@@ -314,7 +390,7 @@ export default function Createtemplate() {
                 className={`btn custom-standard-btn ${
                   mode.choir === "standard" ? "enabled" : ""
                 }`}
-                onClick={() => setMode({ ...mode, choir: "standard" })}
+                onClick={() => setDeptMode("choir", "standard")}
               >
                 Standard
               </button>
@@ -322,7 +398,7 @@ export default function Createtemplate() {
                 className={`btn custom-standard-btn ${
                   mode.choir === "custom" ? "enabled" : ""
                 }`}
-                onClick={() => setMode({ ...mode, choir: "custom" })}
+                onClick={() => setDeptMode("choir", "custom")}
               >
                 Custom
               </button>
@@ -334,22 +410,18 @@ export default function Createtemplate() {
                 className="form-check-input"
                 disabled={mode.choir === "standard"}
                 checked={!!enabledRoles.choir["Choir"]}
-                onChange={() => toggleRole("choir", "Choir")}
+                onChange={() => toggleRole("choir", "Choir", 1 /* default */)}
               />
               <label className="form-check-label">Choir Group Count:</label>
               <select
                 className="form-select form-select-sm w-auto"
-                disabled={
-                  mode.choir === "standard" || !enabledRoles.choir["Choir"]
-                }
+                disabled={mode.choir === "standard"}
                 value={
-                  mode.choir === "standard"
-                    ? 1
-                    : enabledRoles.choir["Choir"]
-                    ? 1
-                    : 0
+                  mode.choir === "standard" ? 1 : counts.choir["Choir"] ?? 0
                 }
-                readOnly
+                onChange={(e) =>
+                  onCustomCountChange("choir", "Choir", e.target.value)
+                }
               >
                 {[...Array(5)].map((_, i) => (
                   <option key={i + 1} value={i + 1}>
@@ -371,7 +443,7 @@ export default function Createtemplate() {
                 className={`btn custom-standard-btn ${
                   mode.lector === "standard" ? "enabled" : ""
                 }`}
-                onClick={() => setMode({ ...mode, lector: "standard" })}
+                onClick={() => setDeptMode("lector", "standard")}
               >
                 Standard
               </button>
@@ -379,7 +451,7 @@ export default function Createtemplate() {
                 className={`btn custom-standard-btn ${
                   mode.lector === "custom" ? "enabled" : ""
                 }`}
-                onClick={() => setMode({ ...mode, lector: "custom" })}
+                onClick={() => setDeptMode("lector", "custom")}
               >
                 Custom
               </button>
@@ -387,7 +459,11 @@ export default function Createtemplate() {
 
             <div className="row g-3">
               {lectorRoles.map((role, idx) => {
-                const enabled = enabledRoles.lector[role.label];
+                const enabled = !!enabledRoles.lector[role.label];
+                const isStd = mode.lector === "standard";
+                const value = isStd
+                  ? role.default
+                  : counts.lector[role.label] ?? 0;
                 return (
                   <div
                     key={idx}
@@ -396,24 +472,26 @@ export default function Createtemplate() {
                     <input
                       type="checkbox"
                       className="form-check-input"
-                      disabled={mode.lector === "standard"}
-                      checked={!!enabled}
-                      onChange={() => toggleRole("lector", role.label)}
+                      disabled={isStd}
+                      checked={enabled}
+                      onChange={() =>
+                        toggleRole("lector", role.label, role.default)
+                      }
                     />
                     <label className="form-check-label flex-grow-1">
                       {role.label}:
                     </label>
                     <select
                       className="form-select form-select-sm w-auto"
-                      disabled={mode.lector === "standard" || !enabled}
-                      value={
-                        mode.lector === "standard"
-                          ? role.default
-                          : enabled
-                          ? role.default
-                          : 0
+                      disabled={isStd}
+                      value={value}
+                      onChange={(e) =>
+                        onCustomCountChange(
+                          "lector",
+                          role.label,
+                          e.target.value
+                        )
                       }
-                      readOnly
                     >
                       {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                         <option key={n} value={n}>

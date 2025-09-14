@@ -1,5 +1,5 @@
 // put near your other imports/util fns in the same file
-const API_BASE = process.env.REACT_APP_MAIL_API || "http://localhost:5000";
+const API_BASE = process.env.REACT_APP_MAIL_API;
 
 export const sendWelcomeEmail = async ({
   email,

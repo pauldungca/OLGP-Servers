@@ -61,8 +61,8 @@
 
 .role-options {
   display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
+  flex-wrap: nowrap;
+  /*gap: 5px;*/
   padding: 10px 0;
 }
 

@@ -457,8 +457,8 @@ export default function AddMember() {
 
           {/* Non-Flexible Role Options */}
           {selectedRole === "Non-Flexible" && (
-            <div className="role-options mt-3">
-              {(department === "ALTAR SERVER"
+            <div className="role-options mt-3 gap-1">
+              {(department === "Altar Server"
                 ? [
                     { label: "Candle Bearer", value: "CandleBearer" },
                     { label: "Beller", value: "Beller" },
@@ -496,7 +496,7 @@ export default function AddMember() {
 
                       // 🔹 Check against all roles in this department
                       const allRoles =
-                        department === "ALTAR SERVER"
+                        department === "Altar Server"
                           ? [
                               "CandleBearer",
                               "Beller",

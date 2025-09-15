@@ -77,45 +77,40 @@
   margin-left: 5px;
 }
 
-/* Shared size for both action buttons */
-.btn-cancel,
-.btn-create {
-  width: 150px;
+/* Cancel */
+.btn-cancelButton {
+  width: 200px;
   height: 48px;
   font-weight: 500;
   border-radius: 6px;
   border: none;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-}
+  gap: 8px;
 
-/* Cancel button */
-.btn-cancel {
   background-color: #ff4d4d;
-  color: white;
-  min-width: 100px;
+  color: #fff;
+}
+.btn-cancelButton:hover {
+  background-color: #e63e3e;
+}
+
+/* Create */
+.btn-create {
+  width: 200px;
   height: 48px;
   font-weight: 500;
   border-radius: 6px;
   border: none;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-}
+  gap: 8px;
 
-.btn-cancel:hover {
-  background-color: #e63e3e;
-  color: white;
-}
-
-/* Create button */
-.btn-create {
   background-color: #213571;
-  color: white;
+  color: #fff;
 }
-
 .btn-create:hover {
   background-color: #162656;
-  color: white;
 }

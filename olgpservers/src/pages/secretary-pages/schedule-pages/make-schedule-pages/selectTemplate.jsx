@@ -46,7 +46,7 @@ export default function SelectTemplate() {
 
   const handleDoubleClick = (tpl) => {
     navigate("/useTemplate", {
-      state: { id: tpl.id, templateName: tpl["template-name"] },
+      state: { templateID: tpl.templateID, templateName: tpl["template-name"] },
     });
   };
 

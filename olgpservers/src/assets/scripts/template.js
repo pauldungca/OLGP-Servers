@@ -566,3 +566,91 @@ export const getTemplateDetails = async (templateID) => {
 
   return { header, altar, eucharistic, choir, lector };
 };
+
+// template.js
+export const addUseTemplate = async ({
+  scheduleID,
+  templateID,
+  date,
+  time,
+  clientName, // ⬅️ added
+  note,
+}) => {
+  if (!templateID) {
+    await Swal.fire({
+      icon: "error",
+      title: "Missing template",
+      text: "Template ID is required.",
+    });
+    return false;
+  }
+  if (!date || !time) {
+    await Swal.fire({
+      icon: "warning",
+      title: "Incomplete fields",
+      text: "Please select a date and time.",
+    });
+    return false;
+  }
+  if (!clientName || !clientName.trim()) {
+    await Swal.fire({
+      icon: "warning",
+      title: "Missing client name",
+      text: "Please enter the client’s name.",
+    });
+    return false;
+  }
+
+  const ok = await Swal.fire({
+    icon: "question",
+    title: "Add this schedule?",
+    text: `Template will be scheduled for ${clientName}`,
+    showCancelButton: true,
+    confirmButtonText: "Add",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+  if (!ok.isConfirmed) return false;
+
+  const payload = {
+    scheduleID,
+    templateID,
+    clientName: clientName.trim(), // ✅ now stored in DB
+    date,
+    time,
+    note: note?.trim() ? note.trim() : null,
+  };
+
+  const { error } = await supabase.from("use-template-table").insert(payload);
+  if (error) {
+    await Swal.fire({
+      icon: "error",
+      title: "Failed to add schedule",
+      text: error.message || "Unknown error",
+    });
+    return false;
+  }
+
+  await Swal.fire({
+    icon: "success",
+    title: "Schedule added",
+    timer: 1200,
+    timerProgressBar: true,
+    showConfirmButton: false,
+  });
+  return true;
+};
+
+// (You already have confirmCancel, but in case you want a very short one)
+export const confirmCancelUseTemplate = async () => {
+  const res = await Swal.fire({
+    icon: "warning",
+    title: "Cancel this process?",
+    text: "Your selections will not be saved.",
+    showCancelButton: true,
+    confirmButtonText: "Yes, cancel",
+    cancelButtonText: "Stay",
+    reverseButtons: true,
+  });
+  return res.isConfirmed;
+};

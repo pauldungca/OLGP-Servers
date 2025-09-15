@@ -1,23 +1,91 @@
 import React, { useState, useEffect } from "react";
 import { Breadcrumb, DatePicker, TimePicker } from "antd";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import dayjs from "dayjs";
 import image from "../../../../helper/images";
 import icon from "../../../../helper/icon";
 import Footer from "../../../../components/footer";
+
+import {
+  getTemplateDetails,
+  addUseTemplate,
+  confirmCancelUseTemplate,
+} from "../../../../assets/scripts/template";
 
 import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/useTemplate.css";
 
 export default function UseTemplate() {
+  const { state } = useLocation();
+  const navigate = useNavigate();
+
+  const templateID = state?.templateID || state?.id || null;
+
+  // Prefill name from router; fallback to fetch
+  const [templateName, setTemplateName] = useState(state?.templateName || "");
+  const [note, setNote] = useState("");
+
+  // AntD pickers (dayjs instances)
+  const [dateVal, setDateVal] = useState(null); // dayjs | null
+  const [timeVal, setTimeVal] = useState(null); // dayjs | null
+
+  const [clientName, setClientName] = useState("");
+
   useEffect(() => {
     document.title = "OLGP Servers | Make Schedule";
   }, []);
-  const [note, setNote] = useState("");
+
+  // Fallback: fetch header if name wasn't passed
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!templateName && templateID) {
+        try {
+          const { header } = await getTemplateDetails(templateID);
+          if (!cancelled && header)
+            setTemplateName(header["template-name"] || "");
+        } catch (e) {
+          console.error("Failed to load template header:", e?.message || e);
+        }
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [templateName, templateID]);
 
   const handleNoteChange = (e) => {
-    if (e.target.value.length <= 150) {
-      setNote(e.target.value);
+    if (e.target.value.length <= 150) setNote(e.target.value);
+  };
+
+  const handleAddSchedule = async () => {
+    if (!dateVal || !timeVal) {
+      alert("Please select a date and time.");
+      return;
     }
+
+    // ✅ Use timestamp as numeric scheduleID
+    const scheduleID = Date.now(); // fits in int8
+
+    const dateStr = dayjs(dateVal).format("YYYY-MM-DD");
+    const timeStr = dayjs(timeVal).format("HH:mm:ss");
+
+    const ok = await addUseTemplate({
+      scheduleID,
+      templateID: Number(templateID), // ensure bigint
+      clientName,
+      date: dateStr,
+      time: timeStr,
+      note,
+    });
+
+    if (ok) navigate("/selectTemplate");
+  };
+
+  const handleCancel = async () => {
+    const ok = await confirmCancelUseTemplate();
+    if (ok) navigate("/selectTemplate");
   };
 
   return (
@@ -44,7 +112,7 @@ export default function UseTemplate() {
                 <img
                   src={icon.chevronIcon}
                   alt="Chevron Icon"
-                  style={{ width: "15px", height: "15px" }}
+                  style={{ width: 15, height: 15 }}
                 />
               }
               className="customized-breadcrumb"
@@ -60,14 +128,22 @@ export default function UseTemplate() {
         <div className="row mb-3">
           <div className="col-12">
             <span className="form-label me-2 fw-bold">Template Name:</span>
-            <span className="template-name">Christening Mass</span>
+            <span className="template-name">
+              {templateName || <span className="text-muted">Loading…</span>}
+            </span>
           </div>
         </div>
 
-        {/* Client name inline */}
+        {/* Client name (not part of DB insert, you can extend later) */}
         <div className="form-row">
           <label className="form-label">Client Name:</label>
-          <input type="text" className="form-control" />
+          <input
+            type="text"
+            className="form-control"
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+            placeholder="Enter client name"
+          />
         </div>
 
         {/* Date, Time, Note */}
@@ -79,6 +155,8 @@ export default function UseTemplate() {
               <DatePicker
                 className="w-100 form-control"
                 placement="bottomLeft"
+                value={dateVal}
+                onChange={(d) => setDateVal(d)}
               />
             </div>
           </div>
@@ -93,6 +171,8 @@ export default function UseTemplate() {
                 className="w-100"
                 popupClassName="timepicker-down"
                 placement="bottomLeft"
+                value={timeVal}
+                onChange={(t) => setTimeVal(t)}
               />
             </div>
           </div>
@@ -115,11 +195,20 @@ export default function UseTemplate() {
 
         {/* Buttons */}
         <div className="form-actions">
-          <button type="button" className="btn cancel-schedule-btn action-btn">
+          <button
+            type="button"
+            className="btn cancel-schedule-btn action-btn"
+            onClick={handleCancel}
+          >
             <img src={image.noButtonImage} alt="Cancel" className="btn-icon" />
             Cancel
           </button>
-          <button type="button" className="btn add-schedule-btn action-btn">
+          <button
+            type="button"
+            className="btn add-schedule-btn action-btn"
+            onClick={handleAddSchedule}
+            disabled={!templateID}
+          >
             <img src={image.addScheduleButton} alt="Add" className="btn-icon" />
             Add Schedule
           </button>

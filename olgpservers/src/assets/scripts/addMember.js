@@ -92,7 +92,7 @@ export const insertMemberInformation = async (
   return data;
 };
 
-export const addMember = async (
+/*export const addMember = async (
   idNumber,
   firstName,
   middleName,
@@ -193,6 +193,103 @@ export const addMember = async (
   }
 
   return false;
+};*/
+
+export const addMember = async (
+  idNumber,
+  firstName,
+  middleName,
+  lastName,
+  address,
+  dateJoined,
+  sex,
+  email,
+  contactNumber
+) => {
+  
+  email = email.trim();
+
+  const missingFields = [];
+  if (!idNumber) missingFields.push("ID Number");
+  if (!firstName) missingFields.push("First Name");
+  if (!lastName) missingFields.push("Last Name");
+  if (!address) missingFields.push("Address");
+  if (!dateJoined) missingFields.push("Date Joined");
+  if (!sex) missingFields.push("Sex");
+  if (!email) missingFields.push("Email");
+  if (!contactNumber) missingFields.push("Contact Number");
+
+  if (missingFields.length > 0) {
+    Swal.fire({
+      icon: "error",
+      title: "Missing Fields",
+      html: `Please fill in the following required field(s):<br><strong>${missingFields.join(
+        ", "
+      )}</strong>`,
+    });
+    return false;
+  }
+
+  const result = await Swal.fire({
+    icon: "question",
+    title: "Are you sure to add this member?",
+    showCancelButton: true,
+    confirmButtonText: "Save",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+
+  if (!result.isConfirmed) return false;
+
+  try {
+    // 🔹 Show loading alert
+    Swal.fire({
+      title: "Processing...",
+      text: "Please wait a moment.",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    // 🔹 Try sending welcome email first
+    await sendWelcomeEmail({
+      email,
+      firstName,
+      middleName,
+      lastName,
+      idNumber,
+    });
+
+    // 🔹 Only insert member if email succeeded
+    await insertMemberInformation(
+      idNumber,
+      firstName,
+      middleName || null,
+      lastName,
+      address,
+      dateJoined,
+      sex,
+      email,
+      contactNumber
+    );
+
+    Swal.fire({
+      icon: "success",
+      title: "Member Added",
+      text: "The member was successfully added and a welcome email was sent.",
+    });
+
+    return true;
+  } catch (err) {
+    Swal.fire({
+      icon: "error",
+      title: "Failed",
+      text: "Operation failed: " + err.message,
+    });
+    return false;
+  }
 };
 
 export const defineUserType = async (idNumber, department) => {

@@ -56,7 +56,7 @@ export default function SelectTemplate() {
 
   const navigateToEditTemplate = (tpl) => {
     navigate("/editTemplate", {
-      state: { id: tpl.id, templateName: tpl["template-name"] },
+      state: { templateID: tpl.templateID, templateName: tpl["template-name"] },
     });
   };
 

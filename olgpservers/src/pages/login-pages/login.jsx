@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 import images from "../../helper/images";
 import Swal from "sweetalert2";
 
+import "../../assets/styles/indexLogin.css";
+
 export default function Login() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [idNumber, setIdNumber] = useState("");
@@ -124,12 +126,18 @@ export default function Login() {
       <div className="d-flex justify-content-center align-items-center vh-100">
         <div className="card login-card d-flex flex-row overflow-hidden">
           {/* Left Section */}
-          <div className="left-section d-flex justify-content-center align-items-center h-100">
+          <div className="left-section d-flex flex-column justify-content-center align-items-center h-100">
             <img
               src={images.OLGPlogo}
               alt="Our Lady of Guadalupe Logo"
               className="logo"
             />
+            <h3
+              className="mt-3 text-white text-center"
+              style={{ fontWeight: "600", fontSize: "1.5rem" }}
+            >
+              OLGP Servers
+            </h3>
           </div>
 
           {/* Right Section */}

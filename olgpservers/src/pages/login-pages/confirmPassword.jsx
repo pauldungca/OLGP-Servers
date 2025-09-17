@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import images from "../../helper/images"; // adjust if needed
 import { useNavigate } from "react-router-dom";
-import "../../assets/styles/index.css";
+import "../../assets/styles/indexLogin.css";
 
 export default function ConfirmPassword() {
   const [newPasswordVisible, setNewPasswordVisible] = useState(false);

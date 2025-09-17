@@ -51,6 +51,7 @@ export default function AddMember() {
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedBarangay, setSelectedBarangay] = useState("");
+  const [street, setStreet] = useState(""); // 🆕 Street
   const [houseNumber, setHouseNumber] = useState("");
 
   const [imageFile, setImageFile] = useState(null);
@@ -87,25 +88,27 @@ export default function AddMember() {
     }
   }, [selectedMunicipality]);
 
-  // ---- Build full address (UI only)
+  // ---- Build full address (UI only) — includes Street
   useEffect(() => {
     const provinceName =
       provinces.find((p) => p.code === selectedProvince)?.name || "";
     const municipalityName =
       municipalities.find((m) => m.code === selectedMunicipality)?.name || "";
-    // You currently store barangay *name* in selectedBarangay (value={brgy.name})
     const barangayName =
       barangays.find((b) => b.name === selectedBarangay)?.name ||
       selectedBarangay ||
       "";
 
     const fullAddress = `${houseNumber ? houseNumber + ", " : ""}${
-      barangayName ? barangayName + ", " : ""
-    }${municipalityName ? municipalityName + ", " : ""}${provinceName}`;
+      street ? street + ", " : ""
+    }${barangayName ? barangayName + ", " : ""}${
+      municipalityName ? municipalityName + ", " : ""
+    }${provinceName}`;
 
     setAddress(fullAddress.trim());
   }, [
     houseNumber,
+    street, // 🆕
     selectedBarangay,
     selectedMunicipality,
     selectedProvince,
@@ -161,12 +164,13 @@ export default function AddMember() {
         );
       }
 
-      // Reset form
+      // Reset form (includes Street)
       setFirstName("");
       setMiddleName("");
       setLastName("");
       setAddress("");
       setHouseNumber("");
+      setStreet(""); // 🆕
       setSelectedProvince("");
       setSelectedMunicipality("");
       setSelectedBarangay("");
@@ -312,9 +316,9 @@ export default function AddMember() {
             </div>
           </div>
 
-          {/* Row 2 */}
+          {/* Row 2 (Province - Municipality - Barangay - Street - House Number) */}
           <div className="row mb-3">
-            <div className="col-md-3">
+            <div className="col-md-2">
               <label className="form-label">Province</label>
               <select
                 className="form-control"
@@ -329,7 +333,7 @@ export default function AddMember() {
                 ))}
               </select>
             </div>
-            <div className="col-md-3">
+            <div className="col-md-2">
               <label className="form-label">Municipality</label>
               <select
                 className="form-control"
@@ -345,7 +349,7 @@ export default function AddMember() {
                 ))}
               </select>
             </div>
-            <div className="col-md-3">
+            <div className="col-md-2">
               <label className="form-label">Barangay</label>
               <select
                 className="form-control"
@@ -362,12 +366,23 @@ export default function AddMember() {
               </select>
             </div>
             <div className="col-md-3">
+              <label className="form-label">Street</label>
+              <input
+                type="text"
+                className="form-control"
+                value={street}
+                onChange={(e) => setStreet(e.target.value)}
+                placeholder="e.g., Mabini St."
+              />
+            </div>
+            <div className="col-md-3">
               <label className="form-label">House Number</label>
               <input
                 type="text"
                 className="form-control"
                 value={houseNumber}
                 onChange={(e) => setHouseNumber(e.target.value)}
+                placeholder="e.g., 123-B"
               />
             </div>
           </div>

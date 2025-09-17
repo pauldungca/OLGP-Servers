@@ -92,7 +92,7 @@ export const insertMemberInformation = async (
   return data;
 };
 
-/*export const addMember = async (
+export const addMember = async (
   idNumber,
   firstName,
   middleName,
@@ -103,6 +103,16 @@ export const insertMemberInformation = async (
   email,
   contactNumber
 ) => {
+  if (await isEmailAlreadyUsed(email)) {
+    Swal.fire({
+      icon: "error",
+      title: "Duplicate Email",
+      text: "This Gmail address is already registered. Please use a different one.",
+    });
+    return false;
+  }
+  email = email.trim();
+
   const missingFields = [];
   if (!idNumber) missingFields.push("ID Number");
   if (!firstName) missingFields.push("First Name");
@@ -124,108 +134,11 @@ export const insertMemberInformation = async (
     return false;
   }
 
-  const result = await Swal.fire({
-    icon: "question",
-    title: "Are you sure to add this member?",
-    showCancelButton: true,
-    confirmButtonText: "Save",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
-  });
-
-  if (result.isConfirmed) {
-    try {
-      await insertMemberInformation(
-        idNumber,
-        firstName,
-        middleName || null,
-        lastName,
-        address,
-        dateJoined,
-        sex,
-        email,
-        contactNumber
-      );
-
-      // 🔹 Show loading alert before sending email
-      Swal.fire({
-        title: "Processing...",
-        text: "Please wait a moment.",
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
-      });
-
-      try {
-        await sendWelcomeEmail({
-          email,
-          firstName,
-          middleName,
-          lastName,
-          idNumber,
-        });
-
-        Swal.fire({
-          icon: "success",
-          title: "Member Added",
-          text: "The member was successfully added and a welcome email was sent.",
-        });
-      } catch (mailErr) {
-        console.warn("Welcome email failed:", mailErr);
-        Swal.fire({
-          icon: "warning",
-          title: "Member Added (Email Failed)",
-          text: "Member was added, but sending the welcome email failed.",
-        });
-      }
-
-      return true;
-    } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Failed",
-        text: "Failed to add member: " + err.message,
-      });
-      return false;
-    }
-  }
-
-  return false;
-};*/
-
-export const addMember = async (
-  idNumber,
-  firstName,
-  middleName,
-  lastName,
-  address,
-  dateJoined,
-  sex,
-  email,
-  contactNumber
-) => {
-  
-  email = email.trim();
-
-  const missingFields = [];
-  if (!idNumber) missingFields.push("ID Number");
-  if (!firstName) missingFields.push("First Name");
-  if (!lastName) missingFields.push("Last Name");
-  if (!address) missingFields.push("Address");
-  if (!dateJoined) missingFields.push("Date Joined");
-  if (!sex) missingFields.push("Sex");
-  if (!email) missingFields.push("Email");
-  if (!contactNumber) missingFields.push("Contact Number");
-
-  if (missingFields.length > 0) {
+  if (!isValidGmail(email)) {
     Swal.fire({
       icon: "error",
-      title: "Missing Fields",
-      html: `Please fill in the following required field(s):<br><strong>${missingFields.join(
-        ", "
-      )}</strong>`,
+      title: "Inavlid Format",
+      html: `Please put "@gmail.com" in your email input.`,
     });
     return false;
   }
@@ -278,7 +191,7 @@ export const addMember = async (
     Swal.fire({
       icon: "success",
       title: "Member Added",
-      text: "The member was successfully added and a welcome email was sent.",
+      text: "The member was successfully added.",
     });
 
     return true;
@@ -552,4 +465,27 @@ export const handleFileChange = (e, fileInputRef) => {
 export const handleRemoveImage = (setImageFile, setFileAttached) => {
   setImageFile(null);
   setFileAttached(false);
+};
+
+export const isValidGmail = (email) => {
+  if (!email) return false; // empty check
+  return email.toLowerCase().endsWith("@gmail.com");
+};
+
+// 🔹 Check if email already exists in members-information
+export const isEmailAlreadyUsed = async (email) => {
+  if (!email) return false;
+
+  const { data, error } = await supabase
+    .from("members-information")
+    .select("idNumber")
+    .eq("email", email.trim())
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error checking email:", error.message);
+    throw new Error("Error checking email: " + error.message);
+  }
+
+  return !!data; // true if found
 };

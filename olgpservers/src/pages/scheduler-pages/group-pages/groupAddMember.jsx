@@ -55,6 +55,7 @@ export default function GroupAddMember() {
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedBarangay, setSelectedBarangay] = useState("");
+  const [street, setStreet] = useState(""); // NEW
   const [houseNumber, setHouseNumber] = useState("");
   const [address, setAddress] = useState("");
 
@@ -93,7 +94,7 @@ export default function GroupAddMember() {
     }
   }, [selectedMunicipality]);
 
-  // ---- Build full address
+  // ---- Build full address (includes Street)
   useEffect(() => {
     const provinceName =
       provinces.find((p) => p.code === selectedProvince)?.name || "";
@@ -104,13 +105,17 @@ export default function GroupAddMember() {
       selectedBarangay ||
       "";
 
-    const fullAddress = `${houseNumber ? houseNumber + ", " : ""}${
-      barangayName ? barangayName + ", " : ""
-    }${municipalityName ? municipalityName + ", " : ""}${provinceName}`;
+    const parts = [];
+    if (houseNumber) parts.push(houseNumber);
+    if (street) parts.push(street);
+    if (barangayName) parts.push(barangayName);
+    if (municipalityName) parts.push(municipalityName);
+    if (provinceName) parts.push(provinceName);
 
-    setAddress(fullAddress.trim());
+    setAddress(parts.join(", ").trim());
   }, [
     houseNumber,
+    street,
     selectedBarangay,
     selectedMunicipality,
     selectedProvince,
@@ -152,7 +157,7 @@ export default function GroupAddMember() {
     await addMemberAuthentication(idNumber, "olgp2025-2026", email);
     await defineUserType(idNumber, department);
 
-    // ✅ Save group depending on department
+    // Save group depending on department
     if (department === "Eucharistic Minister") {
       await saveEucharisticMinisterGroup(idNumber, group || "Group 1");
     } else if (department === "Choir") {
@@ -167,6 +172,7 @@ export default function GroupAddMember() {
     setEmail("");
     setContactNumber("");
     setHouseNumber("");
+    setStreet("");
     setSelectedProvince("");
     setSelectedMunicipality("");
     setSelectedBarangay("");
@@ -175,6 +181,7 @@ export default function GroupAddMember() {
     setFileAttached(false);
     setIdNumber(generateUserID());
   };
+
   return (
     <div className="member-page-container">
       <div className="member-header">
@@ -314,9 +321,9 @@ export default function GroupAddMember() {
             </div>
           </div>
 
-          {/* Row 2 */}
+          {/* Row 2 (Province - Municipality - Barangay - Street - House Number) */}
           <div className="row mb-3">
-            <div className="col-md-3">
+            <div className="col-md-2">
               <label className="form-label">Province</label>
               <select
                 className="form-control"
@@ -331,7 +338,8 @@ export default function GroupAddMember() {
                 ))}
               </select>
             </div>
-            <div className="col-md-3">
+
+            <div className="col-md-2">
               <label className="form-label">Municipality</label>
               <select
                 className="form-control"
@@ -347,7 +355,8 @@ export default function GroupAddMember() {
                 ))}
               </select>
             </div>
-            <div className="col-md-3">
+
+            <div className="col-md-2">
               <label className="form-label">Barangay</label>
               <select
                 className="form-control"
@@ -363,6 +372,18 @@ export default function GroupAddMember() {
                 ))}
               </select>
             </div>
+
+            <div className="col-md-3">
+              <label className="form-label">Street</label>
+              <input
+                type="text"
+                className="form-control"
+                value={street}
+                onChange={(e) => setStreet(e.target.value)}
+                placeholder="e.g., Mabini St."
+              />
+            </div>
+
             <div className="col-md-3">
               <label className="form-label">House Number</label>
               <input
@@ -370,6 +391,7 @@ export default function GroupAddMember() {
                 className="form-control"
                 value={houseNumber}
                 onChange={(e) => setHouseNumber(e.target.value)}
+                placeholder="e.g., 123-B"
               />
             </div>
           </div>

@@ -598,9 +598,7 @@ export default function EditTemplate() {
                       checked={enabled}
                       onChange={() => toggleRole("lector", role.label)}
                     />
-                    <label className="form-check-label flex-grow-1">
-                      {role.label}:
-                    </label>
+                    <label className="form-check-label">{role.label}:</label>
                     <select
                       className="form-select form-select-sm w-auto"
                       disabled={mode.lector === "standard" || !enabled}

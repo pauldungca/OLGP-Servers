@@ -61,7 +61,7 @@ export default function SelectTemplate() {
   };
 
   const handleDelete = async (tpl) => {
-    const ok = await deleteTemplate(tpl.templateID, tpl["template-name"]);
+    const ok = await deleteTemplate(tpl.templateID);
     if (ok) {
       setTemplates((prev) =>
         prev.filter((t) => t.templateID !== tpl.templateID)

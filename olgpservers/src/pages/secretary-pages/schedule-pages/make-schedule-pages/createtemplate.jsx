@@ -558,9 +558,7 @@ export default function Createtemplate() {
                         toggleRole("lector", role.label, role.default)
                       }
                     />
-                    <label className="form-check-label flex-grow-1">
-                      {role.label}:
-                    </label>
+                    <label className="form-check-label">{role.label}:</label>
                     <select
                       className="form-select form-select-sm w-auto"
                       disabled={isStd || !enabled}

@@ -1,10 +1,18 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Breadcrumb } from "antd";
-import { Link } from "react-router-dom";
+// viewSchedule.jsx
+import React, { useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { Breadcrumb, DatePicker } from "antd";
 import icon from "../../../../helper/icon";
-import image from "../../../../helper/images";
 import Footer from "../../../../components/footer";
+
+import {
+  CURRENT_YEAR,
+  CURRENT_MONTH,
+  defaultMonthValue,
+  makeDisableMonths,
+  popupClassForYear,
+  getMonthDays,
+} from "../../../../assets/scripts/viewScheduleSecretary";
 
 import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/updateSchedule.css";
@@ -13,25 +21,28 @@ export default function ViewSchedule() {
   useEffect(() => {
     document.title = "OLGP Servers | View Schedule";
   }, []);
+
   const navigate = useNavigate();
-  const [hoveredBtn, setHoveredBtn] = useState({
-    btn1: false,
-    btn2: false,
-    btn3: false,
-  });
+  // const navToCancel = () => navigate("/cancelScheduleSecretary");
 
-  function navToCancel() {
-    navigate("/cancelScheduleSecretary");
-  }
+  // --- Month picker state / rules ---
+  const [panelYear, setPanelYear] = React.useState(CURRENT_YEAR);
+  const disableMonths = React.useMemo(
+    () => makeDisableMonths(CURRENT_YEAR, CURRENT_MONTH),
+    []
+  );
 
-  // Button text variable
-  const notAvailableText = "Cancel Schedule";
+  // Controlled month value (start with current month)
+  const [monthValue, setMonthValue] = React.useState(defaultMonthValue);
+  const monthDays = React.useMemo(() => getMonthDays(monthValue), [monthValue]);
 
   return (
     <div className="schedule-page-container">
+      {/* Header */}
       <div className="schedule-header">
         <div className="header-text-with-line">
           <h3>VIEW SCHEDULE</h3>
+
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -42,254 +53,73 @@ export default function ViewSchedule() {
                     </Link>
                   ),
                 },
-                {
-                  title: "View Schedule",
-                  className: "breadcrumb-item-active",
-                },
+                { title: "View Schedule", className: "breadcrumb-item-active" },
               ]}
               separator={
                 <img
                   src={icon.chevronIcon}
                   alt="Chevron Icon"
-                  style={{ width: "15px", height: "15px" }}
+                  style={{ width: 15, height: 15 }}
                 />
               }
               className="customized-breadcrumb"
             />
           </div>
+
           <div className="header-line"></div>
         </div>
       </div>
 
+      {/* Content */}
       <div className="schedule-content">
-        <div className="update-schedule-wrapper">
-          <div className="update-schedule-header">
-            April 6, 2025 | Sunday Mass
-          </div>
-
-          <div className="update-schedule-body">
-            {/* Left Column */}
-            <div className="schedule-col no-schedule">
-              <img src={image.updateStatusImage} alt="No Schedule" />
-              <p>You don’t have a schedule here.</p>
-            </div>
-
-            {/* Middle Column */}
-            <div className="schedule-col assigned-group">
-              <div className="assigned-box">
-                <p className="assigned-label">Assigned Group:</p>
-                <h3 className="group-name">Group 2</h3>
-              </div>
-
-              <p className="mass-time">2nd Mass | 8:30 AM</p>
-
-              <div className="action-buttons justify-content-center">
-                {<button className="btn export-btn">Export</button>}
-                {<button className="btn print-btn">Print</button>}
-              </div>
-
-              <button
-                className="btn cancel-btn"
-                onMouseEnter={() =>
-                  setHoveredBtn((prev) => ({ ...prev, btn2: true }))
-                }
-                onMouseLeave={() =>
-                  setHoveredBtn((prev) => ({ ...prev, btn2: false }))
-                }
-                onClick={navToCancel}
-              >
-                <img
-                  src={
-                    hoveredBtn.btn2
-                      ? image.noButtonHoverImage
-                      : image.noButtonImage
-                  }
-                  alt="Cancel Schedule"
-                  className="cancel-btn-icon"
-                />
-                {notAvailableText}
-              </button>
-            </div>
-
-            {/* Right Column */}
-            <div className="schedule-col no-schedule">
-              <img src={image.updateStatusImage} alt="No Schedule" />
-              <p>You don’t have a schedule here.</p>
-            </div>
-          </div>
+        {/* Month picker */}
+        <div
+          className="schedule-toolbar"
+          role="group"
+          aria-label="Month and year filters"
+        >
+          <DatePicker
+            picker="month"
+            value={monthValue}
+            onChange={(val) => val && setMonthValue(val)}
+            format="MMMM - YYYY"
+            allowClear={false}
+            inputReadOnly
+            suffixIcon={null}
+            className="month-select"
+            popupClassName={popupClassForYear(panelYear, CURRENT_YEAR)}
+            disabledDate={disableMonths}
+            onPanelChange={(val) => {
+              if (val) setPanelYear(val.year());
+            }}
+          />
         </div>
-        <div className="update-schedule-wrapper">
-          <div className="update-schedule-header">
-            April 6, 2025 | Sunday Mass
-          </div>
 
-          <div className="update-schedule-body">
-            {/* Left Column */}
-            <div className="schedule-col no-schedule">
-              <img src={image.updateStatusImage} alt="No Schedule" />
-              <p>You don’t have a schedule here.</p>
-            </div>
-
-            {/* Middle Column */}
-            <div className="schedule-col assigned-group">
-              <div className="assigned-box">
-                <p className="assigned-label">Assigned Group:</p>
-                <h3 className="group-name">Group 2</h3>
-              </div>
-
-              <p className="mass-time">2nd Mass | 8:30 AM</p>
-
-              <div className="action-buttons justify-content-center">
-                {<button className="btn export-btn">Export</button>}
-                {<button className="btn print-btn">Print</button>}
-              </div>
-
-              <button
-                className="btn cancel-btn"
-                onMouseEnter={() =>
-                  setHoveredBtn((prev) => ({ ...prev, btn2: true }))
-                }
-                onMouseLeave={() =>
-                  setHoveredBtn((prev) => ({ ...prev, btn2: false }))
-                }
-                onClick={navToCancel}
+        {/* List all days in the selected month */}
+        <div className="day-list">
+          {monthDays.map((d) => (
+            <div
+              key={d.format("YYYY-MM-DD")}
+              className="update-schedule-wrapper"
+              style={{
+                paddingTop: 12,
+                paddingBottom: 12,
+                marginBottom: 12,
+              }}
+            >
+              <div
+                className="update-schedule-header"
+                style={{ marginBottom: 0 }}
               >
-                <img
-                  src={
-                    hoveredBtn.btn2
-                      ? image.noButtonHoverImage
-                      : image.noButtonImage
-                  }
-                  alt="Cancel Schedule"
-                  className="cancel-btn-icon"
-                />
-                {notAvailableText}
-              </button>
-            </div>
-
-            {/* Right Column */}
-            <div className="schedule-col no-schedule">
-              <img src={image.updateStatusImage} alt="No Schedule" />
-              <p>You don’t have a schedule here.</p>
-            </div>
-          </div>
-        </div>
-        <div className="update-schedule-wrapper">
-          <div className="update-schedule-header">
-            April 6, 2025 | Sunday Mass
-          </div>
-
-          <div className="update-schedule-body">
-            {/* Left Column */}
-            <div className="schedule-col no-schedule">
-              <img src={image.updateStatusImage} alt="No Schedule" />
-              <p>You don’t have a schedule here.</p>
-            </div>
-
-            {/* Middle Column */}
-            <div className="schedule-col assigned-group">
-              <div className="assigned-box">
-                <p className="assigned-label">Assigned Group:</p>
-                <h3 className="group-name">Group 2</h3>
+                {d.format("MMMM D, YYYY")}
               </div>
-
-              <p className="mass-time">2nd Mass | 8:30 AM</p>
-
-              <div className="action-buttons justify-content-center">
-                {<button className="btn export-btn">Export</button>}
-                {<button className="btn print-btn">Print</button>}
-              </div>
-
-              <button
-                className="btn cancel-btn"
-                onMouseEnter={() =>
-                  setHoveredBtn((prev) => ({ ...prev, btn2: true }))
-                }
-                onMouseLeave={() =>
-                  setHoveredBtn((prev) => ({ ...prev, btn2: false }))
-                }
-                onClick={navToCancel}
-              >
-                <img
-                  src={
-                    hoveredBtn.btn2
-                      ? image.noButtonHoverImage
-                      : image.noButtonImage
-                  }
-                  alt="Cancel Schedule"
-                  className="cancel-btn-icon"
-                />
-                {notAvailableText}
-              </button>
+              {/* You can render each day's schedules under here later */}
             </div>
-
-            {/* Right Column */}
-            <div className="schedule-col no-schedule">
-              <img src={image.updateStatusImage} alt="No Schedule" />
-              <p>You don’t have a schedule here.</p>
-            </div>
-          </div>
-        </div>
-        <div className="update-schedule-wrapper">
-          <div className="update-schedule-header">
-            April 6, 2025 | Sunday Mass
-          </div>
-
-          <div className="update-schedule-body">
-            {/* Left Column */}
-            <div className="schedule-col no-schedule">
-              <img src={image.updateStatusImage} alt="No Schedule" />
-              <p>You don’t have a schedule here.</p>
-            </div>
-
-            {/* Middle Column */}
-            <div className="schedule-col assigned-group">
-              <div className="assigned-box">
-                <p className="assigned-label">Assigned Group:</p>
-                <h3 className="group-name">Group 2</h3>
-              </div>
-
-              <p className="mass-time">2nd Mass | 8:30 AM</p>
-
-              <div className="action-buttons justify-content-center">
-                {<button className="btn export-btn">Export</button>}
-                {<button className="btn print-btn">Print</button>}
-              </div>
-
-              <button
-                className="btn cancel-btn"
-                onMouseEnter={() =>
-                  setHoveredBtn((prev) => ({ ...prev, btn2: true }))
-                }
-                onMouseLeave={() =>
-                  setHoveredBtn((prev) => ({ ...prev, btn2: false }))
-                }
-                onClick={navToCancel}
-              >
-                <img
-                  src={
-                    hoveredBtn.btn2
-                      ? image.noButtonHoverImage
-                      : image.noButtonImage
-                  }
-                  alt="Cancel Schedule"
-                  className="cancel-btn-icon"
-                />
-                {notAvailableText}
-              </button>
-            </div>
-
-            {/* Right Column */}
-            <div className="schedule-col no-schedule">
-              <img src={image.updateStatusImage} alt="No Schedule" />
-              <p>You don’t have a schedule here.</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
-      <div>
-        <Footer />
-      </div>
+
+      <Footer />
     </div>
   );
 }

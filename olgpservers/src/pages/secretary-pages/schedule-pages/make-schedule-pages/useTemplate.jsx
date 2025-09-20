@@ -8,8 +8,11 @@ import Footer from "../../../../components/footer";
 
 import {
   getTemplateDetails,
-  addUseTemplate,
-  confirmCancelUseTemplate,
+  disablePastDates,
+  disablePastTimes,
+  handleNoteChange,
+  handleAddSchedule,
+  handleCancel,
 } from "../../../../assets/scripts/template";
 
 import "../../../../assets/styles/schedule.css";
@@ -54,39 +57,6 @@ export default function UseTemplate() {
       cancelled = true;
     };
   }, [templateName, templateID]);
-
-  const handleNoteChange = (e) => {
-    if (e.target.value.length <= 150) setNote(e.target.value);
-  };
-
-  const handleAddSchedule = async () => {
-    if (!dateVal || !timeVal) {
-      alert("Please select a date and time.");
-      return;
-    }
-
-    // ✅ Use timestamp as numeric scheduleID
-    const scheduleID = Date.now(); // fits in int8
-
-    const dateStr = dayjs(dateVal).format("YYYY-MM-DD");
-    const timeStr = dayjs(timeVal).format("HH:mm:ss");
-
-    const ok = await addUseTemplate({
-      scheduleID,
-      templateID: Number(templateID), // ensure bigint
-      clientName,
-      date: dateStr,
-      time: timeStr,
-      note,
-    });
-
-    if (ok) navigate("/selectTemplate");
-  };
-
-  const handleCancel = async () => {
-    const ok = await confirmCancelUseTemplate();
-    if (ok) navigate("/selectTemplate");
-  };
 
   return (
     <div className="schedule-page-container">
@@ -156,7 +126,17 @@ export default function UseTemplate() {
                 className="w-100 form-control"
                 placement="bottomLeft"
                 value={dateVal}
-                onChange={(d) => setDateVal(d)}
+                onChange={(d) => {
+                  setDateVal(d);
+                  if (
+                    d?.isSame(dayjs(), "day") &&
+                    timeVal &&
+                    timeVal.isBefore(dayjs())
+                  ) {
+                    setTimeVal(null);
+                  }
+                }}
+                disabledDate={disablePastDates}
               />
             </div>
           </div>
@@ -168,11 +148,18 @@ export default function UseTemplate() {
               <TimePicker
                 use12Hours
                 format="h:mm A"
-                className="w-100"
+                className="w-100 form-control"
                 popupClassName="timepicker-down"
                 placement="bottomLeft"
                 value={timeVal}
                 onChange={(t) => setTimeVal(t)}
+                defaultOpenValue={dayjs()}
+                disabledTime={() => disablePastTimes(dateVal)}
+                onSelect={(val) => {
+                  if (dateVal?.isSame(dayjs(), "day") && val.isBefore(dayjs()))
+                    return;
+                  setTimeVal(val);
+                }}
               />
             </div>
           </div>
@@ -185,7 +172,7 @@ export default function UseTemplate() {
                 className="form-control note-textarea"
                 rows="6"
                 value={note}
-                onChange={handleNoteChange}
+                onChange={(e) => handleNoteChange(e, setNote)}
                 placeholder="Write a note (max 150 characters)"
               />
               <div className="note-counter text-end">{note.length}/150</div>
@@ -198,7 +185,7 @@ export default function UseTemplate() {
           <button
             type="button"
             className="btn cancel-schedule-btn action-btn"
-            onClick={handleCancel}
+            onClick={() => handleCancel(navigate)}
           >
             <img src={image.noButtonImage} alt="Cancel" className="btn-icon" />
             Cancel
@@ -206,10 +193,18 @@ export default function UseTemplate() {
           <button
             type="button"
             className="btn add-schedule-btn action-btn"
-            onClick={handleAddSchedule}
+            onClick={() =>
+              handleAddSchedule({
+                dateVal,
+                timeVal,
+                templateID,
+                clientName,
+                note,
+                navigate,
+              })
+            }
             disabled={!templateID}
           >
-            <img src={image.addScheduleButton} alt="Add" className="btn-icon" />
             Add Schedule
           </button>
         </div>

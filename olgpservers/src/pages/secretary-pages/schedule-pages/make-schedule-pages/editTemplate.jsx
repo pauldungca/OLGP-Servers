@@ -9,12 +9,14 @@ import {
   updateTemplate,
   confirmCancel,
   getTemplateDetails,
+  getEucharisticMax,
+  getChoirMax,
 } from "../../../../assets/scripts/template";
 
 import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/createTemplate.css";
 
-/* ======== MODULE-LEVEL CONSTANTS (stable; no need in deps) ======== */
+/* ======== MODULE-LEVEL CONSTANTS ======== */
 const ALTAR_DEFAULTS = {
   "Candle Bearers": 2,
   Bellers: 2,
@@ -22,7 +24,7 @@ const ALTAR_DEFAULTS = {
   "Incense Bearer": 1,
   Thurifer: 1,
   "Main Servers": 2,
-  Plates: 10, // DB column is "plate"; this is for UI/default inference only
+  Plates: 10,
 };
 
 const EUCHARISTIC_DEFAULTS = { Minister: 6 };
@@ -44,8 +46,10 @@ export default function EditTemplate() {
   const navigate = useNavigate();
   const { state } = useLocation();
 
-  // Prefer the public templateID; fall back to numeric id
   const templateID = state?.templateID || state?.id || null;
+
+  const [eucharisticMax, setEucharisticMax] = useState(10);
+  const [choirMax, setChoirMax] = useState(CHOIR_DEFAULTS.Choir);
 
   useEffect(() => {
     document.title = "OLGP Servers | Make Schedule";
@@ -55,14 +59,18 @@ export default function EditTemplate() {
   const [templateName, setTemplateName] = useState(state?.templateName || "");
   const [massType, setMassType] = useState("High Mass");
 
-  // UI state to hydrate
+  // Departments toggles
   const [selectedDepartments, setSelectedDepartments] = useState([]);
+
+  // Modes
   const [mode, setMode] = useState({
     altar: "standard",
     eucharistic: "standard",
     choir: "standard",
     lector: "standard",
   });
+
+  // Role enablement
   const [enabledRoles, setEnabledRoles] = useState({
     altar: {},
     eucharistic: {},
@@ -70,29 +78,46 @@ export default function EditTemplate() {
     lector: {},
   });
 
-  // kept for payload parity; not used for editing numbers in this UI
+  // Editable counts
+  const [altarCounts, setAltarCounts] = useState({ ...ALTAR_DEFAULTS });
+  const [eucharisticCount, setEucharisticCount] = useState(
+    EUCHARISTIC_DEFAULTS.Minister
+  );
+  const [choirCount, setChoirCount] = useState(CHOIR_DEFAULTS.Choir);
+  const [lectorCounts, setLectorCounts] = useState({ ...LECTOR_DEFAULTS });
+
   const counts = {};
 
-  // On mount/load: fetch existing values and hydrate the UI
+  // Fetch maxima
+  useEffect(() => {
+    (async () => {
+      const max = await getEucharisticMax();
+      setEucharisticMax(max || 0);
+    })();
+  }, []);
+  useEffect(() => {
+    (async () => {
+      const max = await getChoirMax();
+      setChoirMax(max || CHOIR_DEFAULTS.Choir);
+    })();
+  }, []);
+
+  // Load from DB
   useEffect(() => {
     let cancelled = false;
-
     const load = async () => {
       if (!templateID) return;
-
       try {
         const { header, altar, eucharistic, choir, lector } =
           await getTemplateDetails(templateID);
         if (cancelled) return;
 
-        // Header
         if (header) {
           if (!state?.templateName)
             setTemplateName(header["template-name"] || "");
           setMassType(header["mass-type"] || "High Mass");
         }
 
-        // Start fresh
         const nextSelected = [];
         const nextMode = {
           altar: "standard",
@@ -105,30 +130,25 @@ export default function EditTemplate() {
         // Altar
         if (altar && Number(altar.isNeeded) === 1) {
           nextSelected.push("altar");
-          const altarCounts = altarFromDbToLabel(altar);
-
-          // enable any role that has a positive count
-          Object.entries(altarCounts).forEach(([label, num]) => {
+          const altarDbCounts = altarFromDbToLabel(altar);
+          setAltarCounts(altarDbCounts);
+          Object.entries(altarDbCounts).forEach(([label, num]) => {
             if (num > 0) nextRoles.altar[label] = true;
           });
-
-          // infer mode: "standard" if counts match defaults for enabled roles and all disabled are zero
-          const matchesDefaults = Object.keys(ALTAR_DEFAULTS).every((label) => {
-            const num = altarCounts[label] || 0;
-            const def = ALTAR_DEFAULTS[label] || 0;
-            const enabled = !!nextRoles.altar[label];
-            if (enabled) return num === def;
-            return num === 0;
-          });
-
-          nextMode.altar = matchesDefaults ? "standard" : "custom";
+          const allEnabled = Object.keys(ALTAR_DEFAULTS).every(
+            (label) => (altarDbCounts[label] || 0) > 0
+          );
+          const defaultsMatch = Object.entries(ALTAR_DEFAULTS).every(
+            ([label, def]) => (altarDbCounts[label] || 0) === def
+          );
+          nextMode.altar = allEnabled && defaultsMatch ? "standard" : "custom";
         }
 
         // Eucharistic
         if (eucharistic && Number(eucharistic.isNeeded) === 1) {
           nextSelected.push("eucharistic");
-          const minister = Number(eucharistic.minister || 0);
-          if (minister > 0) nextRoles.eucharistic["Minister"] = true;
+          const minister = Number(eucharistic["minister-count"] || 0);
+          setEucharisticCount(minister);
           nextMode.eucharistic =
             minister === EUCHARISTIC_DEFAULTS.Minister ? "standard" : "custom";
         }
@@ -136,10 +156,9 @@ export default function EditTemplate() {
         // Choir
         if (choir && Number(choir.isNeeded) === 1) {
           nextSelected.push("choir");
-          const choirCount = Number(choir.choir || 0);
-          if (choirCount > 0) nextRoles.choir["Choir"] = true;
-          nextMode.choir =
-            choirCount === CHOIR_DEFAULTS.Choir ? "standard" : "custom";
+          const choirCnt = Number(choir["group-count"] || 0);
+          setChoirCount(choirCnt);
+          nextMode.choir = choirCnt === 1 ? "standard" : "custom";
         }
 
         // Lector
@@ -147,6 +166,9 @@ export default function EditTemplate() {
           nextSelected.push("lector");
           const reading = Number(lector.reading || 0);
           const intercession = Number(lector.intercession || 0);
+
+          setLectorCounts({ Readings: reading, Intercession: intercession });
+
           if (reading > 0) nextRoles.lector["Readings"] = true;
           if (intercession > 0) nextRoles.lector["Intercession"] = true;
 
@@ -161,24 +183,14 @@ export default function EditTemplate() {
         setMode(nextMode);
         setEnabledRoles(nextRoles);
       } catch (err) {
-        // Non-fatal: allow manual editing
         console.error("Failed to load template details:", err?.message || err);
       }
     };
-
     load();
     return () => {
       cancelled = true;
     };
-    // deps: templateID only (module-level constants don't need to be listed)
   }, [templateID, state?.templateName]);
-
-  const departments = [
-    { id: "altar", name: "Altar Server" },
-    { id: "eucharistic", name: "Eucharistic Minister" },
-    { id: "choir", name: "Choir" },
-    { id: "lector", name: "Lector Commentator" },
-  ];
 
   const altarRoles = [
     { label: "Candle Bearers", default: ALTAR_DEFAULTS["Candle Bearers"] },
@@ -190,27 +202,55 @@ export default function EditTemplate() {
     { label: "Plates", default: ALTAR_DEFAULTS.Plates },
   ];
 
-  const toggleDepartment = (id) => {
-    setSelectedDepartments((prev) =>
-      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
-    );
-  };
+  const departments = [
+    { id: "altar", name: "Altar Server" },
+    { id: "eucharistic", name: "Eucharistic Minister" },
+    { id: "choir", name: "Choir" },
+    { id: "lector", name: "Lector Commentator" },
+  ];
 
   const toggleRole = (dept, role) => {
-    setEnabledRoles((prev) => ({
-      ...prev,
-      [dept]: {
-        ...prev[dept],
-        [role]: !prev[dept]?.[role],
-      },
-    }));
+    if (dept === "altar") {
+      setEnabledRoles((prev) => {
+        const nextEnabled = !prev.altar?.[role];
+        const next = { ...prev, altar: { ...prev.altar, [role]: nextEnabled } };
+        setAltarCounts((c) => ({
+          ...c,
+          [role]: nextEnabled ? ALTAR_DEFAULTS[role] : 0,
+        }));
+        return next;
+      });
+    } else if (dept === "lector") {
+      setEnabledRoles((prev) => {
+        const nextEnabled = !prev.lector?.[role];
+        const next = {
+          ...prev,
+          lector: { ...prev.lector, [role]: nextEnabled },
+        };
+        setLectorCounts((c) => ({
+          ...c,
+          [role]: nextEnabled ? LECTOR_DEFAULTS[role] : 0,
+        }));
+        return next;
+      });
+    } else {
+      setEnabledRoles((prev) => ({
+        ...prev,
+        [dept]: { ...prev[dept], [role]: !prev[dept]?.[role] },
+      }));
+    }
   };
 
+  const choirStdDefault = Math.max(
+    1,
+    Math.min(CHOIR_DEFAULTS.Choir, choirMax || CHOIR_DEFAULTS.Choir)
+  );
+  const euchStdDefault = Math.max(
+    1,
+    Math.min(EUCHARISTIC_DEFAULTS.Minister, eucharisticMax || 0)
+  );
+
   const handleSave = async () => {
-    if (!templateID) {
-      alert("Missing template ID. Open this page via Select Template → Edit.");
-      return;
-    }
     const ok = await updateTemplate({
       templateID,
       templateName,
@@ -218,9 +258,21 @@ export default function EditTemplate() {
       selectedDepartments,
       mode,
       enabledRoles,
-      counts,
+      counts: {
+        ...counts,
+        altar: altarCounts,
+        eucharistic: { Minister: eucharisticCount, minister: eucharisticCount },
+        choir: { Choir: choirCount, choir: choirCount },
+        lector: lectorCounts,
+      },
     });
     if (ok) navigate("/selectTemplate");
+  };
+
+  const toggleDepartment = (id) => {
+    setSelectedDepartments((prev) =>
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+    );
   };
 
   const handleCancel = async () => {
@@ -356,10 +408,15 @@ export default function EditTemplate() {
                         mode.altar === "standard"
                           ? role.default
                           : enabled
-                          ? role.default
+                          ? altarCounts[role.label] ?? 0
                           : 0
                       }
-                      readOnly
+                      onChange={(e) =>
+                        setAltarCounts((c) => ({
+                          ...c,
+                          [role.label]: Number(e.target.value),
+                        }))
+                      }
                     >
                       {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
                         <option key={n} value={n}>
@@ -385,9 +442,10 @@ export default function EditTemplate() {
                 className={`btn custom-standard-btn ${
                   mode.eucharistic === "standard" ? "enabled" : ""
                 }`}
-                onClick={() =>
-                  setMode((m) => ({ ...m, eucharistic: "standard" }))
-                }
+                onClick={() => {
+                  setMode((m) => ({ ...m, eucharistic: "standard" }));
+                  setEucharisticCount(euchStdDefault);
+                }}
                 type="button"
               >
                 Standard
@@ -396,9 +454,9 @@ export default function EditTemplate() {
                 className={`btn custom-standard-btn ${
                   mode.eucharistic === "custom" ? "enabled" : ""
                 }`}
-                onClick={() =>
-                  setMode((m) => ({ ...m, eucharistic: "custom" }))
-                }
+                onClick={() => {
+                  setMode((m) => ({ ...m, eucharistic: "custom" }));
+                }}
                 type="button"
               >
                 Custom
@@ -406,32 +464,23 @@ export default function EditTemplate() {
             </div>
 
             <div className="d-flex align-items-center gap-3">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                disabled={mode.eucharistic === "standard"}
-                checked={!!enabledRoles.eucharistic?.["Minister"]}
-                onChange={() => toggleRole("eucharistic", "Minister")}
-              />
               <label className="form-check-label">Minister’s Count:</label>
               <select
                 className="form-select form-select-sm w-auto"
-                disabled={
-                  mode.eucharistic === "standard" ||
-                  !enabledRoles.eucharistic?.["Minister"]
-                }
+                disabled={mode.eucharistic === "standard"}
                 value={
                   mode.eucharistic === "standard"
-                    ? EUCHARISTIC_DEFAULTS.Minister
-                    : enabledRoles.eucharistic?.["Minister"]
-                    ? EUCHARISTIC_DEFAULTS.Minister
-                    : 0
+                    ? euchStdDefault
+                    : eucharisticCount
                 }
-                readOnly
+                onChange={(e) => setEucharisticCount(Number(e.target.value))}
               >
-                {[...Array(10)].map((_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {i + 1}
+                {Array.from(
+                  { length: Math.max(eucharisticMax, 1) },
+                  (_, i) => i + 1
+                ).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
                   </option>
                 ))}
                 <option value={0}>0</option>
@@ -450,7 +499,10 @@ export default function EditTemplate() {
                 className={`btn custom-standard-btn ${
                   mode.choir === "standard" ? "enabled" : ""
                 }`}
-                onClick={() => setMode((m) => ({ ...m, choir: "standard" }))}
+                onClick={() => {
+                  setMode((m) => ({ ...m, choir: "standard" }));
+                  setChoirCount(1);
+                }}
                 type="button"
               >
                 Standard
@@ -459,7 +511,9 @@ export default function EditTemplate() {
                 className={`btn custom-standard-btn ${
                   mode.choir === "custom" ? "enabled" : ""
                 }`}
-                onClick={() => setMode((m) => ({ ...m, choir: "custom" }))}
+                onClick={() => {
+                  setMode((m) => ({ ...m, choir: "custom" }));
+                }}
                 type="button"
               >
                 Custom
@@ -467,33 +521,22 @@ export default function EditTemplate() {
             </div>
 
             <div className="d-flex align-items-center gap-3">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                disabled={mode.choir === "standard"}
-                checked={!!enabledRoles.choir?.["Choir"]}
-                onChange={() => toggleRole("choir", "Choir")}
-              />
               <label className="form-check-label">Choir Group Count:</label>
               <select
                 className="form-select form-select-sm w-auto"
-                disabled={
-                  mode.choir === "standard" || !enabledRoles.choir?.["Choir"]
-                }
-                value={
-                  mode.choir === "standard"
-                    ? CHOIR_DEFAULTS.Choir
-                    : enabledRoles.choir?.["Choir"]
-                    ? CHOIR_DEFAULTS.Choir
-                    : 0
-                }
-                readOnly
+                disabled={mode.choir === "standard"}
+                value={mode.choir === "standard" ? 1 : choirCount}
+                onChange={(e) => setChoirCount(Number(e.target.value))}
               >
-                {[...Array(5)].map((_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {i + 1}
+                {Array.from(
+                  { length: Math.max(choirMax || choirStdDefault, 1) },
+                  (_, i) => i + 1
+                ).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
                   </option>
                 ))}
+
                 <option value={0}>0</option>
               </select>
             </div>
@@ -510,11 +553,22 @@ export default function EditTemplate() {
                 className={`btn custom-standard-btn ${
                   mode.lector === "standard" ? "enabled" : ""
                 }`}
-                onClick={() => setMode((m) => ({ ...m, lector: "standard" }))}
+                onClick={() => {
+                  setMode((m) => ({ ...m, lector: "standard" }));
+                  setEnabledRoles((prev) => ({
+                    ...prev,
+                    lector: {
+                      Readings: true,
+                      Intercession: true,
+                    },
+                  }));
+                  setLectorCounts({ ...LECTOR_DEFAULTS }); // reset to defaults
+                }}
                 type="button"
               >
                 Standard
               </button>
+
               <button
                 className={`btn custom-standard-btn ${
                   mode.lector === "custom" ? "enabled" : ""
@@ -554,10 +608,15 @@ export default function EditTemplate() {
                         mode.lector === "standard"
                           ? role.def
                           : enabled
-                          ? role.def
+                          ? lectorCounts[role.label] ?? 0
                           : 0
                       }
-                      readOnly
+                      onChange={(e) =>
+                        setLectorCounts((c) => ({
+                          ...c,
+                          [role.label]: Number(e.target.value),
+                        }))
+                      }
                     >
                       {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                         <option key={n} value={n}>

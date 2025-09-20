@@ -1,5 +1,6 @@
 import Swal from "sweetalert2";
 import { supabase } from "../../utils/supabase";
+import dayjs from "dayjs";
 
 export const generateTemplateId = () => {
   const four = Math.floor(1000 + Math.random() * 9000);
@@ -321,17 +322,6 @@ export const updateTemplate = async ({
   enabledRoles = {},
   counts = {},
 }) => {
-  if (!templateID) {
-    await Swal.fire({
-      icon: "error",
-      title: "Missing template ID",
-      text: "Cannot update without a template ID.",
-      confirmButtonText: "OK",
-    });
-    return false;
-  }
-
-  // Confirm
   const confirm = await Swal.fire({
     icon: "question",
     title: "Save changes to this template?",
@@ -355,10 +345,10 @@ export const updateTemplate = async ({
     "incense-bearer": 1,
     thurifer: 1,
     "main-server": 2,
-    plate: 10, // ✅ singular
+    plate: 10, 
   };
   const EUCHARISTIC_DEFAULTS = { minister: 6 };
-  const CHOIR_DEFAULTS = { choir: 8 };
+  const CHOIR_DEFAULTS = { choir: 1 };
   const LECTOR_DEFAULTS = { reading: 2, intercession: 1 };
 
   // Build payloads
@@ -374,7 +364,7 @@ export const updateTemplate = async ({
             "incense-bearer": Number(counts.altar?.["Incense Bearer"] || 0),
             thurifer: Number(counts.altar?.["Thurifer"] || 0),
             "main-server": Number(counts.altar?.["Main Servers"] || 0),
-            plate: Number(counts.altar?.["Plates"] || 0), // ✅ singular
+            plate: Number(counts.altar?.["Plates"] || 0), 
           };
         }
         return {
@@ -407,7 +397,9 @@ export const updateTemplate = async ({
           return {
             templateID,
             isNeeded: 1,
-            "minister-count": Number(counts.eucharistic?.Minister || 0),
+            "minister-count": Number(
+              counts.eucharistic?.Minister ?? counts.eucharistic?.minister ?? 0
+            ),
           };
         }
         return {
@@ -567,13 +559,12 @@ export const getTemplateDetails = async (templateID) => {
   return { header, altar, eucharistic, choir, lector };
 };
 
-// template.js
 export const addUseTemplate = async ({
   scheduleID,
   templateID,
   date,
   time,
-  clientName, // ⬅️ added
+  clientName,
   note,
 }) => {
   if (!templateID) {
@@ -641,7 +632,6 @@ export const addUseTemplate = async ({
   return true;
 };
 
-// (You already have confirmCancel, but in case you want a very short one)
 export const confirmCancelUseTemplate = async () => {
   const res = await Swal.fire({
     icon: "warning",
@@ -653,4 +643,97 @@ export const confirmCancelUseTemplate = async () => {
     reverseButtons: true,
   });
   return res.isConfirmed;
+};
+
+export const disablePastDates = (current) => {
+  return current && current < dayjs().startOf("day");
+};
+
+export const disablePastTimes = (dateVal) => {
+  // Only restrict when the selected date is today
+  if (!dateVal || !dateVal.isSame(dayjs(), "day")) return {};
+
+  const now = dayjs();
+  const curH = now.hour(); // 0..23
+  const curM = now.minute(); // 0..59
+  const curS = now.second(); // 0..59
+
+  return {
+    disabledHours: () => Array.from({ length: curH }, (_, i) => i), // 0..curH-1
+    disabledMinutes: (hour) =>
+      hour === curH ? Array.from({ length: curM }, (_, i) => i) : [],
+    disabledSeconds: (hour, minute) =>
+      hour === curH && minute === curM
+        ? Array.from({ length: curS }, (_, i) => i)
+        : [],
+  };
+};
+
+export const handleNoteChange = (e, setNote) => {
+  if (e.target.value.length <= 150) {
+    setNote(e.target.value);
+  }
+};
+
+export const handleAddSchedule = async ({
+  dateVal,
+  timeVal,
+  templateID,
+  clientName,
+  note,
+  navigate,
+}) => {
+  if (!dateVal || !timeVal) {
+    await Swal.fire({
+      icon: "warning",
+      title: "Incomplete fields",
+      text: "Please select a date and time.",
+    });
+    return;
+  }
+
+  const scheduleID = Date.now();
+  const dateStr = dayjs(dateVal).format("YYYY-MM-DD");
+  const timeStr = dayjs(timeVal).format("HH:mm:ss");
+
+  const ok = await addUseTemplate({
+    scheduleID,
+    templateID: Number(templateID),
+    clientName,
+    date: dateStr,
+    time: timeStr,
+    note,
+  });
+
+  if (ok) navigate("/selectTemplate");
+};
+
+export const handleCancel = async (navigate) => {
+  const ok = await confirmCancelUseTemplate();
+  if (ok) navigate("/selectTemplate");
+};
+
+export const getEucharisticMax = async () => {
+  const { count, error } = await supabase
+    .from("user-type")
+    .select("*", { count: "exact", head: true }) // HEAD request; returns only count
+    .eq("eucharistic-minister-member", 1);
+
+  if (error) {
+    console.error("getEucharisticMax error:", error);
+    return 0;
+  }
+  return count ?? 0;
+};
+
+export const getChoirMax = async () => {
+  const { count, error } = await supabase
+    .from("choir-groups")
+    .select("*", { count: "exact", head: true });
+
+  if (error) {
+    console.error("getChoirMax error:", error);
+    return 0;
+  }
+  return count ?? 0;
 };

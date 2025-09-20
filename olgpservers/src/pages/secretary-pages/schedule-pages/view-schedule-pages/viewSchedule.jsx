@@ -1,4 +1,3 @@
-// viewSchedule.jsx
 import React, { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Breadcrumb, DatePicker } from "antd";
@@ -12,6 +11,10 @@ import {
   makeDisableMonths,
   popupClassForYear,
   getMonthDays,
+  fetchMonthSchedules,
+  groupByDate,
+  chunkInto,
+  formatDateHeading,
 } from "../../../../assets/scripts/viewScheduleSecretary";
 
 import "../../../../assets/styles/schedule.css";
@@ -23,18 +26,42 @@ export default function ViewSchedule() {
   }, []);
 
   const navigate = useNavigate();
-  // const navToCancel = () => navigate("/cancelScheduleSecretary");
+  const notAvailableText = "Cancel Schedule";
+  const navToCancel = () => navigate("/cancelScheduleSecretary");
 
-  // --- Month picker state / rules ---
+  // Month picker state / rules
   const [panelYear, setPanelYear] = React.useState(CURRENT_YEAR);
   const disableMonths = React.useMemo(
     () => makeDisableMonths(CURRENT_YEAR, CURRENT_MONTH),
     []
   );
-
-  // Controlled month value (start with current month)
   const [monthValue, setMonthValue] = React.useState(defaultMonthValue);
   const monthDays = React.useMemo(() => getMonthDays(monthValue), [monthValue]);
+
+  // DB state
+  const [byDate, setByDate] = React.useState({}); // { 'YYYY-MM-DD': [rows] }
+  const [loading, setLoading] = React.useState(false);
+
+  // Fetch schedules whenever month changes
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await fetchMonthSchedules(monthValue);
+        const grouped = groupByDate(rows);
+        if (!cancelled) setByDate(grouped);
+      } catch (err) {
+        console.error("Failed to load month schedules:", err);
+        if (!cancelled) setByDate({});
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [monthValue]);
 
   return (
     <div className="schedule-page-container">
@@ -95,28 +122,142 @@ export default function ViewSchedule() {
           />
         </div>
 
-        {/* List all days in the selected month */}
-        <div className="day-list">
-          {monthDays.map((d) => (
-            <div
-              key={d.format("YYYY-MM-DD")}
-              className="update-schedule-wrapper"
-              style={{
-                paddingTop: 12,
-                paddingBottom: 12,
-                marginBottom: 12,
-              }}
-            >
-              <div
-                className="update-schedule-header"
-                style={{ marginBottom: 0 }}
-              >
-                {d.format("MMMM D, YYYY")}
-              </div>
-              {/* You can render each day's schedules under here later */}
-            </div>
-          ))}
-        </div>
+        {/* Days list */}
+        {loading ? (
+          <div className="text-center text-muted my-3">Loading schedules…</div>
+        ) : (
+          <div className="day-list">
+            {monthDays.map((d) => {
+              const iso = d.format("YYYY-MM-DD");
+              const dayItems = byDate[iso] || [];
+
+              // If NO schedules for this day → render the simple empty card
+              if (dayItems.length === 0) {
+                return (
+                  <div
+                    key={iso}
+                    className="update-schedule-wrapper"
+                    style={{
+                      paddingTop: 12,
+                      paddingBottom: 12,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <div
+                      className="update-schedule-header"
+                      style={{ marginBottom: 0 }}
+                    >
+                      {formatDateHeading(iso)}
+                    </div>
+                    {/* empty body (matches your screenshot) */}
+                  </div>
+                );
+              }
+
+              // There ARE schedules → render 3-per-row grid (no placeholders)
+              const rows = chunkInto(dayItems, 3);
+
+              return (
+                <div
+                  key={iso}
+                  className="update-schedule-wrapper"
+                  style={{
+                    paddingTop: 12,
+                    paddingBottom: 12,
+                    marginBottom: 12,
+                  }}
+                >
+                  <div
+                    className="update-schedule-header"
+                    style={{ marginBottom: 0 }}
+                  >
+                    {formatDateHeading(iso)}
+                  </div>
+
+                  {rows.map((row, rIdx) => (
+                    <div key={rIdx} className="update-schedule-body">
+                      {row.map((item, cIdx) => (
+                        <div key={cIdx} className="schedule-col">
+                          <div
+                            className="col-inner"
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              height: "100%",
+                            }}
+                          >
+                            {/* Schedule card */}
+                            <div
+                              style={{
+                                display: "inline-block",
+                                padding: "14px 18px",
+                                border: "1px solid #000",
+                                borderRadius: 6,
+                                minWidth: 300,
+                              }}
+                            >
+                              <p
+                                style={{
+                                  margin: 0,
+                                  color: "#666",
+                                  fontSize: 16,
+                                }}
+                              >
+                                Client:
+                              </p>
+                              <h3
+                                style={{ margin: "6px 0 0 0", fontWeight: 700 }}
+                              >
+                                {item.clientName || "—"}
+                              </h3>
+                            </div>
+
+                            <p style={{ marginTop: 14, color: "#666" }}>
+                              {item.time || "—"}
+                            </p>
+
+                            {/* Cancel button per column */}
+                            <div style={{ marginTop: "auto", width: "100%" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "center",
+                                  marginTop: 12,
+                                }}
+                              >
+                                <button
+                                  className="btn cancel-btn"
+                                  onClick={navToCancel}
+                                >
+                                  {notAvailableText}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+
+                  {/* Day-level actions (only for days with schedules) */}
+                  <div
+                    className="action-buttons"
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      gap: 16,
+                      paddingRight: 16,
+                    }}
+                  >
+                    <button className="btn export-btn">Export</button>
+                    <button className="btn print-btn">Print</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <Footer />

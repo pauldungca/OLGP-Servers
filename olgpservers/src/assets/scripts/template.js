@@ -21,7 +21,7 @@ export const getUniqueTemplateId = async () => {
   throw new Error("Could not generate a unique templateID. Please try again.");
 };
 
-export const createTemplate = async ({
+/*export const createTemplate = async ({
   templateName,
   massType,
   selectedDepartments = [],
@@ -223,6 +223,247 @@ export const createTemplate = async ({
     });
     return null;
   }
+};*/
+
+export const createTemplate = async ({
+  templateName,
+  massType,
+  selectedDepartments = [],
+  mode = {},
+  enabledRoles = {},
+  counts = {}, // ← accept counts (just like updateTemplate)
+}) => {
+  try {
+    const name = (templateName || "").trim();
+    const type = (massType || "").trim();
+
+    // --- Validation ---
+    if (!name) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Template name is required",
+        confirmButtonText: "OK",
+      });
+      return null;
+    }
+    if (!type) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Mass type is required",
+        confirmButtonText: "OK",
+      });
+      return null;
+    }
+
+    // --- Confirm ---
+    const confirm = await Swal.fire({
+      icon: "question",
+      title: "Are you sure to create this template?",
+      showCancelButton: true,
+      confirmButtonText: "Yes, create it",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!confirm.isConfirmed) return null;
+
+    // helpers
+    const isSelected = (dept) => selectedDepartments.includes(dept);
+    const useDefaultIf = (dept, label) =>
+      mode?.[dept] === "standard" ? true : !!enabledRoles?.[dept]?.[label];
+
+    // defaults (match updateTemplate)
+    const ALTAR_DEFAULTS = {
+      "candle-bearer": 2,
+      beller: 2,
+      "cross-bearer": 1,
+      "incense-bearer": 1,
+      thurifer: 1,
+      "main-server": 2,
+      plate: 10,
+    };
+    const EUCHARISTIC_DEFAULTS = { minister: 6 }; // ← 6 (not 4)
+    const CHOIR_DEFAULTS = { choir: 1 }; // ← 1
+    const LECTOR_DEFAULTS = { reading: 2, intercession: 1 };
+
+    // --- Insert header (template-information) ---
+    const templateID = await getUniqueTemplateId();
+
+    const { data: head, error: headErr } = await supabase
+      .from("template-information")
+      .insert([{ templateID, "template-name": name, "mass-type": type }])
+      .select("id, templateID")
+      .single();
+
+    if (headErr) throw headErr;
+
+    // --- Build detail payloads (mirror updateTemplate) ---
+    const altarPayload = isSelected("altar")
+      ? (() => {
+          if (mode.altar === "custom") {
+            return {
+              templateID,
+              isNeeded: 1,
+              "candle-bearer": Number(counts.altar?.["Candle Bearers"] || 0),
+              beller: Number(counts.altar?.["Bellers"] || 0),
+              "cross-bearer": Number(counts.altar?.["Cross Bearer"] || 0),
+              "incense-bearer": Number(counts.altar?.["Incense Bearer"] || 0),
+              thurifer: Number(counts.altar?.["Thurifer"] || 0),
+              "main-server": Number(counts.altar?.["Main Servers"] || 0),
+              plate: Number(counts.altar?.["Plates"] || 0),
+            };
+          }
+          return {
+            templateID,
+            isNeeded: 1,
+            "candle-bearer": useDefaultIf("altar", "Candle Bearers")
+              ? ALTAR_DEFAULTS["candle-bearer"]
+              : 0,
+            beller: useDefaultIf("altar", "Bellers")
+              ? ALTAR_DEFAULTS.beller
+              : 0,
+            "cross-bearer": useDefaultIf("altar", "Cross Bearer")
+              ? ALTAR_DEFAULTS["cross-bearer"]
+              : 0,
+            "incense-bearer": useDefaultIf("altar", "Incense Bearer")
+              ? ALTAR_DEFAULTS["incense-bearer"]
+              : 0,
+            thurifer: useDefaultIf("altar", "Thurifer")
+              ? ALTAR_DEFAULTS.thurifer
+              : 0,
+            "main-server": useDefaultIf("altar", "Main Servers")
+              ? ALTAR_DEFAULTS["main-server"]
+              : 0,
+            plate: useDefaultIf("altar", "Plates") ? ALTAR_DEFAULTS.plate : 0,
+          };
+        })()
+      : {
+          templateID,
+          isNeeded: 0,
+          "candle-bearer": 0,
+          beller: 0,
+          "cross-bearer": 0,
+          "incense-bearer": 0,
+          thurifer: 0,
+          "main-server": 0,
+          plate: 0,
+        };
+
+    const eucharisticPayload = isSelected("eucharistic")
+      ? (() => {
+          if (mode.eucharistic === "custom") {
+            return {
+              templateID,
+              isNeeded: 1,
+              "minister-count": Number(
+                counts.eucharistic?.Minister ??
+                  counts.eucharistic?.minister ??
+                  0
+              ),
+            };
+          }
+          return {
+            templateID,
+            isNeeded: 1,
+            "minister-count": EUCHARISTIC_DEFAULTS.minister, // ← 6
+          };
+        })()
+      : { templateID, isNeeded: 0, "minister-count": 0 };
+
+    const choirPayload = isSelected("choir")
+      ? (() => {
+          if (mode.choir === "custom") {
+            return {
+              templateID,
+              isNeeded: 1,
+              "group-count": Number(
+                counts.choir?.Choir ?? counts.choir?.choir ?? 0
+              ),
+            };
+          }
+          return {
+            templateID,
+            isNeeded: 1,
+            "group-count": CHOIR_DEFAULTS.choir, // ← 1
+          };
+        })()
+      : { templateID, isNeeded: 0, "group-count": 0 };
+
+    const lectorPayload = isSelected("lector")
+      ? (() => {
+          if (mode.lector === "custom") {
+            return {
+              templateID,
+              isNeeded: 1,
+              reading: Number(counts.lector?.Readings || 0),
+              intercession: Number(counts.lector?.Intercession || 0),
+            };
+          }
+          return {
+            templateID,
+            isNeeded: 1,
+            reading: useDefaultIf("lector", "Readings")
+              ? LECTOR_DEFAULTS.reading
+              : 0,
+            intercession: useDefaultIf("lector", "Intercession")
+              ? LECTOR_DEFAULTS.intercession
+              : 0,
+          };
+        })()
+      : { templateID, isNeeded: 0, reading: 0, intercession: 0 };
+
+    // --- Insert details (parallel) ---
+    const inserts = await Promise.all([
+      supabase.from("template-altar-server").insert([altarPayload]),
+      supabase
+        .from("template-eucharistic-minister")
+        .insert([eucharisticPayload]),
+      supabase.from("template-choir").insert([choirPayload]),
+      supabase.from("template-lector-commentator").insert([lectorPayload]),
+    ]);
+
+    const detailErr = inserts.find((r) => r.error)?.error;
+    if (detailErr) {
+      // rollback best-effort
+      await Promise.allSettled([
+        supabase
+          .from("template-altar-server")
+          .delete()
+          .eq("templateID", templateID),
+        supabase
+          .from("template-eucharistic-minister")
+          .delete()
+          .eq("templateID", templateID),
+        supabase.from("template-choir").delete().eq("templateID", templateID),
+        supabase
+          .from("template-lector-commentator")
+          .delete()
+          .eq("templateID", templateID),
+        supabase
+          .from("template-information")
+          .delete()
+          .eq("templateID", templateID),
+      ]);
+      throw detailErr;
+    }
+
+    await Swal.fire({
+      icon: "success",
+      title: "Template Created!",
+      timer: 1500,
+      timerProgressBar: true,
+      showConfirmButton: false,
+    });
+
+    return head; // { id, templateID }
+  } catch (err) {
+    await Swal.fire({
+      icon: "error",
+      title: "Create Failed",
+      text: err?.message || "Something went wrong.",
+      confirmButtonText: "OK",
+    });
+    return null;
+  }
 };
 
 export const confirmCancel = async () => {
@@ -345,7 +586,7 @@ export const updateTemplate = async ({
     "incense-bearer": 1,
     thurifer: 1,
     "main-server": 2,
-    plate: 10, 
+    plate: 10,
   };
   const EUCHARISTIC_DEFAULTS = { minister: 6 };
   const CHOIR_DEFAULTS = { choir: 1 };
@@ -364,7 +605,7 @@ export const updateTemplate = async ({
             "incense-bearer": Number(counts.altar?.["Incense Bearer"] || 0),
             thurifer: Number(counts.altar?.["Thurifer"] || 0),
             "main-server": Number(counts.altar?.["Main Servers"] || 0),
-            plate: Number(counts.altar?.["Plates"] || 0), 
+            plate: Number(counts.altar?.["Plates"] || 0),
           };
         }
         return {

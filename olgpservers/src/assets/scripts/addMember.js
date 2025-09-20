@@ -68,7 +68,8 @@ export const insertMemberInformation = async (
   dateJoined,
   sex,
   email,
-  contactNumber
+  contactNumber,
+  imageUrl
 ) => {
   const { data, error } = await supabase.from("members-information").insert([
     {
@@ -81,6 +82,7 @@ export const insertMemberInformation = async (
       sex: sex,
       email: email,
       contactNumber: contactNumber,
+      imageUrl: imageUrl || null,
     },
   ]);
 
@@ -101,7 +103,8 @@ export const addMember = async (
   dateJoined,
   sex,
   email,
-  contactNumber
+  contactNumber,
+  imageUrl
 ) => {
   if (await isEmailAlreadyUsed(email)) {
     Swal.fire({
@@ -185,7 +188,8 @@ export const addMember = async (
       dateJoined,
       sex,
       email,
-      contactNumber
+      contactNumber,
+      imageUrl
     );
 
     Swal.fire({
@@ -376,12 +380,12 @@ export const saveChoirMemberGroup = async (idNumber, groupName) => {
 };
 
 export const handleFileSize = (file) => {
-  const maxSize = 2 * 1024 * 1024; // 2MB
+  const maxSize = 5 * 1024 * 1024; // 5 MB
   if (file.size > maxSize) {
     Swal.fire({
       icon: "error",
       title: "File Too Large",
-      text: "The file size exceeds the 2MB limit. Please choose a smaller image.",
+      text: "The file size exceeds the 5MB limit. Please choose a smaller image.",
     });
     return false;
   }
@@ -389,58 +393,27 @@ export const handleFileSize = (file) => {
 };
 
 export const uploadAndSaveMemberImage = async (idNumber, file) => {
-  if (!file) return null;
-
   const fileExt = file.name.split(".").pop().toLowerCase();
-  const fileName = `${Date.now()}-${Math.random()
-    .toString(36)
-    .substring(2, 9)}.${fileExt}`;
-  const filePath = `members/${fileName}`;
+  const fileName = `${idNumber}.${fileExt}`;
 
   try {
-    // Upload with upsert to avoid conflicts
     const { data, error } = await supabase.storage
-      .from("users-files")
-      .upload(filePath, file, { upsert: true });
+      .from("user-image")
+      .upload(fileName, file, { upsert: true });
 
     if (!data || error) throw error;
-    alert("Upload completed!");
 
-    // Get public URL
     const { data: urlData, error: urlError } = supabase.storage
-      .from("users-files")
-      .getPublicUrl(filePath);
+      .from("user-image")
+      .getPublicUrl(fileName);
 
     if (urlError) throw urlError;
-    alert("Public URL retrieved: " + urlData.publicUrl);
 
     return urlData.publicUrl;
   } catch (err) {
     console.error("Upload failed:", err);
     alert("Upload failed: " + err.message);
     return null;
-  }
-};
-
-export const insertMemberImage = async (idNumber, imageUrl) => {
-  try {
-    const { data, error } = await supabase.from("members-information").insert([
-      {
-        idNumber: idNumber,
-        imageUrl: imageUrl || null,
-      },
-    ]);
-
-    if (error) {
-      console.error("Insert failed:", error);
-      alert("Insert failed: " + error.message);
-    } else {
-      console.log("Insert successful:", data);
-      alert("Insert successful!");
-    }
-  } catch (err) {
-    console.error("Unexpected error:", err);
-    alert("Unexpected error: " + err.message);
   }
 };
 

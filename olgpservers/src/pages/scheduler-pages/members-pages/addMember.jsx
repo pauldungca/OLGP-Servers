@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useLocation } from "react-router-dom";
 import icon from "../../../helper/icon";
+import Swal from "sweetalert2";
 import Footer from "../../../components/footer";
 
 import "../../../assets/styles/member.css";
@@ -21,6 +22,7 @@ import {
   getProvinces as fetchProvinces,
   getMunicipalities as fetchMunicipalities,
   getBarangays as fetchBarangays,
+  uploadAndSaveMemberImage,
 } from "../../../assets/scripts/addMember";
 
 export default function AddMember() {
@@ -131,6 +133,21 @@ export default function AddMember() {
   const addMemberHandler = async (e) => {
     e.preventDefault();
 
+    let url = null;
+
+    // If an image is selected, upload it first
+    if (imageFile) {
+      url = await uploadAndSaveMemberImage(idNumber, imageFile);
+      alert(url);
+      if (!url) {
+        Swal.fire({
+          icon: "error",
+          title: "Upload failed",
+          text: "Please try again.",
+        });
+        return;
+      }
+    }
     const isAdded = await addMember(
       idNumber,
       firstName,
@@ -140,7 +157,8 @@ export default function AddMember() {
       dateJoined,
       sex,
       email,
-      contactNumber
+      contactNumber,
+      url
     );
 
     if (isAdded) {

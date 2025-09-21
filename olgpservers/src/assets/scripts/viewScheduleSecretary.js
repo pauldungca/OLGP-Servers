@@ -1,11 +1,12 @@
 // assets/scripts/viewScheduleSecretary.js
 import dayjs from "dayjs";
-import { supabase } from "../../utils/supabase"; // ← adjust if your path differs
+import Swal from "sweetalert2";
+import { supabase } from "../../utils/supabase";
 
-/* ===== Date context & picker helpers ===== */
+/* ===================== Dates / UI helpers ===================== */
 export const NOW = dayjs();
 export const CURRENT_YEAR = NOW.year();
-export const CURRENT_MONTH = NOW.month(); // 0 = Jan
+export const CURRENT_MONTH = NOW.month();
 
 export const defaultMonthValue = dayjs(
   `${CURRENT_YEAR}-${String(CURRENT_MONTH + 1).padStart(2, "0")}-01`
@@ -27,7 +28,6 @@ export const popupClassForYear = (panelYear, currentYear = CURRENT_YEAR) =>
     panelYear === currentYear ? "hide-left" : "show-both"
   }`;
 
-/* ===== Month/day utilities ===== */
 export const getMonthDays = (monthValue) => {
   if (!monthValue || !dayjs.isDayjs(monthValue)) return [];
   const start = monthValue.startOf("month");
@@ -58,14 +58,14 @@ export const groupByDate = (rows) =>
 export const formatDateHeading = (isoDate) =>
   dayjs(isoDate).format("MMMM D, YYYY");
 
-/* ===== Fetch from Supabase ===== */
+/* ===================== Data fetches ===================== */
 export const fetchMonthSchedules = async (monthValue) => {
   const startDate = monthValue.startOf("month").format("YYYY-MM-DD");
   const endDate = monthValue.endOf("month").format("YYYY-MM-DD");
 
   const { data, error } = await supabase
     .from("use-template-table")
-    .select("id,scheduleID,templateID,date,time,note,clientName")
+    .select("id,scheduleID,templateID,date,time,note,clientName") // keep scheduleID
     .gte("date", startDate)
     .lte("date", endDate)
     .order("date", { ascending: true })
@@ -73,4 +73,87 @@ export const fetchMonthSchedules = async (monthValue) => {
 
   if (error) throw error;
   return data ?? [];
+};
+
+export const fetchScheduleBasic = async (id) => {
+  if (!id) return { data: null, error: new Error("Missing id") };
+  const { data, error } = await supabase
+    .from("use-template-table")
+    .select("clientName,time,scheduleID")
+    .eq("id", id)
+    .single();
+  return { data, error };
+};
+
+/* ===================== Cancel helpers ===================== */
+export const extractBasicFromState = (state) => {
+  if (!state || typeof state !== "object") return null;
+  const { clientName, time, scheduleID } = state;
+  if (!clientName && !time && !scheduleID) return null;
+  return {
+    clientName: clientName ?? "",
+    time: time ?? "",
+    scheduleID: scheduleID ?? null,
+  };
+};
+
+export const getQueryParam = (search, key) => {
+  try {
+    const sp = new URLSearchParams(search || "");
+    const val = sp.get(key);
+    return val ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/** Delete by scheduleID (updated requirement) */
+export const cancelScheduleByScheduleID = async (scheduleID) => {
+  if (!scheduleID) return { error: new Error("Missing scheduleID") };
+  const { error } = await supabase
+    .from("use-template-table")
+    .delete()
+    .eq("scheduleID", scheduleID);
+  return { error };
+};
+
+export const confirmAndCancelSchedule = async (scheduleID, navigate) => {
+  if (!scheduleID) {
+    await Swal.fire("Missing Info", "No scheduleID was provided.", "warning");
+    return;
+  }
+
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    text: "This will cancel the schedule permanently.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#3085d6",
+    confirmButtonText: "Yes, cancel it!",
+    reverseButtons: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  const { error } = await cancelScheduleByScheduleID(scheduleID);
+  if (error) {
+    console.error(error);
+    await Swal.fire("Error", "Failed to cancel schedule.", "error");
+    return;
+  }
+
+  // Success: no buttons, auto-close after 1200ms, then navigate
+  await Swal.fire({
+    title: "Cancelled!",
+    text: "The schedule was removed.",
+    icon: "success",
+    showConfirmButton: false,
+    timer: 1200,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    timerProgressBar: true,
+  });
+
+  navigate("/viewScheduleSecretary");
 };

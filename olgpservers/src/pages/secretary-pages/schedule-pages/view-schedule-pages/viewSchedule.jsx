@@ -1,3 +1,4 @@
+// pages/.../viewSchedule.jsx
 import React, { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Breadcrumb, DatePicker } from "antd";
@@ -27,9 +28,7 @@ export default function ViewSchedule() {
 
   const navigate = useNavigate();
   const notAvailableText = "Cancel Schedule";
-  const navToCancel = () => navigate("/cancelScheduleSecretary");
 
-  // Month picker state / rules
   const [panelYear, setPanelYear] = React.useState(CURRENT_YEAR);
   const disableMonths = React.useMemo(
     () => makeDisableMonths(CURRENT_YEAR, CURRENT_MONTH),
@@ -38,12 +37,10 @@ export default function ViewSchedule() {
   const [monthValue, setMonthValue] = React.useState(defaultMonthValue);
   const monthDays = React.useMemo(() => getMonthDays(monthValue), [monthValue]);
 
-  // DB state
-  const [byDate, setByDate] = React.useState({}); // { 'YYYY-MM-DD': [rows] }
+  const [byDate, setByDate] = React.useState({});
   const [loading, setLoading] = React.useState(false);
 
-  // Fetch schedules whenever month changes
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
@@ -99,7 +96,6 @@ export default function ViewSchedule() {
 
       {/* Content */}
       <div className="schedule-content">
-        {/* Month picker */}
         <div
           className="schedule-toolbar"
           role="group"
@@ -122,7 +118,6 @@ export default function ViewSchedule() {
           />
         </div>
 
-        {/* Days list */}
         {loading ? (
           <div className="text-center text-muted my-3">Loading schedules…</div>
         ) : (
@@ -131,7 +126,6 @@ export default function ViewSchedule() {
               const iso = d.format("YYYY-MM-DD");
               const dayItems = byDate[iso] || [];
 
-              // If NO schedules for this day → render the simple empty card
               if (dayItems.length === 0) {
                 return (
                   <div
@@ -149,12 +143,10 @@ export default function ViewSchedule() {
                     >
                       {formatDateHeading(iso)}
                     </div>
-                    {/* empty body (matches your screenshot) */}
                   </div>
                 );
               }
 
-              // There ARE schedules → render 3-per-row grid (no placeholders)
               const rows = chunkInto(dayItems, 3);
 
               return (
@@ -187,7 +179,6 @@ export default function ViewSchedule() {
                               height: "100%",
                             }}
                           >
-                            {/* Schedule card */}
                             <div
                               style={{
                                 display: "inline-block",
@@ -217,7 +208,6 @@ export default function ViewSchedule() {
                               {item.time || "—"}
                             </p>
 
-                            {/* Cancel button per column */}
                             <div style={{ marginTop: "auto", width: "100%" }}>
                               <div
                                 style={{
@@ -228,7 +218,16 @@ export default function ViewSchedule() {
                               >
                                 <button
                                   className="btn cancel-btn"
-                                  onClick={navToCancel}
+                                  onClick={() =>
+                                    navigate("/cancelScheduleSecretary", {
+                                      state: {
+                                        id: item.id,
+                                        scheduleID: item.scheduleID, // pass scheduleID
+                                        clientName: item.clientName,
+                                        time: item.time,
+                                      },
+                                    })
+                                  }
                                 >
                                   {notAvailableText}
                                 </button>
@@ -240,7 +239,6 @@ export default function ViewSchedule() {
                     </div>
                   ))}
 
-                  {/* Day-level actions (only for days with schedules) */}
                   <div
                     className="action-buttons"
                     style={{

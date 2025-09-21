@@ -8,6 +8,7 @@ import Footer from "../../../components/footer";
 import {
   fetchMemberInformation,
   editMemberInfo,
+  handleBackupMonthDialog,
 } from "../../../assets/scripts/account";
 
 import {
@@ -48,6 +49,8 @@ export default function Account() {
   const [municipality, setMunicipality] = useState("");
   const [barangay, setBarangay] = useState("");
   const [addressDirty, setAddressDirty] = useState(false);
+
+  const [street, setStreet] = useState(""); // 🆕 Street
 
   // PSGC lists
   const [provinces, setProvinces] = useState([]);
@@ -127,12 +130,15 @@ export default function Account() {
     const barangayName = barangays.find((b) => b.code === barangay)?.name || "";
 
     const full = `${houseNumber ? houseNumber + ", " : ""}${
-      barangayName ? barangayName + ", " : ""
-    }${municipalityName ? municipalityName + ", " : ""}${provinceName}`.trim();
+      street ? street + ", " : ""
+    }${barangayName ? barangayName + ", " : ""}${
+      municipalityName ? municipalityName + ", " : ""
+    }${provinceName}`;
 
     setAddress(full);
   }, [
     houseNumber,
+    street,
     barangay,
     municipality,
     province,
@@ -251,7 +257,7 @@ export default function Account() {
                   />
                 </div>
                 <div className="col">
-                  <label className="form-label">Middle Name</label>
+                  <label className="form-label">Middle Name (Optional)</label>
                   <input
                     type="text"
                     className="form-control"
@@ -272,7 +278,7 @@ export default function Account() {
 
               {/* Row 2 — PSGC pickers */}
               <div className="row mb-3">
-                <div className="col-3">
+                <div className="col-md-2">
                   <label className="form-label">Province</label>
                   <select
                     className="form-control"
@@ -290,7 +296,7 @@ export default function Account() {
                     ))}
                   </select>
                 </div>
-                <div className="col-3">
+                <div className="col-md-2">
                   <label className="form-label">Municipality</label>
                   <select
                     className="form-control"
@@ -309,7 +315,7 @@ export default function Account() {
                     ))}
                   </select>
                 </div>
-                <div className="col-3">
+                <div className="col-md-2">
                   <label className="form-label">Barangay</label>
                   <select
                     className="form-control"
@@ -328,7 +334,17 @@ export default function Account() {
                     ))}
                   </select>
                 </div>
-                <div className="col-3">
+                <div className="col-md-3">
+                  <label className="form-label">Street</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={street}
+                    onChange={(e) => setStreet(e.target.value)}
+                    placeholder="e.g., Mabini St."
+                  />
+                </div>
+                <div className="col-md-3">
                   <label className="form-label">House Number</label>
                   <input
                     type="text"
@@ -510,7 +526,11 @@ export default function Account() {
                 >
                   Edit Information
                 </button>
-                <button type="button" className="btn btn-action">
+                <button
+                  type="button"
+                  className="btn btn-action"
+                  onClick={handleBackupMonthDialog}
+                >
                   Backup Data
                 </button>
               </>

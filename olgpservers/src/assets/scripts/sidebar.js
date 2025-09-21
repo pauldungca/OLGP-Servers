@@ -1,5 +1,6 @@
 import { supabase } from "../../utils/supabase";
 import { Tooltip } from "antd";
+import Swal from "sweetalert2";
 
 // Role-related functions
 export const fetchUserRoles = async (userId, setUserRoles, setUserRoleType) => {
@@ -87,8 +88,14 @@ export const createNavigationLinks = (navigate) => {
     pageName,
     icon,
     activePage,
-    collapsed
+    collapsed,
+    onClick // optional: if provided, overrides default navigation
   ) {
+    const handleClick = (e) => {
+      if (onClick) return onClick(e);
+      return navigate(toPage);
+    };
+
     return (
       <li className="nav-item">
         {collapsed ? (
@@ -99,7 +106,7 @@ export const createNavigationLinks = (navigate) => {
             align={{ offset: [10, -5] }}
           >
             <button
-              onClick={() => navigate(toPage)}
+              onClick={handleClick}
               className={`button-link ${
                 activePage === pageName ? "active" : ""
               }`}
@@ -109,7 +116,7 @@ export const createNavigationLinks = (navigate) => {
           </Tooltip>
         ) : (
           <button
-            onClick={() => navigate(toPage)}
+            onClick={handleClick}
             className={`button-link ${activePage === pageName ? "active" : ""}`}
           >
             <img src={icon} className="icon" alt={title} />
@@ -237,5 +244,37 @@ export const buildDisplayName = async (idNumber) => {
   } catch (err) {
     console.error("Error building display name:", err.message);
     return String(idNumber); // fallback
+  }
+};
+
+export const handleLogoutClick = (navigate) => async (e) => {
+  e.preventDefault();
+
+  const result = await Swal.fire({
+    title: "Logout",
+    text: "Are you sure you want to log out?",
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Yes, log out",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+    allowOutsideClick: false,
+    allowEscapeKey: true,
+  });
+
+  if (result.isConfirmed) {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {}
+
+    await Swal.fire({
+      icon: "success",
+      title: "Logged out",
+      showConfirmButton: false,
+      timer: 900,
+    });
+
+    navigate("/", { replace: true });
   }
 };

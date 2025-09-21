@@ -8,6 +8,7 @@ import {
   createNavigationLinks,
   createNavigationLinkWithSubmenu,
   buildDisplayName,
+  handleLogoutClick,
 } from "../assets/scripts/sidebar.js";
 
 // 🔹 Regular Sidebar
@@ -297,7 +298,8 @@ export function Sidebar({ collapsed, mobileOpen }) {
           "logout",
           icons.logoutLogo,
           activePage,
-          collapsed
+          collapsed,
+          handleLogoutClick(navigate)
         )}
       </ul>
     </div>
@@ -469,7 +471,8 @@ export function SecretarySidebar({ collapsed, mobileOpen }) {
           "logout",
           icons.logoutLogo,
           activePage,
-          collapsed
+          collapsed,
+          handleLogoutClick(navigate)
         )}
       </ul>
     </div>

@@ -64,6 +64,7 @@ export default function GroupViewMemberInformation() {
   const [editMode, setEditMode] = useState(false);
   const [addressDirty, setAddressDirty] = useState(false);
   const [houseNumber, setHouseNumber] = useState("");
+  const [street, setStreet] = useState(""); // 🆕 Street
   const [province, setProvince] = useState("");
   const [municipality, setMunicipality] = useState("");
   const [barangay, setBarangay] = useState("");
@@ -103,6 +104,7 @@ export default function GroupViewMemberInformation() {
         setProvince(info.province || "");
         setMunicipality(info.municipality || "");
         setBarangay(info.barangay || "");
+        setStreet(info.street || ""); // 🆕 get street if present
         setHouseNumber(info.houseNumber || "");
 
         setGroupNumber(groupName || group || "");
@@ -156,13 +158,11 @@ export default function GroupViewMemberInformation() {
           // Ensure groupNumber stores an abbreviation
           setGroupNumber((prev) => {
             const abbrs = list.map((g) => g.abbreviation);
-            if (abbrs.includes(prev)) return prev; // already an abbreviation
+            if (abbrs.includes(prev)) return prev;
 
-            // If prev is a full name, map it to its abbreviation
             const match = list.find((g) => g.name === prev);
             if (match) return match.abbreviation;
 
-            // Otherwise default to the first abbreviation (or empty)
             return abbrs[0] || "";
           });
         } catch (e) {
@@ -176,7 +176,8 @@ export default function GroupViewMemberInformation() {
       mounted = false;
     };
   }, [department]);
-  // Address recompute
+
+  // Address recompute (includes Street)
   useEffect(() => {
     if (!addressDirty) return;
 
@@ -186,12 +187,15 @@ export default function GroupViewMemberInformation() {
     const barangayName = barangays.find((b) => b.code === barangay)?.name || "";
 
     const fullAddress = `${houseNumber ? houseNumber + ", " : ""}${
-      barangayName ? barangayName + ", " : ""
-    }${municipalityName ? municipalityName + ", " : ""}${provinceName}`;
+      street ? street + ", " : ""
+    }${barangayName ? barangayName + ", " : ""}${
+      municipalityName ? municipalityName + ", " : ""
+    }${provinceName}`;
 
     setAddress(fullAddress.trim());
   }, [
     houseNumber,
+    street, // 🆕
     barangay,
     municipality,
     province,
@@ -254,7 +258,7 @@ export default function GroupViewMemberInformation() {
         .replace(/\D/g, "")
         .slice(0, 11);
 
-      // 1) Basic info
+      // 1) Basic info (address already includes street in string)
       const infoOk = await editMemberInfo(
         idNumber,
         firstName,
@@ -291,7 +295,6 @@ export default function GroupViewMemberInformation() {
           setSaving(false);
           return;
         }
-        // groupNumber is an abbreviation now
         groupOk = await editChoirMemberGroup(idNumber, groupNumber);
       }
 
@@ -449,7 +452,7 @@ export default function GroupViewMemberInformation() {
           {/* Row 2 — Address pickers only in edit mode */}
           {editMode && (
             <div className="row mb-3">
-              <div className="col-md-3">
+              <div className="col-md-2">
                 <label className="form-label">Province</label>
                 <select
                   className="form-control"
@@ -467,7 +470,7 @@ export default function GroupViewMemberInformation() {
                   ))}
                 </select>
               </div>
-              <div className="col-md-3">
+              <div className="col-md-2">
                 <label className="form-label">Municipality</label>
                 <select
                   className="form-control"
@@ -486,7 +489,7 @@ export default function GroupViewMemberInformation() {
                   ))}
                 </select>
               </div>
-              <div className="col-md-3">
+              <div className="col-md-2">
                 <label className="form-label">Barangay</label>
                 <select
                   className="form-control"
@@ -504,6 +507,18 @@ export default function GroupViewMemberInformation() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="col-md-3">
+                <label className="form-label">Street</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={street}
+                  onChange={(e) => {
+                    setStreet(e.target.value);
+                    setAddressDirty(true);
+                  }}
+                />
               </div>
               <div className="col-md-3">
                 <label className="form-label">House Number</label>
@@ -648,7 +663,7 @@ export default function GroupViewMemberInformation() {
                     const confirmed = await confirmCancelEdit();
                     if (confirmed) {
                       setEditMode(false);
-                      setAddressDirty(false); // reset
+                      setAddressDirty(false);
                     }
                   }}
                   disabled={saving}

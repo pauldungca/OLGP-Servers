@@ -1,16 +1,83 @@
+// pages/.../cancelSchedule.jsx
 import React, { useEffect } from "react";
 import { Breadcrumb } from "antd";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import icon from "../../../../helper/icon";
 import Footer from "../../../../components/footer";
+
+import {
+  fetchScheduleBasic,
+  extractBasicFromState,
+  getQueryParam,
+  confirmAndCancelSchedule,
+} from "../../../../assets/scripts/viewScheduleSecretary";
 
 import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/cancelSchedule.css";
 
 export default function CancelSchedule() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [basic, setBasic] = React.useState({
+    clientName: "",
+    time: "",
+    scheduleID: null,
+  });
+
   useEffect(() => {
-    document.title = "OLGP Servers | View Schedule";
+    document.title = "OLGP Servers | Cancel Schedule";
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const init = async () => {
+      setError("");
+
+      const fromState = extractBasicFromState(location.state);
+      if (fromState && !cancelled) {
+        setBasic(fromState);
+      }
+
+      const stateId = location?.state?.id;
+      const queryId = getQueryParam(location.search, "id");
+      const id = stateId || queryId;
+      if (!id) {
+        if (!fromState && !cancelled) setError("No schedule selected.");
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const { data, error } = await fetchScheduleBasic(id);
+        if (error) throw error;
+        if (!cancelled && data) {
+          setBasic((prev) => ({
+            ...prev,
+            clientName: data.clientName ?? "",
+            time: data.time ?? "",
+            scheduleID: location.state?.scheduleID ?? prev.scheduleID,
+          }));
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error(e);
+          setError("Failed to load schedule details.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    init();
+    return () => {
+      cancelled = true;
+    };
+  }, [location]);
+
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">
@@ -47,40 +114,40 @@ export default function CancelSchedule() {
           <div className="header-line"></div>
         </div>
       </div>
+
       <div className="schedule-content container">
         <div className="cancel-schedule-card shadow-sm p-4 rounded">
           <h4 className="mb-4">Cancel Schedule</h4>
 
-          <p>
-            <strong>Date:</strong> April 6, 2025
-          </p>
-          <p>
-            <strong>Mass:</strong> Sunday Mass
-          </p>
-          <p>
-            <strong>Group:</strong> Group 2
-          </p>
-          <p>
-            <strong>Time:</strong> 2nd Mass | 8:30 AM
-          </p>
+          {loading ? (
+            <p className="text-muted">Loading details…</p>
+          ) : error ? (
+            <p className="text-danger">{error}</p>
+          ) : (
+            <>
+              <p>
+                <strong>Client:</strong> {basic.clientName || "—"}
+              </p>
+              <p>
+                <strong>Time:</strong> {basic.time || "—"}
+              </p>
 
-          <div className="mb-3 row align-items-center reason-row">
-            <label className="col-sm-2 col-form-label">
-              <strong>Reason:</strong>
-            </label>
-            <div className="col-sm-10 d-flex align-items-center">
-              <button className="btn btn-attach">Attach File</button>
-            </div>
-          </div>
-
-          <div className="text-center mt-4">
-            <button className="btn btn-confirm w-100">Confirm</button>
-          </div>
+              <div className="text-center mt-4">
+                <button
+                  className="btn btn-confirm w-100"
+                  onClick={() =>
+                    confirmAndCancelSchedule(basic.scheduleID, navigate)
+                  }
+                >
+                  Confirm
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
-      <div>
-        <Footer />
-      </div>
+
+      <Footer />
     </div>
   );
 }

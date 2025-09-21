@@ -68,7 +68,8 @@ export const insertMemberInformation = async (
   dateJoined,
   sex,
   email,
-  contactNumber
+  contactNumber,
+  imageUrl
 ) => {
   const { data, error } = await supabase.from("members-information").insert([
     {
@@ -81,6 +82,7 @@ export const insertMemberInformation = async (
       sex: sex,
       email: email,
       contactNumber: contactNumber,
+      imageUrl: imageUrl || null,
     },
   ]);
 
@@ -92,7 +94,7 @@ export const insertMemberInformation = async (
   return data;
 };
 
-/*export const addMember = async (
+export const addMember = async (
   idNumber,
   firstName,
   middleName,
@@ -101,8 +103,19 @@ export const insertMemberInformation = async (
   dateJoined,
   sex,
   email,
-  contactNumber
+  contactNumber,
+  imageUrl
 ) => {
+  if (await isEmailAlreadyUsed(email)) {
+    Swal.fire({
+      icon: "error",
+      title: "Duplicate Email",
+      text: "This Gmail address is already registered. Please use a different one.",
+    });
+    return false;
+  }
+  email = email.trim();
+
   const missingFields = [];
   if (!idNumber) missingFields.push("ID Number");
   if (!firstName) missingFields.push("First Name");
@@ -124,108 +137,11 @@ export const insertMemberInformation = async (
     return false;
   }
 
-  const result = await Swal.fire({
-    icon: "question",
-    title: "Are you sure to add this member?",
-    showCancelButton: true,
-    confirmButtonText: "Save",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
-  });
-
-  if (result.isConfirmed) {
-    try {
-      await insertMemberInformation(
-        idNumber,
-        firstName,
-        middleName || null,
-        lastName,
-        address,
-        dateJoined,
-        sex,
-        email,
-        contactNumber
-      );
-
-      // 🔹 Show loading alert before sending email
-      Swal.fire({
-        title: "Processing...",
-        text: "Please wait a moment.",
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
-      });
-
-      try {
-        await sendWelcomeEmail({
-          email,
-          firstName,
-          middleName,
-          lastName,
-          idNumber,
-        });
-
-        Swal.fire({
-          icon: "success",
-          title: "Member Added",
-          text: "The member was successfully added and a welcome email was sent.",
-        });
-      } catch (mailErr) {
-        console.warn("Welcome email failed:", mailErr);
-        Swal.fire({
-          icon: "warning",
-          title: "Member Added (Email Failed)",
-          text: "Member was added, but sending the welcome email failed.",
-        });
-      }
-
-      return true;
-    } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Failed",
-        text: "Failed to add member: " + err.message,
-      });
-      return false;
-    }
-  }
-
-  return false;
-};*/
-
-export const addMember = async (
-  idNumber,
-  firstName,
-  middleName,
-  lastName,
-  address,
-  dateJoined,
-  sex,
-  email,
-  contactNumber
-) => {
-  
-  email = email.trim();
-
-  const missingFields = [];
-  if (!idNumber) missingFields.push("ID Number");
-  if (!firstName) missingFields.push("First Name");
-  if (!lastName) missingFields.push("Last Name");
-  if (!address) missingFields.push("Address");
-  if (!dateJoined) missingFields.push("Date Joined");
-  if (!sex) missingFields.push("Sex");
-  if (!email) missingFields.push("Email");
-  if (!contactNumber) missingFields.push("Contact Number");
-
-  if (missingFields.length > 0) {
+  if (!isValidGmail(email)) {
     Swal.fire({
       icon: "error",
-      title: "Missing Fields",
-      html: `Please fill in the following required field(s):<br><strong>${missingFields.join(
-        ", "
-      )}</strong>`,
+      title: "Inavlid Format",
+      html: `Please put "@gmail.com" in your email input.`,
     });
     return false;
   }
@@ -272,13 +188,14 @@ export const addMember = async (
       dateJoined,
       sex,
       email,
-      contactNumber
+      contactNumber,
+      imageUrl
     );
 
     Swal.fire({
       icon: "success",
       title: "Member Added",
-      text: "The member was successfully added and a welcome email was sent.",
+      text: "The member was successfully added.",
     });
 
     return true;
@@ -463,12 +380,12 @@ export const saveChoirMemberGroup = async (idNumber, groupName) => {
 };
 
 export const handleFileSize = (file) => {
-  const maxSize = 2 * 1024 * 1024; // 2MB
+  const maxSize = 5 * 1024 * 1024; // 5 MB
   if (file.size > maxSize) {
     Swal.fire({
       icon: "error",
       title: "File Too Large",
-      text: "The file size exceeds the 2MB limit. Please choose a smaller image.",
+      text: "The file size exceeds the 5MB limit. Please choose a smaller image.",
     });
     return false;
   }
@@ -476,58 +393,27 @@ export const handleFileSize = (file) => {
 };
 
 export const uploadAndSaveMemberImage = async (idNumber, file) => {
-  if (!file) return null;
-
   const fileExt = file.name.split(".").pop().toLowerCase();
-  const fileName = `${Date.now()}-${Math.random()
-    .toString(36)
-    .substring(2, 9)}.${fileExt}`;
-  const filePath = `members/${fileName}`;
+  const fileName = `${idNumber}.${fileExt}`;
 
   try {
-    // Upload with upsert to avoid conflicts
     const { data, error } = await supabase.storage
-      .from("users-files")
-      .upload(filePath, file, { upsert: true });
+      .from("user-image")
+      .upload(fileName, file, { upsert: true });
 
     if (!data || error) throw error;
-    alert("Upload completed!");
 
-    // Get public URL
     const { data: urlData, error: urlError } = supabase.storage
-      .from("users-files")
-      .getPublicUrl(filePath);
+      .from("user-image")
+      .getPublicUrl(fileName);
 
     if (urlError) throw urlError;
-    alert("Public URL retrieved: " + urlData.publicUrl);
 
     return urlData.publicUrl;
   } catch (err) {
     console.error("Upload failed:", err);
     alert("Upload failed: " + err.message);
     return null;
-  }
-};
-
-export const insertMemberImage = async (idNumber, imageUrl) => {
-  try {
-    const { data, error } = await supabase.from("members-information").insert([
-      {
-        idNumber: idNumber,
-        imageUrl: imageUrl || null,
-      },
-    ]);
-
-    if (error) {
-      console.error("Insert failed:", error);
-      alert("Insert failed: " + error.message);
-    } else {
-      console.log("Insert successful:", data);
-      alert("Insert successful!");
-    }
-  } catch (err) {
-    console.error("Unexpected error:", err);
-    alert("Unexpected error: " + err.message);
   }
 };
 
@@ -552,4 +438,27 @@ export const handleFileChange = (e, fileInputRef) => {
 export const handleRemoveImage = (setImageFile, setFileAttached) => {
   setImageFile(null);
   setFileAttached(false);
+};
+
+export const isValidGmail = (email) => {
+  if (!email) return false; // empty check
+  return email.toLowerCase().endsWith("@gmail.com");
+};
+
+// 🔹 Check if email already exists in members-information
+export const isEmailAlreadyUsed = async (email) => {
+  if (!email) return false;
+
+  const { data, error } = await supabase
+    .from("members-information")
+    .select("idNumber")
+    .eq("email", email.trim())
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error checking email:", error.message);
+    throw new Error("Error checking email: " + error.message);
+  }
+
+  return !!data; // true if found
 };

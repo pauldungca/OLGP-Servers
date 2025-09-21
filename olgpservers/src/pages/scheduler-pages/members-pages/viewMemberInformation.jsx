@@ -46,6 +46,7 @@ export default function ViewMemberInformation() {
   const [province, setProvince] = useState("");
   const [municipality, setMunicipality] = useState("");
   const [barangay, setBarangay] = useState("");
+  const [street, setStreet] = useState(""); // 🆕 Street
   const [houseNumber, setHouseNumber] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [imageUrl, setImageUrl] = useState(null);
@@ -90,6 +91,7 @@ export default function ViewMemberInformation() {
       setProvince(info.province || "");
       setMunicipality(info.municipality || "");
       setBarangay(info.barangay || "");
+      setStreet(info.street || ""); // 🆕
       setHouseNumber(info.houseNumber || "");
     } catch (err) {
       console.error("Failed to load member:", err.message);
@@ -111,12 +113,15 @@ export default function ViewMemberInformation() {
     const barangayName = barangays.find((b) => b.code === barangay)?.name || "";
 
     const fullAddress = `${houseNumber ? houseNumber + ", " : ""}${
-      barangayName ? barangayName + ", " : ""
-    }${municipalityName ? municipalityName + ", " : ""}${provinceName}`;
+      street ? street + ", " : ""
+    }${barangayName ? barangayName + ", " : ""}${
+      municipalityName ? municipalityName + ", " : ""
+    }${provinceName}`;
 
     setAddress(fullAddress.trim());
   }, [
     houseNumber,
+    street,
     barangay,
     municipality,
     province,
@@ -157,17 +162,6 @@ export default function ViewMemberInformation() {
   }
 
   const handleSaveChanges = async () => {
-    const result = await Swal.fire({
-      icon: "question",
-      title: "Are you sure to save changes?",
-      showCancelButton: true,
-      confirmButtonText: "Save",
-      cancelButtonText: "Cancel",
-      reverseButtons: true,
-    });
-
-    if (!result.isConfirmed) return;
-
     // 1️⃣ Update basic info
     const infoSuccess = await editMemberInfo(
       idNumber,
@@ -180,8 +174,10 @@ export default function ViewMemberInformation() {
       contactNumber
     );
 
+    if (!infoSuccess) return;
+
     // 2️⃣ Update roles depending on department
-    let rolesSuccess = false;
+    let rolesSuccess = true; // default to true when no role update is needed
     if (department === "Altar Server") {
       rolesSuccess = await editAltarServerRoles(idNumber, selectedRolesArray);
     } else if (department === "Lector Commentator") {
@@ -192,8 +188,7 @@ export default function ViewMemberInformation() {
     }
 
     // 3️⃣ Final check
-    if (infoSuccess && rolesSuccess) {
-      // 🔹 Force checkboxes to reflect the latest choices
+    if (rolesSuccess) {
       setSelectedRolesArray([...selectedRolesArray]);
 
       Swal.fire({
@@ -208,7 +203,7 @@ export default function ViewMemberInformation() {
       Swal.fire({
         icon: "error",
         title: "Failed",
-        text: "Failed to update member information or roles.",
+        text: "Failed to update member information.",
       });
     }
   };
@@ -322,7 +317,7 @@ export default function ViewMemberInformation() {
           {/* Row 2 - Only in Edit Mode */}
           {editMode && (
             <div className="row mb-3">
-              <div className="col-md-3">
+              <div className="col-md-2">
                 <label className="form-label">Province</label>
                 <select
                   className="form-control"
@@ -340,7 +335,7 @@ export default function ViewMemberInformation() {
                   ))}
                 </select>
               </div>
-              <div className="col-md-3">
+              <div className="col-md-2">
                 <label className="form-label">Municipality</label>
                 <select
                   className="form-control"
@@ -359,7 +354,7 @@ export default function ViewMemberInformation() {
                   ))}
                 </select>
               </div>
-              <div className="col-md-3">
+              <div className="col-md-2">
                 <label className="form-label">Barangay</label>
                 <select
                   className="form-control"
@@ -377,6 +372,18 @@ export default function ViewMemberInformation() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="col-md-3">
+                <label className="form-label">Street</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={street}
+                  onChange={(e) => {
+                    setStreet(e.target.value);
+                    setAddressDirty(true);
+                  }}
+                />
               </div>
               <div className="col-md-3">
                 <label className="form-label">House Number</label>
@@ -401,7 +408,7 @@ export default function ViewMemberInformation() {
                 type="text"
                 className="form-control"
                 value={address}
-                disabled // ✅ cannot edit directly
+                disabled
               />
             </div>
             <div className="col-md-4">
@@ -410,7 +417,7 @@ export default function ViewMemberInformation() {
                 type="text"
                 className="form-control"
                 value={dateJoined}
-                disabled // ✅ always disabled
+                disabled
               />
             </div>
           </div>
@@ -423,7 +430,7 @@ export default function ViewMemberInformation() {
                 className="form-control"
                 value={sex}
                 onChange={(e) => setSex(e.target.value)}
-                disabled={!editMode} // ✅ only editable in edit mode
+                disabled={!editMode}
               >
                 <option value="">Select Sex</option>
                 <option value="Male">Male</option>
@@ -517,7 +524,6 @@ export default function ViewMemberInformation() {
 
                     setSelectedRolesArray(updatedRoles);
 
-                    // 🔹 Determine Flexible / Non-Flexible automatically
                     const allRoles =
                       department === "Altar Server"
                         ? [
@@ -538,7 +544,6 @@ export default function ViewMemberInformation() {
                     }
                   }}
                 />
-
                 {role.label}
               </label>
             ))}
@@ -555,7 +560,7 @@ export default function ViewMemberInformation() {
                     const confirmed = await confirmCancelEdit();
                     if (confirmed) {
                       setEditMode(false);
-                      setAddressDirty(false); // reset
+                      setAddressDirty(false);
                     }
                   }}
                 >
@@ -613,9 +618,7 @@ export default function ViewMemberInformation() {
         </div>
       </form>
 
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

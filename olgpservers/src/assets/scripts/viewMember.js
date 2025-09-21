@@ -585,6 +585,41 @@ export const removeChoirMember = async (
   }
 };
 
+/*export const editMemberInfo = async (
+  idNumber,
+  firstName,
+  middleName,
+  lastName,
+  address,
+  sex,
+  email,
+  contactNumber
+) => {
+  if (!idNumber) return false;
+
+  try {
+    const { data, error } = await supabase
+      .from("members-information")
+      .update({
+        firstName,
+        middleName: middleName || null,
+        lastName,
+        address,
+        sex,
+        email,
+        contactNumber,
+      })
+      .eq("idNumber", idNumber)
+      .select();
+
+    if (error || !data || data.length === 0) return false;
+    return true;
+  } catch (err) {
+    console.error("Edit member info error:", err);
+    return false;
+  }
+};*/
+
 export const editMemberInfo = async (
   idNumber,
   firstName,
@@ -596,6 +631,60 @@ export const editMemberInfo = async (
   contactNumber
 ) => {
   if (!idNumber) return false;
+
+  // normalize early
+  email = (email || "").trim();
+
+  // ✅ Check for missing fields (same logic as addMember)
+  const missingFields = [];
+  if (!firstName) missingFields.push("First Name");
+  if (!lastName) missingFields.push("Last Name");
+  if (!address) missingFields.push("Address");
+  if (!sex) missingFields.push("Sex");
+  if (!email) missingFields.push("Email");
+  if (!contactNumber) missingFields.push("Contact Number");
+
+  if (missingFields.length > 0) {
+    await Swal.fire({
+      icon: "error",
+      title: "Missing Fields",
+      html: `Please fill in the following required field(s):<br><strong>${missingFields.join(
+        ", "
+      )}</strong>`,
+    });
+    return false;
+  }
+
+  // ✅ Gmail format check
+  if (!isValidGmail(email)) {
+    await Swal.fire({
+      icon: "error",
+      title: "Invalid Format",
+      html: `Please put "@gmail.com" in your email input.`,
+    });
+    return false;
+  }
+
+  // ✅ Duplicate email check (exclude this member)
+  if (await isEmailAlreadyUsedByOthers(idNumber, email)) {
+    await Swal.fire({
+      icon: "error",
+      title: "Duplicate Email",
+      text: "This Gmail address is already registered by another member. Please use a different one.",
+    });
+    return false;
+  }
+
+  // ✅ Only ask for confirmation AFTER passing all checks
+  const result = await Swal.fire({
+    icon: "question",
+    title: "Are you sure to save changes?",
+    showCancelButton: true,
+    confirmButtonText: "Save",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+  if (!result.isConfirmed) return false;
 
   try {
     const { data, error } = await supabase
@@ -818,4 +907,28 @@ export const editChoirMemberGroup = async (memberId, newGroupName) => {
     console.error("editChoirMemberGroup error:", err);
     return false;
   }
+};
+
+export const isValidGmail = (email) => {
+  if (!email) return false; // empty check
+  return email.toLowerCase().endsWith("@gmail.com");
+};
+
+// 🔹 Check if another member (not this one) already has the same email
+export const isEmailAlreadyUsedByOthers = async (idNumber, email) => {
+  if (!email) return false;
+
+  const { data, error } = await supabase
+    .from("members-information")
+    .select("idNumber")
+    .eq("email", email.trim())
+    .neq("idNumber", idNumber) // exclude the current member
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error checking email:", error.message);
+    throw new Error("Error checking email: " + error.message);
+  }
+
+  return !!data; // true if found
 };

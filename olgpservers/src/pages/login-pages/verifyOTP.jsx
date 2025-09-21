@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import images from "../../helper/images";
 import { useNavigate } from "react-router-dom";
-import "../../assets/styles/index.css";
+import "../../assets/styles/indexLogin.css";
 
 export default function VerifyOTP() {
   const navigate = useNavigate();

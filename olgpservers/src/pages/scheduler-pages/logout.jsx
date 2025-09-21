@@ -8,7 +8,7 @@ export default function Logout() {
     localStorage.clear();
     sessionStorage.clear();
 
-    navigate("/"); // Redirect to login page ("/")
+    navigate("/");
   }, [navigate]);
 
   return (

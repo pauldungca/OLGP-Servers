@@ -2,6 +2,11 @@ import { supabase } from "../../utils/supabase";
 import { sendOtpEmail } from "../../utils/emails";
 import Swal from "sweetalert2";
 import bcrypt from "bcryptjs";
+import jsPDF from "jspdf"; // if not already imported at top
+
+import dayjs from "dayjs";
+import image from "../../helper/images";
+import { to12Hour } from "./viewScheduleSecretary";
 
 export const formatMMSS = (s) => {
   const m = Math.floor(s / 60)
@@ -301,5 +306,179 @@ export const changePasswordForAccount = async (
         err.message || "We couldn't update your password. Please try again.",
     });
     return false;
+  }
+};
+
+export const handleBackupMonthDialog = async () => {
+  const now = new Date();
+  const defaultMonth = `${now.getFullYear()}-${String(
+    now.getMonth() + 1
+  ).padStart(2, "0")}`;
+
+  // 1) Ask for month
+  const { value: picked } = await Swal.fire({
+    title: "Backup Schedules",
+    html: `
+      <div style="display:flex;flex-direction:column;gap:8px;text-align:left">
+        <label for="backup-month" style="font-size:14px">Select the month you want to back up:</label>
+        <input id="backup-month" type="month" class="swal2-input" value="${defaultMonth}">
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: "Generate PDF",
+    focusConfirm: false,
+    reverseButtons: true,
+    preConfirm: () => {
+      const el = document.getElementById("backup-month");
+      if (!el || !el.value) {
+        Swal.showValidationMessage("Please select a month.");
+        return;
+      }
+      return el.value; // "YYYY-MM"
+    },
+  });
+
+  if (!picked) return;
+
+  // 2) Generate PDF for selected month
+  try {
+    if (!/^\d{4}-\d{2}$/.test(picked)) {
+      await Swal.fire("Invalid month", "Please pick a valid month.", "warning");
+      return;
+    }
+
+    const [yearStr, monStr] = picked.split("-");
+    const start = dayjs(`${yearStr}-${monStr}-01`);
+    const end = start.endOf("month");
+
+    const { data, error } = await supabase
+      .from("use-template-table")
+      .select("date,time,clientName")
+      .gte("date", start.format("YYYY-MM-DD"))
+      .lte("date", end.format("YYYY-MM-DD"))
+      .order("date", { ascending: true })
+      .order("time", { ascending: true });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      await Swal.fire(
+        "No data",
+        `No schedules found for ${start.format("MMMM YYYY")}.`,
+        "info"
+      );
+      return;
+    }
+
+    const pdf = new jsPDF("p", "pt", [816, 1056]);
+    const width = 816,
+      height = 1056;
+    const M = 40,
+      logoW = 60,
+      logoH = 60;
+
+    const drawHeader = () => {
+      // Border
+      //pdf.setLineWidth(8);
+      //pdf.setDrawColor(0, 0, 0);
+      // pdf.rect(4, 4, width - 8, height - 8);
+
+      // Logo
+      try {
+        pdf.addImage(image.OLGPlogo, "PNG", M, M, logoW, logoH);
+      } catch {}
+
+      // Titles
+      const textX = M + logoW + 20;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(24);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text("Our Lady of Guadalupe Parish", textX, M + 25);
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(16);
+      pdf.setTextColor(51, 51, 51);
+      pdf.text("Parish Secretary", textX, M + 55);
+
+      // Separator
+      pdf.setDrawColor(0, 0, 0);
+      pdf.setLineWidth(1);
+      pdf.line(M, M + logoH + 16, width - M, M + logoH + 16);
+
+      // Month title
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(18);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(
+        `Schedules for ${start.format("MMMM YYYY")}`,
+        width / 2,
+        M + logoH + 60,
+        { align: "center" }
+      );
+    };
+
+    const startY = M + logoH + 100;
+    const bottomPad = 60;
+    const blockH = 80; // vertical space per entry
+
+    let y = startY;
+    let page = 1;
+    const totalPages = Math.max(
+      1,
+      Math.ceil((data.length * blockH) / (height - startY - bottomPad))
+    );
+
+    drawHeader();
+
+    for (const row of data) {
+      if (y + blockH > height - bottomPad) {
+        // footer
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.text(`Page ${page} of ${totalPages}`, width - M, height - M + 2, {
+          align: "right",
+        });
+
+        pdf.addPage();
+        page++;
+        drawHeader();
+        y = startY;
+      }
+
+      // Date
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      const dateHuman = dayjs(row.date).format("MMMM D - YYYY");
+      pdf.text(`Date: ${dateHuman}`, M, y);
+
+      // Client Name
+      y += 22;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(14);
+      pdf.text(`Client Name: ${row.clientName || "—"}`, M, y);
+
+      // Time (12-hour)
+      y += 18;
+      pdf.text(`Time: ${to12Hour(row.time || "")}`, M, y);
+
+      // Divider
+      y += 16;
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.5);
+      pdf.line(M, y, width - M, y);
+      y += 24;
+    }
+
+    // final footer
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(`Page ${page} of ${totalPages}`, width - M, height - M + 2, {
+      align: "right",
+    });
+
+    pdf.save(`schedules-${start.format("YYYY-MM")}.pdf`);
+  } catch (err) {
+    console.error("backup month pdf error:", err);
+    await Swal.fire("Error", "Failed to generate the monthly PDF.", "error");
   }
 };

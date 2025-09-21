@@ -644,6 +644,45 @@ export const addUseTemplate = async ({
   return true;
 };
 
+// Broadcast when a template is used
+export const createUsedTemplateBroadcast = async ({ clientName, time }) => {
+  // local 12-hour formatter to keep messages readable
+  const to12Hour = (t) => {
+    if (!t) return "";
+    const [hh = "0", mm = "00"] = String(t).split(":");
+    const H = parseInt(hh, 10);
+    const ampm = H >= 12 ? "PM" : "AM";
+    let h = H % 12;
+    if (h === 0) h = 12;
+    return `${h}:${String(mm).padStart(2, "0")} ${ampm}`;
+  };
+
+  try {
+    const { error } = await supabase.from("user_notifications").insert([
+      {
+        title: "Template Used",
+        message: `Client: ${clientName || "—"} • Time: ${to12Hour(time)}`,
+        level: "info",
+      },
+    ]);
+
+    if (error) {
+      console.error("createUsedTemplateBroadcast error:", error);
+      await Swal.fire(
+        "Error",
+        `Failed to post notification: ${error.message}`,
+        "error"
+      );
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("createUsedTemplateBroadcast unexpected:", err);
+    await Swal.fire("Error", "Failed to post notification.", "error");
+    return false;
+  }
+};
+
 export const confirmCancelUseTemplate = async () => {
   const res = await Swal.fire({
     icon: "warning",
@@ -717,7 +756,10 @@ export const handleAddSchedule = async ({
     note,
   });
 
-  if (ok) navigate("/selectTemplate");
+  if (ok) {
+    await createUsedTemplateBroadcast({ clientName, time: timeStr });
+    navigate("/selectTemplate");
+  }
 };
 
 export const handleCancel = async (navigate) => {

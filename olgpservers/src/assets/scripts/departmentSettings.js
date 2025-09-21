@@ -120,10 +120,6 @@ const formatNow = () => {
   return { date, time };
 };
 
-/**
- * Sends a scheduler transfer request (notification-type = 2) to the target member.
- * The notification is stored against the TARGET member's idNumber so it shows up for them.
- */
 export const requestSchedulerTransfer = async ({
   selectedRole,
   targetIdNumber,

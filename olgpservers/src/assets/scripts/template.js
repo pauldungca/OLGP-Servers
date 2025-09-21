@@ -288,70 +288,6 @@ export const listTemplates = async () => {
   return data || [];
 };
 
-/*export const deleteTemplate = async (templateID) => {
-  const res = await Swal.fire({
-    icon: "warning",
-    title: "Delete this template?",
-    showCancelButton: true,
-    confirmButtonText: "Yes, delete",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
-  });
-  if (!res.isConfirmed) return false;
-
-  const [altarRes, euchRes, choirRes, lectorRes] = await Promise.all([
-    supabase
-      .from("template-altar-server")
-      .delete()
-      .eq("templateID", templateID),
-    supabase
-      .from("template-eucharistic-minister")
-      .delete()
-      .eq("templateID", templateID),
-    supabase.from("template-choir").delete().eq("templateID", templateID),
-    supabase
-      .from("template-lector-commentator")
-      .delete()
-      .eq("templateID", templateID),
-  ]);
-
-  const firstErr =
-    altarRes.error || euchRes.error || choirRes.error || lectorRes.error;
-  if (firstErr) {
-    await Swal.fire({
-      icon: "error",
-      title: "Delete Failed",
-      text: firstErr.message,
-      confirmButtonText: "OK",
-    });
-    return false;
-  }
-
-  const { error: headErr } = await supabase
-    .from("template-information")
-    .delete()
-    .eq("templateID", templateID);
-
-  if (headErr) {
-    await Swal.fire({
-      icon: "error",
-      title: "Delete Failed",
-      text: headErr.message,
-      confirmButtonText: "OK",
-    });
-    return false;
-  }
-
-  await Swal.fire({
-    icon: "success",
-    title: "Deleted",
-    timer: 1200,
-    timerProgressBar: true,
-    showConfirmButton: false,
-  });
-  return true;
-};*/
-
 export const deleteTemplate = async (templateID) => {
   const res = await Swal.fire({
     icon: "warning",
@@ -682,7 +618,7 @@ export const addUseTemplate = async ({
   const payload = {
     scheduleID,
     templateID,
-    clientName: clientName.trim(), // ✅ now stored in DB
+    clientName: clientName.trim(),
     date,
     time,
     note: note?.trim() ? note.trim() : null,
@@ -770,7 +706,7 @@ export const handleAddSchedule = async ({
 
   const scheduleID = Date.now();
   const dateStr = dayjs(dateVal).format("YYYY-MM-DD");
-  const timeStr = dayjs(timeVal).format("HH:mm:ss");
+  const timeStr = dayjs(timeVal).format("HH:mm");
 
   const ok = await addUseTemplate({
     scheduleID,

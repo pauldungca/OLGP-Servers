@@ -87,12 +87,12 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  width: fit-content; /* only as wide as the buttons */
-  border-radius: 8px; /* optional: rounded corners */
-  padding: 0.5rem 0; /* optional: vertical padding */
+  width: fit-content;
+  border-radius: 8px;
+  padding: 0.5rem 0;
 }
 
-.export-btn,
+/*.export-btn,
 .print-btn {
   min-width: 150px;
   display: inline-block;
@@ -100,20 +100,40 @@
   padding: 8px 16px;
   font-size: 14px;
   border-radius: 4px;
-  border: 2px solid #213571;
-  background-color: #213571;
+  border: 2px solid #2e4a9e;
+  background-color: #2e4a9e;
   color: white;
   font-weight: 500;
   transition: all 0.3s ease;
   text-align: center;
   cursor: pointer;
+}*/
+
+.print-btn {
+  padding: 8px 12px;
+  font-size: 16px;
+  background-color: #2e4a9e;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+  display: inline-flex;
+  width: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
 }
 
-.export-btn:hover,
 .print-btn:hover {
-  background-color: white;
-  color: #213571;
-  border: 2px solid #213571;
+  background-color: #27449d;
+  color: white;
+}
+
+.icon-btn {
+  width: 20px;
+  margin-right: 10px;
 }
 
 /* Cancel Button */

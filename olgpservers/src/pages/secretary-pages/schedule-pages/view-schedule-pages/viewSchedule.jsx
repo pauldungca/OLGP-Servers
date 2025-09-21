@@ -1,9 +1,9 @@
-// pages/.../viewSchedule.jsx
 import React, { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Breadcrumb, DatePicker } from "antd";
 import icon from "../../../../helper/icon";
 import Footer from "../../../../components/footer";
+import DropDownButton from "../../../../components/dropDownButton";
 
 import {
   CURRENT_YEAR,
@@ -16,6 +16,10 @@ import {
   groupByDate,
   chunkInto,
   formatDateHeading,
+  exportScheduleDayAsPNG,
+  exportScheduleDayAsPDF,
+  printScheduleDay,
+  to12Hour,
 } from "../../../../assets/scripts/viewScheduleSecretary";
 
 import "../../../../assets/styles/schedule.css";
@@ -204,8 +208,9 @@ export default function ViewSchedule() {
                               </h3>
                             </div>
 
+                            {/* ✅ 12-hour time display */}
                             <p style={{ marginTop: 14, color: "#666" }}>
-                              {item.time || "—"}
+                              {to12Hour(item.time) || "—"}
                             </p>
 
                             <div style={{ marginTop: "auto", width: "100%" }}>
@@ -222,7 +227,7 @@ export default function ViewSchedule() {
                                     navigate("/cancelScheduleSecretary", {
                                       state: {
                                         id: item.id,
-                                        scheduleID: item.scheduleID, // pass scheduleID
+                                        scheduleID: item.scheduleID,
                                         clientName: item.clientName,
                                         time: item.time,
                                       },
@@ -248,8 +253,24 @@ export default function ViewSchedule() {
                       paddingRight: 16,
                     }}
                   >
-                    <button className="btn export-btn">Export</button>
-                    <button className="btn print-btn">Print</button>
+                    {/* Export PNG for this day */}
+                    <DropDownButton
+                      onExportPNG={() => exportScheduleDayAsPNG(iso, dayItems)}
+                      onExportPDF={() => exportScheduleDayAsPDF(iso, dayItems)}
+                    />
+
+                    {/* Print will be wired next step */}
+                    <button
+                      className="btn print-btn flex items-center gap-2"
+                      onClick={() => printScheduleDay(iso, dayItems)}
+                    >
+                      <img
+                        src={icon.printIcon}
+                        alt="Print Icon"
+                        className="icon-btn"
+                      />
+                      Print Schedule
+                    </button>
                   </div>
                 </div>
               );

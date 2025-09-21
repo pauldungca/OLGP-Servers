@@ -209,6 +209,21 @@ export const addMember = async (
   }
 };
 
+export const updateMemberImage = async (idNumber, imageUrl) => {
+  try {
+    const { error } = await supabase
+      .from("members-information")
+      .update({ imageUrl })
+      .eq("idNumber", idNumber);
+
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error("updateMemberImage error:", err.message);
+    return false;
+  }
+};
+
 export const defineUserType = async (idNumber, department) => {
   const departmentMap = {
     "ALTAR SERVER": "altar-server-member",
@@ -445,7 +460,6 @@ export const isValidGmail = (email) => {
   return email.toLowerCase().endsWith("@gmail.com");
 };
 
-// 🔹 Check if email already exists in members-information
 export const isEmailAlreadyUsed = async (email) => {
   if (!email) return false;
 

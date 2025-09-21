@@ -141,6 +141,51 @@ export const confirmCancelEdit = async () => {
   return result.isConfirmed;
 };
 
+export const STORAGE_BUCKET = "user-image";
+
+export const extractStoragePathFromUrl = (url) => {
+  if (!url) return null;
+  const marker = "/object/public/";
+  const i = url.indexOf(marker);
+  if (i === -1) return null;
+  return url
+    .slice(i + marker.length)
+    .replace(/^user-image\//, "")
+    .trim();
+};
+
+export const deleteMemberImageFromBucket = async (idNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from("members-information")
+      .select("imageUrl")
+      .eq("idNumber", idNumber)
+      .single();
+
+    if (error && error.code !== "PGRST116") throw error;
+
+    const imageUrl = data?.imageUrl ?? null;
+    const pathFromUrl = extractStoragePathFromUrl(imageUrl);
+
+    const candidates = pathFromUrl
+      ? [pathFromUrl]
+      : [
+          `${idNumber}.jpg`,
+          `${idNumber}.jpeg`,
+          `${idNumber}.png`,
+          `${idNumber}.webp`,
+        ];
+
+    const { error: rmErr } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .remove(candidates);
+
+    if (rmErr && !/not\s*found/i.test(rmErr.message)) throw rmErr;
+  } catch (e) {
+    console.warn("Image deletion warning:", e);
+  }
+};
+
 export const removeAltarServer = async (
   idNumber,
   setLoading,
@@ -212,6 +257,8 @@ export const removeAltarServer = async (
           .delete()
           .eq("idNumber", idNumber);
         if (errorRoles) throw errorRoles;
+
+        await deleteMemberImageFromBucket(idNumber);
 
         Swal.fire({
           icon: "success",
@@ -585,41 +632,6 @@ export const removeChoirMember = async (
   }
 };
 
-/*export const editMemberInfo = async (
-  idNumber,
-  firstName,
-  middleName,
-  lastName,
-  address,
-  sex,
-  email,
-  contactNumber
-) => {
-  if (!idNumber) return false;
-
-  try {
-    const { data, error } = await supabase
-      .from("members-information")
-      .update({
-        firstName,
-        middleName: middleName || null,
-        lastName,
-        address,
-        sex,
-        email,
-        contactNumber,
-      })
-      .eq("idNumber", idNumber)
-      .select();
-
-    if (error || !data || data.length === 0) return false;
-    return true;
-  } catch (err) {
-    console.error("Edit member info error:", err);
-    return false;
-  }
-};*/
-
 export const editMemberInfo = async (
   idNumber,
   firstName,
@@ -931,4 +943,89 @@ export const isEmailAlreadyUsedByOthers = async (idNumber, email) => {
   }
 
   return !!data; // true if found
+};
+
+// viewMember.js
+export const clearMemberImage = async (idNumber) => {
+  try {
+    const { error } = await supabase
+      .from("members-information")
+      .update({ imageUrl: null })
+      .eq("idNumber", idNumber);
+
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error("clearMemberImage error:", err);
+    return false;
+  }
+};
+
+// Update just the imageUrl of an existing member
+export const updateMemberImage = async (idNumber, imageUrl) => {
+  try {
+    const { error } = await supabase
+      .from("members-information")
+      .update({ imageUrl: imageUrl || null })
+      .eq("idNumber", idNumber);
+
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error("updateMemberImage error:", err);
+    return false;
+  }
+};
+
+export const uploadAndSaveMemberImage = async (idNumber, file) => {
+  try {
+    if (!idNumber || !file) return null;
+
+    try {
+      await deleteMemberImageFromBucket(idNumber);
+    } catch (delErr) {
+      console.warn("Pre-upload cleanup warning:", delErr);
+    }
+
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (file.type && !allowed.includes(file.type)) {
+      throw new Error("Unsupported file type. Please use JPG, PNG, or WEBP.");
+    }
+    const maxBytes = 8 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      throw new Error("File too large. Max size is 8 MB.");
+    }
+
+    const extFromMime = (mime) => {
+      if (!mime) return null;
+      if (mime === "image/jpeg") return "jpg";
+      if (mime === "image/png") return "png";
+      if (mime === "image/webp") return "webp";
+      return null;
+    };
+    const extFromName = (name) => {
+      const m = (name || "").match(/\.(jpe?g|png|webp)$/i);
+      return m ? m[1].toLowerCase().replace("jpeg", "jpg") : null;
+    };
+
+    const ext = extFromMime(file.type) || extFromName(file.name) || "jpg";
+    const objectPath = `${idNumber}.${ext}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(objectPath, file, {
+        cacheControl: "0",
+        upsert: true,
+        contentType: file.type || `image/${ext}`,
+      });
+    if (uploadErr) throw uploadErr;
+
+    const { data: pub } = supabase.storage
+      .from(STORAGE_BUCKET)
+      .getPublicUrl(objectPath);
+    return pub?.publicUrl || null;
+  } catch (err) {
+    console.error("uploadAndSaveMemberImage error:", err);
+    return null;
+  }
 };

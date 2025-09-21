@@ -3,6 +3,7 @@ import { Breadcrumb } from "antd";
 import { Link, useLocation } from "react-router-dom";
 import Footer from "../../../components/footer";
 import icon from "../../../helper/icon";
+import Swal from "sweetalert2";
 
 import {
   // UI helpers
@@ -21,6 +22,9 @@ import {
   defineUserType,
   saveEucharisticMinisterGroup,
   saveChoirMemberGroup,
+  // ⬇️ image helpers copied from your addMember flow
+  uploadAndSaveMemberImage,
+  updateMemberImage,
 } from "../../../assets/scripts/addMember";
 
 import "../../../assets/styles/member.css";
@@ -55,7 +59,7 @@ export default function GroupAddMember() {
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedBarangay, setSelectedBarangay] = useState("");
-  const [street, setStreet] = useState(""); // NEW
+  const [street, setStreet] = useState("");
   const [houseNumber, setHouseNumber] = useState("");
   const [address, setAddress] = useState("");
 
@@ -135,7 +139,7 @@ export default function GroupAddMember() {
     setIdNumber(generateUserID());
   }, []);
 
-  // ---- Submit handler (DB flow like AddMember.jsx + group save)
+  // ---- Submit handler (DB flow like AddMember.jsx + group save + image upload)
   const handleAdd = async (e) => {
     e.preventDefault();
 
@@ -148,38 +152,62 @@ export default function GroupAddMember() {
       dateJoined,
       sex,
       email,
-      contactNumber
+      contactNumber,
+      null // always null at first; we upload image after the row is created
     );
 
     if (!isAdded) return;
 
-    // Auth + user type (same as AddMember.jsx)
-    await addMemberAuthentication(idNumber, "olgp2025-2026", email);
-    await defineUserType(idNumber, department);
+    try {
+      // Auth + user type
+      await addMemberAuthentication(idNumber, "olgp2025-2026", email);
+      await defineUserType(idNumber, department);
 
-    // Save group depending on department
-    if (department === "Eucharistic Minister") {
-      await saveEucharisticMinisterGroup(idNumber, group || "Group 1");
-    } else if (department === "Choir") {
-      await saveChoirMemberGroup(idNumber, group || "Group 1");
+      // Save group depending on department
+      if (department === "Eucharistic Minister") {
+        await saveEucharisticMinisterGroup(idNumber, group || "Group 1");
+      } else if (department === "Choir") {
+        await saveChoirMemberGroup(idNumber, group || "Group 1");
+      }
+
+      // Upload image (optional) then update DB with public URL
+      if (imageFile) {
+        const url = await uploadAndSaveMemberImage(idNumber, imageFile);
+        if (!url) {
+          await Swal.fire({
+            icon: "error",
+            title: "Upload failed",
+            text: "Please try again.",
+          });
+          return;
+        }
+        await updateMemberImage(idNumber, url);
+      }
+
+      // Reset UI
+      setFirstName("");
+      setMiddleName("");
+      setLastName("");
+      setSex("");
+      setEmail("");
+      setContactNumber("");
+      setHouseNumber("");
+      setStreet("");
+      setSelectedProvince("");
+      setSelectedMunicipality("");
+      setSelectedBarangay("");
+      setAddress("");
+      setImageFile(null);
+      setFileAttached(false);
+      setIdNumber(generateUserID());
+    } catch (err) {
+      console.error("Group add flow error:", err);
+      await Swal.fire({
+        icon: "error",
+        title: "Failed",
+        text: "Operation failed: " + err.message,
+      });
     }
-
-    // Reset UI
-    setFirstName("");
-    setMiddleName("");
-    setLastName("");
-    setSex("");
-    setEmail("");
-    setContactNumber("");
-    setHouseNumber("");
-    setStreet("");
-    setSelectedProvince("");
-    setSelectedMunicipality("");
-    setSelectedBarangay("");
-    setAddress("");
-    setImageFile(null);
-    setFileAttached(false);
-    setIdNumber(generateUserID());
   };
 
   return (
@@ -187,7 +215,8 @@ export default function GroupAddMember() {
       <div className="member-header">
         <div className="header-text-with-line">
           <h3>
-            GROUP - {department?.toUpperCase()} - {group?.toUpperCase()}
+            GROUP - {department?.toUpperCase()} -{" "}
+            {String(group || "").toUpperCase()}
           </h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb

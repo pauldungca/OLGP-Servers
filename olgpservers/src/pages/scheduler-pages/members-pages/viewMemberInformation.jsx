@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Breadcrumb, Spin } from "antd";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import icon from "../../../helper/icon";
@@ -18,7 +18,18 @@ import {
   editLectorCommentatorRoles,
   fetchAltarServerRoles,
   fetchLectorCommentatorRoles,
+  deleteMemberImageFromBucket,
+  clearMemberImage,
+  updateMemberImage,
+  uploadAndSaveMemberImage,
 } from "../../../assets/scripts/viewMember";
+
+// ⬇️ reuse the same UI helpers your addMember.jsx uses (UI-only)
+import {
+  handleFileChange,
+  handleFileInputChange,
+  handleRemoveImage,
+} from "../../../assets/scripts/addMember";
 
 import "../../../assets/styles/member.css";
 import "../../../assets/styles/viewMemberInformation.css";
@@ -28,11 +39,14 @@ export default function ViewMemberInformation() {
     document.title = "OLGP Servers | Member";
   }, []);
 
-  const navigate = new useNavigate();
+  // ✅ fix wrong usage (`new useNavigate()` → `useNavigate()`)
+  const navigate = useNavigate();
 
   const location = useLocation();
   const department = location.state?.department || "Members";
   const idNumber = location.state?.idNumber;
+
+  const [imageRemoved, setImageRemoved] = useState(false);
 
   // States for member info
   const [firstName, setFirstName] = useState("");
@@ -46,7 +60,7 @@ export default function ViewMemberInformation() {
   const [province, setProvince] = useState("");
   const [municipality, setMunicipality] = useState("");
   const [barangay, setBarangay] = useState("");
-  const [street, setStreet] = useState(""); // 🆕 Street
+  const [street, setStreet] = useState("");
   const [houseNumber, setHouseNumber] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [imageUrl, setImageUrl] = useState(null);
@@ -60,10 +74,16 @@ export default function ViewMemberInformation() {
 
   const [selectedRolesArray, setSelectedRolesArray] = useState([]);
 
-  // ✅ Flag to detect user changed address inputs
+  // Address compose flag
   const [addressDirty, setAddressDirty] = useState(false);
 
-  // ✅ Fetch member data
+  // ⬇️ UI-only attachment state to mirror addMember.jsx
+  const [imageFile, setImageFile] = useState(null);
+  const [fileAttached, setFileAttached] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Fetch member data
+  // 1) loadMemberData (with cache-busted imageUrl for immediate refresh)
   const loadMemberData = useCallback(async () => {
     if (!idNumber) return;
     try {
@@ -86,12 +106,16 @@ export default function ViewMemberInformation() {
       setDateJoined(info.dateJoined);
       setAddress(info.address);
       setSelectedRole(roleType);
-      setImageUrl(info.imageUrl || null);
+
+      const uiImageUrl = info.imageUrl
+        ? `${info.imageUrl}?t=${Date.now()}`
+        : null;
+      setImageUrl(uiImageUrl);
 
       setProvince(info.province || "");
       setMunicipality(info.municipality || "");
       setBarangay(info.barangay || "");
-      setStreet(info.street || ""); // 🆕
+      setStreet(info.street || "");
       setHouseNumber(info.houseNumber || "");
     } catch (err) {
       console.error("Failed to load member:", err.message);
@@ -161,50 +185,67 @@ export default function ViewMemberInformation() {
     );
   }
 
+  // 2) handleSaveChanges (save info/roles first, then image; bust cache in UI)
   const handleSaveChanges = async () => {
-    // 1️⃣ Update basic info
-    const infoSuccess = await editMemberInfo(
-      idNumber,
-      firstName,
-      middleName,
-      lastName,
-      address,
-      sex,
-      email,
-      contactNumber
-    );
-
-    if (!infoSuccess) return;
-
-    // 2️⃣ Update roles depending on department
-    let rolesSuccess = true; // default to true when no role update is needed
-    if (department === "Altar Server") {
-      rolesSuccess = await editAltarServerRoles(idNumber, selectedRolesArray);
-    } else if (department === "Lector Commentator") {
-      rolesSuccess = await editLectorCommentatorRoles(
+    try {
+      const infoSuccess = await editMemberInfo(
         idNumber,
-        selectedRolesArray
+        firstName,
+        middleName,
+        lastName,
+        address,
+        sex,
+        email,
+        contactNumber
       );
-    }
+      if (!infoSuccess) return;
 
-    // 3️⃣ Final check
-    if (rolesSuccess) {
-      setSelectedRolesArray([...selectedRolesArray]);
+      let rolesSuccess = true;
+      if (department === "Altar Server") {
+        rolesSuccess = await editAltarServerRoles(idNumber, selectedRolesArray);
+      } else if (department === "Lector Commentator") {
+        rolesSuccess = await editLectorCommentatorRoles(
+          idNumber,
+          selectedRolesArray
+        );
+      }
+      if (!rolesSuccess) return;
 
-      Swal.fire({
-        icon: "success",
-        title: "Member Updated",
-        text: "Member information and roles were successfully updated!",
-      });
+      if (imageRemoved && !imageFile) {
+        await deleteMemberImageFromBucket(idNumber);
+        await clearMemberImage(idNumber);
+        setImageUrl(null);
+      } else if (imageFile) {
+        const newUrl = await uploadAndSaveMemberImage(idNumber, imageFile);
+        if (!newUrl) return;
 
+        const ok = await updateMemberImage(idNumber, newUrl);
+        if (!ok) return;
+
+        const cacheBuster = `${newUrl}${
+          newUrl.includes("?") ? "&" : "?"
+        }t=${Date.now()}`;
+        setImageUrl(cacheBuster);
+
+        setImageFile(null);
+        setFileAttached(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+
+      setSelectedRolesArray((prev) => [...prev]);
       setEditMode(false);
       setAddressDirty(false);
-    } else {
-      Swal.fire({
-        icon: "error",
-        title: "Failed",
-        text: "Failed to update member information.",
+      setImageRemoved(false);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Success",
+        text: "Member changes saved successfully.",
+        confirmButtonText: "OK",
+        reverseButtons: true,
       });
+    } catch (err) {
+      console.error("Error saving changes:", err);
     }
   };
 
@@ -256,26 +297,83 @@ export default function ViewMemberInformation() {
 
       {/* Content */}
       <form className="form-content">
-        {/* Image preview */}
         <div className="attachment-container">
-          <div
-            className="preview-container mt-3"
-            style={{ position: "relative", display: "inline-block" }}
-          >
-            {imageUrl && imageUrl.trim() !== "" ? (
-              <img src={imageUrl} alt="Preview" className="preview-img" />
-            ) : (
-              <img
-                src={icon.addImageIcon}
-                alt="Default"
-                className="preview-img"
-              />
-            )}
-          </div>
+          {editMode ? (
+            <>
+              {(imageFile || (imageUrl && imageUrl.trim() !== "")) && (
+                <div
+                  className="preview-container mt-3"
+                  style={{ position: "relative", display: "inline-block" }}
+                >
+                  <img
+                    src={imageFile ? URL.createObjectURL(imageFile) : imageUrl}
+                    alt="Preview"
+                    className="preview-img"
+                  />
 
-          <div className="attachment-labels">
-            <label className="file-label">Member Image</label>
-          </div>
+                  {/* show × button for BOTH new file & fetched image */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (imageFile) {
+                        // user picked a new file → just clear that selection
+                        handleRemoveImage(setImageFile, setFileAttached);
+                        setImageRemoved(false); // not removing stored image
+                      } else {
+                        // user removed the fetched image → mark for deletion on Save
+                        setImageUrl(null);
+                        setImageRemoved(true);
+                      }
+                    }}
+                    className="preview-btn"
+                    title="Remove image"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              {/* add/change button stays */}
+              <button
+                type="button"
+                className="add-image-btn"
+                onClick={(e) => handleFileChange(e, fileInputRef)}
+              >
+                <img src={icon.addImageIcon} alt="Add" className="icon-img" />
+              </button>
+
+              <div className="attachment-labels">
+                <label className="file-label">Attach image here</label>
+                {fileAttached && (
+                  <span className="file-success">File attached!</span>
+                )}
+              </div>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => {
+                  handleFileInputChange(e, setImageFile, setFileAttached);
+                  setImageRemoved(false); // selecting a new file means not deleting on save
+                }}
+                accept=".jpg,.jpeg,.png"
+                style={{ display: "none" }}
+              />
+            </>
+          ) : (
+            imageUrl &&
+            imageUrl.trim() !== "" && (
+              <div
+                className="preview-container mt-3"
+                style={{ position: "relative", display: "inline-block" }}
+              >
+                <img src={imageUrl} alt="Preview" className="preview-img" />
+                <div className="attachment-labels">
+                  <label className="file-label">Member Image</label>
+                </div>
+              </div>
+            )
+          )}
         </div>
 
         {/* Member Information */}
@@ -487,6 +585,7 @@ export default function ViewMemberInformation() {
             </div>
           </div>
 
+          {/* Role checkboxes */}
           <div className="role-options mt-3">
             {(department === "Altar Server"
               ? [
@@ -561,6 +660,10 @@ export default function ViewMemberInformation() {
                     if (confirmed) {
                       setEditMode(false);
                       setAddressDirty(false);
+                      // clear the UI-only file picker
+                      setImageFile(null);
+                      setFileAttached(false);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
                     }
                   }}
                 >
@@ -594,12 +697,6 @@ export default function ViewMemberInformation() {
                         navigate,
                         department
                       );
-                    } else {
-                      Swal.fire({
-                        icon: "error",
-                        title: "Unknown Department",
-                        text: "Cannot remove member: unsupported department.",
-                      });
                     }
                   }}
                 >

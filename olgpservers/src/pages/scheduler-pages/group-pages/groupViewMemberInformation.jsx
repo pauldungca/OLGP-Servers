@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Breadcrumb, Spin } from "antd";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import icon from "../../../helper/icon";
@@ -9,6 +9,10 @@ import {
   getProvinces as fetchProvinces,
   getMunicipalities as fetchMunicipalities,
   getBarangays as fetchBarangays,
+  // ⬇️ UI-only helpers reused for image picker UX
+  handleFileChange,
+  handleFileInputChange,
+  handleRemoveImage,
 } from "../../../assets/scripts/addMember";
 
 import {
@@ -21,6 +25,11 @@ import {
   removeEucharisticMinister,
   removeChoirMember,
   confirmCancelEdit,
+  // ⬇️ image storage helpers (delete/clear/update/upload)
+  deleteMemberImageFromBucket,
+  clearMemberImage,
+  updateMemberImage,
+  uploadAndSaveMemberImage,
 } from "../../../assets/scripts/viewMember";
 
 import {
@@ -64,7 +73,7 @@ export default function GroupViewMemberInformation() {
   const [editMode, setEditMode] = useState(false);
   const [addressDirty, setAddressDirty] = useState(false);
   const [houseNumber, setHouseNumber] = useState("");
-  const [street, setStreet] = useState(""); // 🆕 Street
+  const [street, setStreet] = useState("");
   const [province, setProvince] = useState("");
   const [municipality, setMunicipality] = useState("");
   const [barangay, setBarangay] = useState("");
@@ -73,6 +82,12 @@ export default function GroupViewMemberInformation() {
   const [provinces, setProvinces] = useState([]);
   const [municipalities, setMunicipalities] = useState([]);
   const [barangays, setBarangays] = useState([]);
+
+  // Image edit state
+  const fileInputRef = useRef(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [fileAttached, setFileAttached] = useState(false);
+  const [imageRemoved, setImageRemoved] = useState(false);
 
   // Fetch member data
   useEffect(() => {
@@ -99,12 +114,15 @@ export default function GroupViewMemberInformation() {
         setContactNumber(info.contactNumber || "");
         setDateJoined(info.dateJoined || "");
         setAddress(info.address || "");
-        setImageUrl(info.imageUrl || null);
+
+        // cache-buster for immediate refresh after save
+        const uiUrl = info.imageUrl ? `${info.imageUrl}?t=${Date.now()}` : null;
+        setImageUrl(uiUrl);
 
         setProvince(info.province || "");
         setMunicipality(info.municipality || "");
         setBarangay(info.barangay || "");
-        setStreet(info.street || ""); // 🆕 get street if present
+        setStreet(info.street || "");
         setHouseNumber(info.houseNumber || "");
 
         setGroupNumber(groupName || group || "");
@@ -159,10 +177,8 @@ export default function GroupViewMemberInformation() {
           setGroupNumber((prev) => {
             const abbrs = list.map((g) => g.abbreviation);
             if (abbrs.includes(prev)) return prev;
-
             const match = list.find((g) => g.name === prev);
             if (match) return match.abbreviation;
-
             return abbrs[0] || "";
           });
         } catch (e) {
@@ -195,7 +211,7 @@ export default function GroupViewMemberInformation() {
     setAddress(fullAddress.trim());
   }, [
     houseNumber,
-    street, // 🆕
+    street,
     barangay,
     municipality,
     province,
@@ -241,16 +257,6 @@ export default function GroupViewMemberInformation() {
   const handleSave = async () => {
     if (!idNumber) return;
 
-    const confirm = await Swal.fire({
-      icon: "question",
-      title: "Save changes?",
-      showCancelButton: true,
-      confirmButtonText: "Save",
-      cancelButtonText: "Cancel",
-      reverseButtons: true,
-    });
-    if (!confirm.isConfirmed) return;
-
     try {
       setSaving(true);
 
@@ -258,7 +264,7 @@ export default function GroupViewMemberInformation() {
         .replace(/\D/g, "")
         .slice(0, 11);
 
-      // 1) Basic info (address already includes street in string)
+      // 1) Basic info save
       const infoOk = await editMemberInfo(
         idNumber,
         firstName,
@@ -269,8 +275,12 @@ export default function GroupViewMemberInformation() {
         email,
         normalizedContact
       );
+      if (!infoOk) {
+        setSaving(false);
+        return;
+      }
 
-      // 2) Group mapping
+      // 2) Group mapping save
       let groupOk = true;
       if (department === "Eucharistic Minister") {
         const validNames = emGroups.map((g) => g.name);
@@ -298,21 +308,49 @@ export default function GroupViewMemberInformation() {
         groupOk = await editChoirMemberGroup(idNumber, groupNumber);
       }
 
-      if (infoOk && groupOk) {
-        await Swal.fire({
-          icon: "success",
-          title: "Saved",
-          text: "Member information updated successfully.",
-        });
-        setEditMode(false);
-        setAddressDirty(false);
-      } else {
-        await Swal.fire({
-          icon: "error",
-          title: "Failed",
-          text: "Could not save member information or group. Please try again.",
-        });
+      if (!groupOk) {
+        setSaving(false);
+        return;
       }
+
+      // 3) Image operations
+      if (imageRemoved && !imageFile) {
+        // delete any existing from bucket + clear DB
+        await deleteMemberImageFromBucket(idNumber);
+        await clearMemberImage(idNumber);
+        setImageUrl(null);
+      } else if (imageFile) {
+        const newUrl = await uploadAndSaveMemberImage(idNumber, imageFile);
+        if (!newUrl) {
+          setSaving(false);
+          return;
+        }
+        const ok = await updateMemberImage(idNumber, newUrl);
+        if (!ok) {
+          setSaving(false);
+          return;
+        }
+        // cache-bust so the preview refreshes immediately
+        const bust = `${newUrl}${
+          newUrl.includes("?") ? "&" : "?"
+        }t=${Date.now()}`;
+        setImageUrl(bust);
+        setImageFile(null);
+        setFileAttached(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+
+      setEditMode(false);
+      setAddressDirty(false);
+      setImageRemoved(false);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Success",
+        text: "Member changes saved successfully.",
+        confirmButtonText: "OK",
+        reverseButtons: true,
+      });
     } catch (err) {
       console.error("Save error:", err);
       await Swal.fire({
@@ -392,25 +430,80 @@ export default function GroupViewMemberInformation() {
 
       {/* Content */}
       <form className="form-content">
-        {/* Image preview */}
+        {/* Image area */}
         <div className="attachment-container">
-          <div
-            className="preview-container mt-3"
-            style={{ position: "relative", display: "inline-block" }}
-          >
-            {imageUrl ? (
-              <img src={imageUrl} alt="Preview" className="preview-img" />
-            ) : (
-              <img
-                src={icon.addImageIcon}
-                alt="Default"
-                className="preview-img"
+          {editMode ? (
+            <>
+              {(imageFile || (imageUrl && imageUrl.trim() !== "")) && (
+                <div
+                  className="preview-container mt-3"
+                  style={{ position: "relative", display: "inline-block" }}
+                >
+                  <img
+                    src={imageFile ? URL.createObjectURL(imageFile) : imageUrl}
+                    alt="Preview"
+                    className="preview-img"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (imageFile) {
+                        handleRemoveImage(setImageFile, setFileAttached);
+                        setImageRemoved(false);
+                      } else {
+                        // mark for deletion on save
+                        setImageUrl(null);
+                        setImageRemoved(true);
+                      }
+                    }}
+                    className="preview-btn"
+                    title="Remove image"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="add-image-btn"
+                onClick={(e) => handleFileChange(e, fileInputRef)}
+              >
+                <img src={icon.addImageIcon} alt="Add" className="icon-img" />
+              </button>
+
+              <div className="attachment-labels">
+                <label className="file-label">Attach image here</label>
+                {fileAttached && (
+                  <span className="file-success">File attached!</span>
+                )}
+              </div>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => {
+                  handleFileInputChange(e, setImageFile, setFileAttached);
+                  setImageRemoved(false);
+                }}
+                accept=".jpg,.jpeg,.png"
+                style={{ display: "none" }}
               />
-            )}
-          </div>
-          <div className="attachment-labels">
-            <label className="file-label">Group Member Image</label>
-          </div>
+            </>
+          ) : (
+            imageUrl &&
+            imageUrl.trim() !== "" && (
+              <div
+                className="preview-container mt-3"
+                style={{ position: "relative", display: "inline-block" }}
+              >
+                <img src={imageUrl} alt="Preview" className="preview-img" />
+                <div className="attachment-labels">
+                  <label className="file-label">Group Member Image</label>
+                </div>
+              </div>
+            )
+          )}
         </div>
 
         {/* Member Information */}
@@ -662,8 +755,13 @@ export default function GroupViewMemberInformation() {
                   onClick={async () => {
                     const confirmed = await confirmCancelEdit();
                     if (confirmed) {
+                      // reset image edit state too
                       setEditMode(false);
                       setAddressDirty(false);
+                      setImageRemoved(false);
+                      setImageFile(null);
+                      setFileAttached(false);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
                     }
                   }}
                   disabled={saving}

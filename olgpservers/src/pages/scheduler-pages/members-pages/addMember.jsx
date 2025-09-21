@@ -19,6 +19,7 @@ import {
   handleFileInputChange,
   handleFileChange,
   handleRemoveImage,
+  updateMemberImage,
   getProvinces as fetchProvinces,
   getMunicipalities as fetchMunicipalities,
   getBarangays as fetchBarangays,
@@ -135,19 +136,7 @@ export default function AddMember() {
 
     let url = null;
 
-    // If an image is selected, upload it first
-    if (imageFile) {
-      url = await uploadAndSaveMemberImage(idNumber, imageFile);
-      alert(url);
-      if (!url) {
-        Swal.fire({
-          icon: "error",
-          title: "Upload failed",
-          text: "Please try again.",
-        });
-        return;
-      }
-    }
+    // 1) Add the member without image
     const isAdded = await addMember(
       idNumber,
       firstName,
@@ -158,13 +147,29 @@ export default function AddMember() {
       sex,
       email,
       contactNumber,
-      url
+      null // always null at first
     );
 
     if (isAdded) {
       await addMemberAuthentication(idNumber, "olgp2025-2026", email);
       await defineUserType(idNumber, department);
 
+      if (imageFile) {
+        url = await uploadAndSaveMemberImage(idNumber, imageFile);
+
+        if (!url) {
+          await Swal.fire({
+            icon: "error",
+            title: "Upload failed",
+            text: "Please try again.",
+          });
+          return;
+        }
+
+        await updateMemberImage(idNumber, url);
+      }
+
+      // 4) Assign roles
       let selectedRolesArray = [];
       if (selectedRole === "Non-Flexible") {
         const checkboxes = document.querySelectorAll(
@@ -182,13 +187,13 @@ export default function AddMember() {
         );
       }
 
-      // Reset form (includes Street)
+      // 5) Reset form
       setFirstName("");
       setMiddleName("");
       setLastName("");
       setAddress("");
       setHouseNumber("");
-      setStreet(""); // 🆕
+      setStreet("");
       setSelectedProvince("");
       setSelectedMunicipality("");
       setSelectedBarangay("");

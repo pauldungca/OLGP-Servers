@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import icons from "../../helper/images";
+import icons from "../../helper/icon";
 import Footer from "../../components/footer";
 
 import { createButtonCard } from "../../assets/scripts/member";

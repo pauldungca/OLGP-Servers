@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import images from "../../helper/images";
+import icons from "../../helper/icon";
+
 import {
   createButtonCard,
   isAltarServerScheduler,
   isLectorCommentatorScheduler,
 } from "../../assets/scripts/member";
+
 import "../../assets/styles/member.css";
 
 import Footer from "../../components/footer";
@@ -15,10 +17,12 @@ export default function Member() {
     document.title = "OLGP Servers | Members";
   }, []);
   const [, setIdNumber] = useState("");
+  
   const [isAltarServer, setIsAltarServer] = useState(false);
   const [isLectorCommentator, setIsLectorCommentator] = useState(false);
+
   const navigate = useNavigate();
-  const buttonCard = createButtonCard(images, navigate);
+  const ButtonCard = createButtonCard(navigate, icons);
 
   useEffect(() => {
     const initializeMemberData = async () => {
@@ -51,21 +55,24 @@ export default function Member() {
       <div className="member-content">
         <div className="member-cards-container">
           {/* if the user is altar server scheduler */}
-          {isAltarServer &&
-            buttonCard({
-              department: "Altar Server",
-              parish: "Manage the members of the Altar Server Department.",
-              toPage: "/membersList",
-            })}
+          {isAltarServer && (
+            <ButtonCard
+              department="Altar Server"
+              parish="Pass the admin controls to a member from the Altar Server Department."
+              toPage="/membersList"
+              icon={icons.altarServerIcon}
+            />
+          )}
 
           {/* if the user is lector commentator scheduler */}
-          {isLectorCommentator &&
-            buttonCard({
-              department: "Lector Commentator",
-              parish:
-                "Manage the members of the Lector Commentator Department.",
-              toPage: "/membersList",
-            })}
+          {isLectorCommentator && (
+            <ButtonCard
+              department="Lector Commentator"
+              parish="Pass the admin controls to a member from the Lector Commentator Department."
+              toPage="/membersList"
+              icon={icons.lectorCommentatorIcon}
+            />
+          )}
         </div>
       </div>
       <div>

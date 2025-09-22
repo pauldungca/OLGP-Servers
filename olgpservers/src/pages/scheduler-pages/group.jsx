@@ -1,7 +1,6 @@
-// Group.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import images from "../../helper/images";
+import icons from "../../helper/icon";
 import { createButtonCard } from "../../assets/scripts/member";
 import {
   isEucharisticMinisterScheduler,
@@ -17,7 +16,7 @@ export default function Group() {
   const [, setIdNumber] = useState("");
 
   const navigate = useNavigate();
-  const buttonCard = createButtonCard(images, navigate);
+  const ButtonCard = createButtonCard(navigate, icons);
 
   useEffect(() => {
     document.title = "OLGP Servers | Groups";
@@ -56,21 +55,24 @@ export default function Group() {
       <div className="group-content">
         <div className="group-cards-container">
           {/* Show only if the user is Eucharistic Minister scheduler */}
-          {isEucharisticMinister &&
-            buttonCard({
-              department: "Eucharistic Minister",
-              parish:
-                "Manage the groups and members of the Eucharistic Minister Department.",
-              toPage: "/selectGroup",
-            })}
+          {isEucharisticMinister && (
+            <ButtonCard
+              department="Eucharistic Minister"
+              parish="Pass the admin controls to a member from the Eucharistic Minister Department."
+              toPage="/selectGroup"
+              icon={icons.eucharisticMinisterIcon}
+            />
+          )}
 
           {/* Show only if the user is Choir scheduler */}
-          {isChoir &&
-            buttonCard({
-              department: "Choir",
-              parish: "Manage the groups and members of the Choir Department.",
-              toPage: "/selectGroup",
-            })}
+          {isChoir && (
+            <ButtonCard
+              department="Choir"
+              parish="Pass the admin controls to a member from the Choir Department."
+              toPage="/selectGroup"
+              icon={icons.choirIcon}
+            />
+          )}
         </div>
       </div>
       <div>

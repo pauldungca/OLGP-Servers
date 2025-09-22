@@ -33,10 +33,6 @@ export default function ImportMember() {
   const department = location.state?.department || "Members";
   const selectedDepartment = location.state?.selectedDepartment || "None";
 
-  function showAlert() {
-    alert(selectedDepartment);
-  }
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -182,8 +178,6 @@ export default function ImportMember() {
 
       <div className="member-content">
         <div className="search-bar-container">
-          <button onClick={showAlert}>Show Selected Department</button>
-
           <input
             type="text"
             className="form-control"

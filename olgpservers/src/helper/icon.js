@@ -20,6 +20,12 @@ import printIcon from "../assets/icons/members-icon/Print.png";
 import exportIcon from "../assets/icons/members-icon/Export.png";
 import addImageIcon from "../assets/icons/members-icon/addImage.png";
 
+//Department Icon
+import altarServerIcon from "../assets/icons/department-icons/altar-server-logo.png";
+import eucharisticMinisterIcon from "../assets/icons/department-icons/eucharistic-minister-logo.png";
+import choirIcon from "../assets/icons/department-icons/choir-logo.png";
+import lectorCommentatorIcon from "../assets/icons/department-icons/lector-commentator-logo.png";
+
 const icons = {
   dashboardLogo,
   scheduleLogo,
@@ -40,6 +46,10 @@ const icons = {
   addImageIcon,
   groupLogo,
   scheduleAvalabilityLogo,
+  altarServerIcon,
+  eucharisticMinisterIcon,
+  choirIcon,
+  lectorCommentatorIcon,
 };
 
 export default icons;

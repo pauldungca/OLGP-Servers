@@ -1,13 +1,19 @@
 import { supabase } from "../../utils/supabase";
 
-export const createButtonCard = (images, navigate) => {
-  return function ButtonCard({ department, parish, toPage }) {
+export const createButtonCard = (navigate) => {
+  return function ButtonCard({ department, parish, toPage, icon }) {
     return (
       <button
         className="member-card"
         onClick={() => navigate(toPage, { state: { department, parish } })}
       >
-        <img src={images.OLGPlogo} alt={department} />
+        <img
+          src={icon}
+          alt={department}
+          style={{
+            borderRadius: "100%",
+          }}
+        />
         <div>
           <div className="member-card-title">{department}</div>
           <div className="member-card-subtitle">{parish}</div>
@@ -17,7 +23,7 @@ export const createButtonCard = (images, navigate) => {
   };
 };
 
-export const createSelectedDepartmentCard = (images, navigate) => {
+export const createSelectedDepartmentCard = (navigate) => {
   return function SelectedDepartmentCard({
     department,
     parish,
@@ -25,6 +31,7 @@ export const createSelectedDepartmentCard = (images, navigate) => {
     selectedDepartment,
     originalDepartment,
     group,
+    icon,
   }) {
     return (
       <button
@@ -40,7 +47,13 @@ export const createSelectedDepartmentCard = (images, navigate) => {
           })
         }
       >
-        <img src={images.OLGPlogo} alt={department} />
+        <img
+          src={icon}
+          alt={department}
+          style={{
+            borderRadius: "100%",
+          }}
+        />
         <div>
           <div className="member-card-title">{department}</div>
           <div className="member-card-subtitle">{parish}</div>

@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import images from "../../helper/images";
+import icons from "../../helper/icon";
 import Footer from "../../components/footer";
 
 import { createButtonCard } from "../../assets/scripts/member";
@@ -11,8 +11,10 @@ export default function DepartmentSettings() {
   useEffect(() => {
     document.title = "OLGP Servers | Department Settings";
   }, []);
+
   const navigate = useNavigate();
-  const buttonCard = createButtonCard(images, navigate);
+  const ButtonCard = createButtonCard(navigate, icons);
+
   return (
     <div className="department-settings-page-container">
       <div className="department-settings-header">
@@ -23,35 +25,33 @@ export default function DepartmentSettings() {
       </div>
       <div className="department-settings-content">
         <div className="department-settings-cards-container">
-          {buttonCard({
-            department: "Altar Server",
-            parish:
-              "Pass the admin controls to a member from the Altar Server Department.",
-            toPage: "/selectMember",
-          })}
-          {buttonCard({
-            department: "Eucharistic Minister",
-            parish:
-              "Pass the admin controls to a member from the Eucharistic Minister Department.",
-            toPage: "/selectMember",
-          })}
-          {buttonCard({
-            department: "Choir",
-            parish:
-              "Pass the admin controls to a member from the Choir Department.",
-            toPage: "/selectMember",
-          })}
-          {buttonCard({
-            department: "Lector Commentator",
-            parish:
-              "Pass the admin controls to a member from the Lector Commentator Department.",
-            toPage: "/selectMember",
-          })}
+          <ButtonCard
+            department="Altar Server"
+            parish="Pass the admin controls to a member from the Altar Server Department."
+            toPage="/selectMember"
+            icon={icons.altarServerIcon}
+          />
+          <ButtonCard
+            department="Eucharistic Minister"
+            parish="Pass the admin controls to a member from the Eucharistic Minister Department."
+            toPage="/selectMember"
+            icon={icons.eucharisticMinisterIcon}
+          />
+          <ButtonCard
+            department="Choir"
+            parish="Pass the admin controls to a member from the Choir Department."
+            toPage="/selectMember"
+            icon={icons.choirIcon}
+          />
+          <ButtonCard
+            department="Lector Commentator"
+            parish="Pass the admin controls to a member from the Lector Commentator Department."
+            toPage="/selectMember"
+            icon={icons.lectorCommentatorIcon}
+          />
         </div>
       </div>
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

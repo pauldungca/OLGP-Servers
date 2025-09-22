@@ -1,12 +1,9 @@
 import React, { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
-import images from "../../../helper/images";
-
 import {
   // createButtonCard,
   createSelectedDepartmentCard,
@@ -19,31 +16,13 @@ export default function SelectDepartment() {
     document.title = "OLGP Servers | Members";
   }, []);
   const navigate = useNavigate();
-  //const buttonCard = createButtonCard(images, navigate);
+  // const buttonCard = createButtonCard(images, navigate);
 
   const location = useLocation();
   const department = location.state?.department || "Members";
 
-  const SelectedDepartmentCard = createSelectedDepartmentCard(images, navigate);
-
-  const departments = [
-    {
-      department: "Altar Server",
-      parish: "Import a member from the Altar Server Department.",
-    },
-    {
-      department: "Eucharistic Minister",
-      parish: "Import a member from the Eucharistic Minister Department.",
-    },
-    {
-      department: "Choir",
-      parish: "Import a member from the Choir Department.",
-    },
-    {
-      department: "Lector Commentator",
-      parish: "Import a member from the Lector Commentator Department.",
-    },
-  ];
+  // ✅ Do NOT change member.js; it expects only (navigate)
+  const SelectedDepartmentCard = createSelectedDepartmentCard(navigate);
 
   return (
     <div className="member-page-container">
@@ -89,22 +68,56 @@ export default function SelectDepartment() {
           <div className="header-line"></div>
         </div>
       </div>
+
       <div className="member-content">
         <div className="member-cards-container">
-          {departments
-            .filter((d) => d.department !== department)
-            .map((d) => (
-              <SelectedDepartmentCard
-                key={d.department}
-                department={d.department}
-                parish={d.parish}
-                toPage="/importMember"
-                selectedDepartment={d.department}
-                originalDepartment={department}
-              />
-            ))}
+          {/* Manual cards with conditional display so we don't show the same department */}
+          {department !== "Altar Server" && (
+            <SelectedDepartmentCard
+              department="Altar Server"
+              parish="Import a member from the Altar Server Department."
+              toPage="/importMember"
+              selectedDepartment="Altar Server"
+              originalDepartment={department}
+              icon={icon.altarServerIcon}
+            />
+          )}
+
+          {department !== "Eucharistic Minister" && (
+            <SelectedDepartmentCard
+              department="Eucharistic Minister"
+              parish="Import a member from the Eucharistic Minister Department."
+              toPage="/importMember"
+              selectedDepartment="Eucharistic Minister"
+              originalDepartment={department}
+              icon={icon.eucharisticMinisterIcon}
+            />
+          )}
+
+          {department !== "Choir" && (
+            <SelectedDepartmentCard
+              department="Choir"
+              parish="Import a member from the Choir Department."
+              toPage="/importMember"
+              selectedDepartment="Choir"
+              originalDepartment={department}
+              icon={icon.choirIcon}
+            />
+          )}
+
+          {department !== "Lector Commentator" && (
+            <SelectedDepartmentCard
+              department="Lector Commentator"
+              parish="Import a member from the Lector Commentator Department."
+              toPage="/importMember"
+              selectedDepartment="Lector Commentator"
+              originalDepartment={department}
+              icon={icon.lectorCommentatorIcon}
+            />
+          )}
         </div>
       </div>
+
       <div>
         <Footer />
       </div>

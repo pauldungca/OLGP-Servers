@@ -232,12 +232,16 @@ export default function Account() {
             alt="Profile"
             className="profile-image"
           />
-          {!editMode && (
-            <div>
-              <h4 className="fw-bold fs-3 m-0">{headerFullName || "Member"}</h4>
-              <small className="text-muted">ID: {storedIdNumber}</small>
-            </div>
-          )}
+          <div className="ms-3">
+            {!editMode && (
+              <div>
+                <h4 className="fw-bold fs-3 m-0">
+                  {headerFullName || "Member"}
+                </h4>
+                <small className="text-muted">ID: {storedIdNumber}</small>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Form Section */}

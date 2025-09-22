@@ -1,13 +1,13 @@
 import { supabase } from "../../utils/supabase";
 
-export const createButtonCard = (images, navigate) => {
+export const createButtonCard = (navigate, icon) => {
   return function ButtonCard({ department, parish, toPage }) {
     return (
       <button
         className="member-card"
         onClick={() => navigate(toPage, { state: { department, parish } })}
       >
-        <img src={images.OLGPlogo} alt={department} />
+        <img src={icon} alt={department} />
         <div>
           <div className="member-card-title">{department}</div>
           <div className="member-card-subtitle">{parish}</div>

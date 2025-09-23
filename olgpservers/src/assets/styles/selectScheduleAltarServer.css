@@ -92,6 +92,10 @@
   border: 3px solid #ff9800 !important;
 }
 
+.border-green {
+  border: 3px solid #0c9600 !important;
+}
+
 .schedule-icon {
   width: 90px;
   height: 90px;
@@ -119,6 +123,10 @@
   background-color: #ff9800;
 }
 
+.date-divider.green {
+  background-color: #0c9600;
+}
+
 .schedule-date {
   font-weight: bold;
   font-size: 16px;
@@ -130,6 +138,10 @@
 
 .schedule-date.orange {
   color: #ff9800;
+}
+
+.schedule-date.green {
+  color: #0c9600;
 }
 
 .action-buttons {

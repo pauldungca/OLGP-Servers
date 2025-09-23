@@ -1,3 +1,4 @@
+// src/pages/account/account.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -20,12 +21,24 @@ import {
   isLectorCommentatorScheduler,
 } from "../../assets/scripts/member";
 
+// From addMember helpers
 import {
+  handleContactNumberChange,
+  handleFileInputChange,
+  handleFileChange,
+  handleRemoveImage,
   getProvinces,
   getMunicipalities,
   getBarangays,
-  handleContactNumberChange,
 } from "../../assets/scripts/addMember";
+
+// From viewMember.js (your attachment logic)
+import {
+  uploadAndSaveMemberImage,
+  updateMemberImage,
+  clearMemberImage,
+  deleteMemberImageFromBucket,
+} from "../../assets/scripts/viewMember";
 
 import "../../assets/styles/account.css";
 
@@ -37,14 +50,17 @@ export default function Account() {
   const navigate = useNavigate();
   const storedIdNumber = localStorage.getItem("idNumber");
 
+  // role gates
   const [isEucharisticMinister, setIsEucharisticMinister] = useState(false);
   const [isChoir, setIsChoir] = useState(false);
   const [isAltarServer, setIsAltarServer] = useState(false);
   const [isLectorCommentator, setIsLectorCommentator] = useState(false);
 
+  // ui
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
 
+  // member fields
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -55,41 +71,48 @@ export default function Account() {
   const [dateJoined, setDateJoined] = useState("");
   const [imageUrl, setImageUrl] = useState(null);
 
+  // PSGC fields
   const [houseNumber, setHouseNumber] = useState("");
   const [province, setProvince] = useState("");
   const [municipality, setMunicipality] = useState("");
   const [barangay, setBarangay] = useState("");
+  const [street, setStreet] = useState("");
   const [addressDirty, setAddressDirty] = useState(false);
-
-  const [street, setStreet] = useState(""); // 🆕 Street
 
   const [provinces, setProvinces] = useState([]);
   const [municipalities, setMunicipalities] = useState([]);
   const [barangays, setBarangays] = useState([]);
 
-  useEffect(() => {
-    const initializeMemberData = async () => {
-      const eucharisticMinisterStatus = await isEucharisticMinisterScheduler(
-        storedIdNumber
-      );
-      const choirStatus = await isChoirScheduler(storedIdNumber);
-      const serverStatus = await isAltarServerScheduler(storedIdNumber);
-      const lectorStatus = await isLectorCommentatorScheduler(storedIdNumber);
+  // image attach state
+  const fileInputRef = React.useRef(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [fileAttached, setFileAttached] = useState(false);
+  const [deleteRequested, setDeleteRequested] = useState(false);
+  const [, setOriginalImageUrl] = useState(null);
 
-      setIsAltarServer(serverStatus);
-      setIsLectorCommentator(lectorStatus);
-      setIsEucharisticMinister(eucharisticMinisterStatus);
-      setIsChoir(choirStatus);
+  // figure out scheduler roles
+  useEffect(() => {
+    const init = async () => {
+      const euch = await isEucharisticMinisterScheduler(storedIdNumber);
+      const choir = await isChoirScheduler(storedIdNumber);
+      const altar = await isAltarServerScheduler(storedIdNumber);
+      const lector = await isLectorCommentatorScheduler(storedIdNumber);
+
+      setIsEucharisticMinister(euch);
+      setIsChoir(choir);
+      setIsAltarServer(altar);
+      setIsLectorCommentator(lector);
     };
-    initializeMemberData();
+    init();
   }, [storedIdNumber]);
 
   const isAnyScheduler =
     isEucharisticMinister || isChoir || isAltarServer || isLectorCommentator;
 
-  const canEditAll = editMode && isAnyScheduler; // schedulers in edit: full edit
-  const canEditEmailOnly = editMode && !isAnyScheduler; // member-only in edit: email only
+  const canEditAll = editMode && isAnyScheduler; // schedulers: full edit (incl. image)
+  const canEditEmailOnly = editMode && !isAnyScheduler; // non-schedulers: email only
 
+  // Load member
   const loadMember = useCallback(async () => {
     if (!storedIdNumber) {
       setLoading(false);
@@ -109,6 +132,12 @@ export default function Account() {
       setAddress(info.address || "");
       setDateJoined(info.dateJoined || "");
       setImageUrl(info.imageUrl || null);
+      setOriginalImageUrl(info.imageUrl || null);
+
+      // reset local image state
+      setImageFile(null);
+      setFileAttached(false);
+      setDeleteRequested(false);
     } catch (err) {
       console.error("Failed to load account info:", err);
     } finally {
@@ -120,14 +149,12 @@ export default function Account() {
     loadMember();
   }, [loadMember]);
 
+  // PSGC fetch chains
   useEffect(() => {
-    if (canEditAll) {
-      getProvinces()
-        .then(setProvinces)
-        .catch(() => setProvinces([]));
-    }
-  }, [canEditAll]);
-
+    getProvinces()
+      .then(setProvinces)
+      .catch(() => setProvinces([]));
+  }, []);
   useEffect(() => {
     if (province) {
       getMunicipalities(province)
@@ -140,7 +167,6 @@ export default function Account() {
       setBarangay("");
     }
   }, [province]);
-
   useEffect(() => {
     if (municipality) {
       getBarangays(municipality)
@@ -152,9 +178,9 @@ export default function Account() {
     }
   }, [municipality]);
 
+  // build full address from PSGC bits
   useEffect(() => {
     if (!addressDirty) return;
-
     const provinceName = provinces.find((p) => p.code === province)?.name || "";
     const municipalityName =
       municipalities.find((m) => m.code === municipality)?.name || "";
@@ -165,7 +191,6 @@ export default function Account() {
     }${barangayName ? barangayName + ", " : ""}${
       municipalityName ? municipalityName + ", " : ""
     }${provinceName}`;
-
     setAddress(fullAddress);
   }, [
     houseNumber,
@@ -179,11 +204,10 @@ export default function Account() {
     addressDirty,
   ]);
 
-  const handleChangePassword = () => navigate("/verifyOTPAccount");
-
+  // actions
   const handleEdit = () => {
     setEditMode(true);
-    setAddressDirty(false);
+    setDeleteRequested(false);
   };
 
   const handleCancelEdit = async () => {
@@ -199,29 +223,69 @@ export default function Account() {
 
     await loadMember();
     setEditMode(false);
-    setAddressDirty(false);
+    setDeleteRequested(false);
   };
 
   const handleSave = async () => {
     if (!storedIdNumber) return;
 
-    const ok = await editMemberInfo(
-      storedIdNumber,
-      firstName,
-      middleName,
-      lastName,
-      address,
-      sex,
-      email,
-      contactNumber
-    );
+    try {
+      // Save textual fields first
+      const ok = await editMemberInfo(
+        storedIdNumber,
+        firstName,
+        middleName,
+        lastName,
+        address,
+        sex,
+        email,
+        contactNumber
+      );
+      if (!ok) return;
 
-    if (ok) {
-      await loadMember();
-      setEditMode(false);
-      setAddressDirty(false);
+      if (deleteRequested) {
+        await clearMemberImage(storedIdNumber);
+        await deleteMemberImageFromBucket(storedIdNumber);
+        setImageUrl(null);
+      }
+
+      if (imageFile) {
+        const publicUrl = await uploadAndSaveMemberImage(
+          storedIdNumber,
+          imageFile
+        );
+        await updateMemberImage(storedIdNumber, publicUrl);
+
+        if (!publicUrl) {
+          await Swal.fire({
+            icon: "error",
+            title: "Upload failed",
+            text: "Please try again.",
+          });
+          return;
+        }
+        await updateMemberImage(storedIdNumber, publicUrl);
+        setImageUrl(publicUrl);
+      }
+
+      await Swal.fire({
+        icon: "success",
+        title: "Saved",
+        text: "Your information was updated.",
+      });
+
+      window.location.reload();
+    } catch (err) {
+      console.error("Image save error:", err);
+      await Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to update your profile photo.",
+      });
     }
   };
+
+  const handleChangePassword = () => navigate("/verifyOTPAccount");
 
   const headerFullName = [
     firstName || "",
@@ -253,31 +317,94 @@ export default function Account() {
       </div>
 
       <div className="account-content">
-        {/* Profile */}
-        <div className="d-flex align-items-center mb-4">
-          <img
-            src={imageUrl || images.accountImage}
-            alt="Profile"
-            className="profile-image"
-          />
-          <div className="ms-3">
-            {!editMode && (
-              <div>
-                <h4 className="fw-bold fs-3 m-0">
-                  {headerFullName || "Member"}
-                </h4>
-                <small className="text-muted">ID: {storedIdNumber}</small>
+        {/* View header only when NOT editing */}
+        {!editMode && (
+          <div className="d-flex align-items-center mb-4">
+            <img
+              src={imageUrl || images.accountImage}
+              alt="Profile"
+              className="profile-image"
+            />
+            <div className="ms-3">
+              <h4 className="fw-bold fs-3 m-0">{headerFullName || "Member"}</h4>
+              <small className="text-muted">ID: {storedIdNumber}</small>
+            </div>
+          </div>
+        )}
+
+        {/* Image attach controls — only schedulers in edit mode */}
+        {editMode && isAnyScheduler && (
+          <div className="attachment-container mb-4">
+            {(imageFile || imageUrl) && (
+              <div className="preview-container mt-2">
+                <img
+                  src={imageFile ? URL.createObjectURL(imageFile) : imageUrl}
+                  alt="Preview"
+                  className="preview-img"
+                />
+                <button
+                  type="button"
+                  className="preview-btn"
+                  aria-label="Remove selected image"
+                  onClick={() => {
+                    if (imageFile) {
+                      // just clear pending file
+                      handleRemoveImage(setImageFile, setFileAttached);
+                      return;
+                    }
+                    // mark existing image for deletion and clear preview
+                    setDeleteRequested(true);
+                    setImageUrl(null);
+                  }}
+                >
+                  ×
+                </button>
               </div>
             )}
+
+            {/* Round Add/Change button */}
+            <button
+              type="button"
+              className="add-image-btn"
+              onClick={(e) => handleFileChange(e, fileInputRef)}
+              title={imageUrl || imageFile ? "Change Photo" : "Add Photo"}
+              aria-label={imageUrl || imageFile ? "Change Photo" : "Add Photo"}
+            >
+              <svg viewBox="0 0 24 24" className="icon-img" aria-hidden="true">
+                <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1z"></path>
+              </svg>
+            </button>
+
+            {/* Labels */}
+            <div className="attachment-labels">
+              <span className="file-label">Attach file here</span>
+              {fileAttached && (
+                <span className="file-success">File attached!</span>
+              )}
+              {deleteRequested && (
+                <span className="text-danger" style={{ marginTop: 2 }}>
+                  Photo will be deleted on Save
+                </span>
+              )}
+            </div>
+
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) =>
+                handleFileInputChange(e, setImageFile, setFileAttached)
+              }
+              accept=".jpg,.jpeg,.png,.webp"
+              style={{ display: "none" }}
+            />
           </div>
-        </div>
+        )}
 
         {/* FORM */}
         <form>
           {canEditAll ? (
             <>
-              {/* EDIT MODE (Scheduler) */}
-
               {/* Row 1 — Names */}
               <div className="row mb-3">
                 <div className="col">
@@ -290,7 +417,9 @@ export default function Account() {
                   />
                 </div>
                 <div className="col">
-                  <label className="form-label">Middle Name</label>
+                  <label className="form-label">
+                    Middle Name <span className="text-muted">(Optional)</span>
+                  </label>
                   <input
                     type="text"
                     className="form-control"
@@ -453,9 +582,7 @@ export default function Account() {
             </>
           ) : (
             <>
-              {/* NOT EDIT MODE (and Member-only edit layout) */}
-
-              {/* Row 1 — Names */}
+              {/* VIEW MODE / non-scheduler */}
               <div className="row mb-3">
                 <div className="col">
                   <label className="form-label">First Name</label>
@@ -486,7 +613,6 @@ export default function Account() {
                 </div>
               </div>
 
-              {/* Row 2 — Full Address + Date Joined */}
               <div className="row mb-3">
                 <div className="col-8">
                   <label className="form-label">Full Address</label>
@@ -508,7 +634,6 @@ export default function Account() {
                 </div>
               </div>
 
-              {/* Row 3 — Sex / Email / Contact (email editable only if member in edit) */}
               <div className="row mb-4">
                 <div className="col-3">
                   <label className="form-label">Sex</label>

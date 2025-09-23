@@ -266,8 +266,6 @@ export const removeAltarServer = async (
           text: "The member has been fully removed from all records.",
         });
       } else {
-        // ✅ Case 2: Member belongs to other departments → only remove Altar Server membership
-
         // 1️⃣ Update user-type → set altar-server-member = 0
         let { error: errorUpdate } = await supabase
           .from("user-type")

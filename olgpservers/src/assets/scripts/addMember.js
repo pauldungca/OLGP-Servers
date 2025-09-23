@@ -104,7 +104,8 @@ export const addMember = async (
   sex,
   email,
   contactNumber,
-  imageUrl
+  imageUrl,
+  selectedRole
 ) => {
   if (await isEmailAlreadyUsed(email)) {
     Swal.fire({
@@ -142,6 +143,15 @@ export const addMember = async (
       icon: "error",
       title: "Inavlid Format",
       html: `Please put "@gmail.com" in your email input.`,
+    });
+    return false;
+  }
+
+  if (!selectedRole || selectedRole === "Select Role") {
+    await Swal.fire({
+      icon: "warning",
+      title: "Role Required",
+      text: "Please select a role before adding a member.",
     });
     return false;
   }

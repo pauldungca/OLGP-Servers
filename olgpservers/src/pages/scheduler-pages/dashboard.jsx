@@ -3,12 +3,25 @@ import "../../assets/styles/dashboard.css";
 import images from "../../helper/images";
 
 import CalendarPage from "../../components/calendar";
+import termsModal from "../../components/termsModal";
 
 import Footer from "../../components/footer";
 
 export default function Dashboard() {
   useEffect(() => {
     document.title = "OLGP Servers | Dashboard";
+  }, []);
+  useEffect(() => {
+    const agreed = localStorage.getItem("agreedTerms");
+    if (!agreed) {
+      termsModal(
+        () => alert("✅ User agreed"),
+        () => {
+          alert("You must agree to continue.");
+          window.location.href = "/logout";
+        }
+      );
+    }
   }, []);
   return (
     <div className="dashboard-page-container">

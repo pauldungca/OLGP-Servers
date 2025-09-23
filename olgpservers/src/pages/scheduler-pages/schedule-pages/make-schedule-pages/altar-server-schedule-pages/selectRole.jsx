@@ -21,7 +21,7 @@ export default function SelectRole() {
     <div className="schedule-page-container">
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>MAKE SCHEDULE</h3>
+          <h3>MAKE SCHEDULE - ALTAR SERVER</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[

@@ -12,10 +12,10 @@ import {
   nextMonth,
   formatHeader,
   formatScheduleDate,
-  fetchTemplateDates,
+  fetchAltarServerTemplateDates,
   filterByMonthYear,
   mergeSchedules,
-} from "../../../../../assets/scripts/altarServerSchedule";
+} from "../../../../../assets/scripts/fetchSchedule";
 
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/selectScheduleAltarServer.css";
@@ -26,23 +26,22 @@ export default function SelectSchedule() {
   }, []);
 
   const navigate = useNavigate();
-  const handleCardClick = () => navigate("/selectMassAltarServer");
 
   // Initialize with current month/year
   const today = useMemo(() => new Date(), []);
-  const [month, setMonth] = useState(today.getMonth()); // 0 = Jan
+  const [month, setMonth] = useState(today.getMonth());
   const [year, setYear] = useState(today.getFullYear());
 
-  // Supabase template dates (all, we’ll filter by month/year)
+  // Supabase template dates (all months; we'll filter)
   const [templateDates, setTemplateDates] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load template dates once (or you can refetch on demand)
+  // Fetch templates once
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const rows = await fetchTemplateDates(); // comes from altarServerSchedule.js
+      const rows = await fetchAltarServerTemplateDates();
       if (!cancelled) {
         setTemplateDates(rows);
         setLoading(false);
@@ -53,16 +52,16 @@ export default function SelectSchedule() {
     };
   }, []);
 
-  // Compute Sundays for the visible month
+  // Sundays for visible month
   const sundays = useMemo(() => getSundays(year, month), [year, month]);
 
-  // Filter template rows to the visible month/year
+  // Templates for visible month
   const visibleTemplates = useMemo(
     () => filterByMonthYear(templateDates, year, month),
     [templateDates, year, month]
   );
 
-  // Merge & sort for display
+  // Merge & sort: [{ id, dateObj, dateStr, source: "sunday"|"template" }, ...]
   const scheduleItems = useMemo(
     () => mergeSchedules(sundays, visibleTemplates),
     [sundays, visibleTemplates]
@@ -78,6 +77,19 @@ export default function SelectSchedule() {
     const { year: y, month: m } = nextMonth(year, month);
     setYear(y);
     setMonth(m);
+  };
+
+  // Pass ISO + source + explicit isSunday so the next page is unambiguous
+  const handleCardClick = (dateObj, source) => {
+    const selectedISO = dateObj.toISOString().slice(0, 10); // YYYY-MM-DD
+    navigate("/selectMassAltarServer", {
+      state: {
+        selectedDate: formatScheduleDate(dateObj), // display label
+        selectedISO, // reliable date
+        source, // "sunday" | "template"
+        isSunday: source === "sunday",
+      },
+    });
   };
 
   return (
@@ -135,7 +147,6 @@ export default function SelectSchedule() {
         </div>
 
         <div className="schedule-grid schedule-content">
-          {/* Loading state (optional) */}
           {loading && (
             <div className="schedule-card border-blue" style={{ opacity: 0.6 }}>
               <img
@@ -149,32 +160,49 @@ export default function SelectSchedule() {
             </div>
           )}
 
-          {/* Render merged items: Sundays + Template dates (sorted) */}
-          {scheduleItems.map((item) => {
-            const isTemplate = item.source === "template";
+          {scheduleItems.map((sched) => {
+            const key = `${sched.source}-${sched.dateObj.toISOString()}`;
+            const isTemplate = sched.source === "template";
             return (
               <div
-                key={`${item.source}-${item.dateStr}-${item.id}`}
+                key={key}
                 className="schedule-card border-blue"
-                onClick={handleCardClick}
+                onClick={() => handleCardClick(sched.dateObj, sched.source)}
                 style={{ position: "relative" }}
               >
-                {/* Small bookmark for Supabase-derived dates */}
-                {isTemplate && (
-                  <span
-                    title="Template Schedule"
-                    style={{
-                      position: "absolute",
-                      top: 8,
-                      right: 8,
-                      fontSize: 18,
-                      lineHeight: 1,
-                      userSelect: "none",
-                    }}
-                  >
-                    🔖
-                  </span>
-                )}
+                {/* 🔖 Restore bookmark mark ONLY for template-sourced items */}
+                {isTemplate &&
+                  (icon.bookmarkIcon ? (
+                    <img
+                      src={icon.bookmarkIcon}
+                      alt="Template"
+                      title="Template Schedule"
+                      style={{
+                        position: "absolute",
+                        top: 8,
+                        right: 8,
+                        width: 18,
+                        height: 18,
+                        pointerEvents: "none",
+                        userSelect: "none",
+                      }}
+                    />
+                  ) : (
+                    <span
+                      title="Template Schedule"
+                      style={{
+                        position: "absolute",
+                        top: 8,
+                        right: 8,
+                        fontSize: 18,
+                        lineHeight: 1,
+                        userSelect: "none",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      🔖
+                    </span>
+                  ))}
 
                 <img
                   src={image.emptyScheduleImage}
@@ -182,10 +210,9 @@ export default function SelectSchedule() {
                   className="schedule-icon"
                 />
                 <p className="schedule-text">This Schedule is Empty.</p>
-
                 <div className="date-divider blue"></div>
                 <p className="schedule-date blue">
-                  {formatScheduleDate(item.dateObj)}
+                  {formatScheduleDate(sched.dateObj)}
                 </p>
               </div>
             );

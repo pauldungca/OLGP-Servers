@@ -80,24 +80,52 @@ export const formatScheduleDate = (dateObj) => {
   return `${month} ${day} - ${weekday}`;
 };
 
-export const fetchTemplateDates = async () => {
-  const { data, error } = await supabase
+export const fetchAltarServerTemplateDates = async () => {
+  // 1) Read uses (dates) with their templateID
+  const { data: uses, error: useErr } = await supabase
     .from("use-template-table")
-    .select("id,date")
+    .select("id,date,templateID")
     .order("date", { ascending: true });
 
-  if (error) {
-    console.error("Supabase fetch error:", error);
+  if (useErr) {
+    console.error("Supabase fetch (use-template-table) error:", useErr);
     return [];
   }
 
-  // Normalize to objects with Date and a source tag
-  return (data || [])
-    .filter((r) => typeof r.date === "string" && r.date.length >= 10)
+  // Unique templateIDs referenced by the uses
+  const templateIDs = Array.from(
+    new Set((uses || []).map((u) => u.templateID).filter((v) => v != null))
+  );
+
+  if (templateIDs.length === 0) return [];
+
+  // 2) Read template flags and keep only those with isNeeded=1
+  const { data: needed, error: tmplErr } = await supabase
+    .from("template-altar-server")
+    .select("templateID,isNeeded")
+    .in("templateID", templateIDs)
+    .eq("isNeeded", 1);
+
+  if (tmplErr) {
+    console.error("Supabase fetch (template-altar-server) error:", tmplErr);
+    return [];
+  }
+
+  const allowed = new Set((needed || []).map((t) => t.templateID));
+
+  // 3) Return normalized rows only for allowed templateIDs
+  return (uses || [])
+    .filter(
+      (r) =>
+        typeof r.date === "string" &&
+        r.date.length >= 10 &&
+        allowed.has(r.templateID)
+    )
     .map((r) => {
       const d = new Date(`${r.date}T00:00:00`);
       return {
         id: r.id,
+        templateID: r.templateID,
         dateStr: r.date, // "YYYY-MM-DD"
         dateObj: d,
         source: "template", // mark as template-sourced

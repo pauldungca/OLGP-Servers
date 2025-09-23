@@ -1,59 +1,64 @@
-// src/components/termsModal.jsx
-import Swal from "sweetalert2";
+import "../assets/styles/termsModal.css";
 
-export default function termsModal(onAgree, onExit) {
-  Swal.fire({
-    title: "<strong>Terms and Conditions</strong>",
-    html: `
-      <div style="max-height:300px; overflow-y:auto; text-align:left; padding-right:10px">
-        <ul style="padding-left:18px; line-height:1.6">
-          <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ullamcorper eget tortor in cursus.</li>
-          <li>Etiam vel velit euismod, consequat tortor vitae, consequat orci.</li>
-          <li>Phasellus mi arcu, tempus sed augue id, elementum placerat odio.</li>
-          <li>Posuere cubilia curae; Suspendisse viverra orci a luctus laoreet.</li>
-          <li>Sed tempus, neque et fringilla consectetur, velit ex tincidunt magna.</li>
-          <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ullamcorper eget tortor in cursus.</li>
-          <li>Etiam vel velit euismod, consequat tortor vitae, consequat orci.</li>
-          <li>Phasellus mi arcu, tempus sed augue id, elementum placerat odio.</li>
-          <li>Posuere cubilia curae; Suspendisse viverra orci a luctus laoreet.</li>
-          <li>Sed tempus, neque et fringilla consectetur, velit ex tincidunt magna.</li>
-        </ul>
+export default function TermsModal({ open, onAgree, onExit }) {
+  if (!open) return null;
+
+  return (
+    <div className="tm-overlay">
+      <div className="tm-box">
+        <h2 className="tm-title">Terms and Conditions</h2>
+        <div className="tm-content">
+          <ul>
+            <li>
+              <strong>Account Usage:</strong> Each user is given a unique
+              account to access OLGP Servers. Sharing accounts, impersonating
+              others, or unauthorized access to another account is strictly
+              prohibited.
+            </li>
+            <li>
+              <strong>Personal Information:</strong> The system may store data
+              such as your name, ID number, email, and schedule details. You are
+              responsible for keeping this information accurate and updated.
+            </li>
+            <li>
+              <strong>Uploaded Content:</strong> Any images or files uploaded
+              (e.g., profile photos, documents) must be appropriate, related to
+              parish service, and free from offensive or harmful content. OLGP
+              Servers reserves the right to remove inappropriate uploads.
+            </li>
+            <li>
+              <strong>Data Use:</strong> Information provided will only be used
+              for scheduling, communication, and record-keeping within OLGP
+              Servers. Data will not be sold or shared outside parish
+              administration without consent.
+            </li>
+            <li>
+              <strong>Data Security:</strong> Reasonable safeguards are applied
+              to protect your information. However, complete security cannot be
+              guaranteed against unauthorized access or technical failures.
+            </li>
+            <li>
+              <strong>User Responsibility:</strong> You agree not to upload
+              false data, disrupt schedules, or misuse the system in any way
+              that may affect other users or parish operations.
+            </li>
+            <li>
+              <strong>Consent:</strong> By clicking “Agree,” you acknowledge
+              that you understand and accept these Terms regarding account use,
+              data handling, and uploaded content. If you do not agree, click
+              “Exit” to discontinue use of OLGP Servers.
+            </li>
+          </ul>
+        </div>
+        <div className="tm-actions">
+          <button className="tm-btn tm-btn-exit" onClick={onExit}>
+            Exit
+          </button>
+          <button className="tm-btn tm-btn-agree" onClick={onAgree}>
+            Agree
+          </button>
+        </div>
       </div>
-      <style>
-        .swal2-actions {
-          display: flex !important;
-          justify-content: space-between !important;
-          width: 100% !important;
-          padding: 0 10px;
-        }
-        .swal2-confirm, .swal2-cancel {
-          flex: 0 0 48% !important;   
-          margin: 10px 0 !important;
-          font-size: 16px !important;
-          padding: 12px !important;
-        }
-      </style>
-    `,
-    showCancelButton: true,
-    confirmButtonText: "Agree",
-    cancelButtonText: "Exit",
-    confirmButtonColor: "#4CAF50", // green
-    cancelButtonColor: "#F44336", // red
-    allowOutsideClick: false,
-    allowEscapeKey: false,
-    width: "600px",
-    reverseButtons: true,
-    customClass: {
-      actions: "swal2-actions",
-      confirmButton: "swal2-confirm",
-      cancelButton: "swal2-cancel",
-    },
-  }).then((result) => {
-    if (result.isConfirmed) {
-      localStorage.setItem("agreedTerms", "true");
-      if (onAgree) onAgree();
-    } else if (result.dismiss === Swal.DismissReason.cancel) {
-      if (onExit) onExit();
-    }
-  });
+    </div>
+  );
 }

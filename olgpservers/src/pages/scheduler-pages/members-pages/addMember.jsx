@@ -147,7 +147,8 @@ export default function AddMember() {
       sex,
       email,
       contactNumber,
-      null // always null at first
+      null,
+      selectedRolesArray
     );
 
     if (isAdded) {

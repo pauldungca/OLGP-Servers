@@ -563,16 +563,6 @@ export const fetchAltarServerMembersWithRole = async () => {
 
     const idNumbers = userTypes.map((ut) => ut.idNumber);
 
-    // 2️⃣ Alert if no altar server members
-    if (idNumbers.length === 0) {
-      Swal.fire({
-        icon: "info",
-        title: "No Altar Server Members",
-        text: "There are currently no members marked as altar servers.",
-      });
-      return [];
-    }
-
     // 3️⃣ Fetch members-information for those idNumbers
     const { data: members, error: membersError } = await supabase
       .from("members-information")
@@ -625,16 +615,6 @@ export const fetchLectorCommentatorMembersWithRole = async () => {
 
     const idNumbers = userTypes.map((ut) => ut.idNumber);
 
-    // 2️⃣ Alert if no lector-commentator members
-    if (idNumbers.length === 0) {
-      Swal.fire({
-        icon: "info",
-        title: "No Lector Commentator Members",
-        text: "There are currently no members marked as Lector Commentators.",
-      });
-      return [];
-    }
-
     // 3️⃣ Fetch members-information for those idNumbers
     const { data: members, error: membersError } = await supabase
       .from("members-information")
@@ -686,15 +666,6 @@ export const fetchEucharisticMinisterWithGroup = async (groupName) => {
 
     const idNumbers = (groupRows || []).map((r) => r.idNumber);
 
-    if (idNumbers.length === 0) {
-      Swal.fire({
-        icon: "info",
-        title: "No Members in Group",
-        text: `No Eucharistic Minister members found for ${groupName}.`,
-      });
-      return [];
-    }
-
     // 2) Fetch members-information for those idNumbers
     const { data: members, error: memErr } = await supabase
       .from("members-information")
@@ -734,15 +705,6 @@ export const fetchChoirWithGroup = async (groupName) => {
 
     const idNumbers = (groupRows || []).map((r) => r.idNumber);
 
-    if (idNumbers.length === 0) {
-      Swal.fire({
-        icon: "info",
-        title: "No Members in Group",
-        text: `No Choir members found for ${groupName}.`,
-      });
-      return [];
-    }
-
     // 2) Fetch members-information for those idNumbers
     const { data: members, error: memErr } = await supabase
       .from("members-information")
@@ -770,7 +732,6 @@ export const fetchChoirWithGroup = async (groupName) => {
   }
 };
 
-// Get ALL Eucharistic Ministers (no group filter)
 export const fetchEucharisticMinisterMembers = async () => {
   try {
     const { data: userTypes, error: utErr } = await supabase
@@ -780,10 +741,6 @@ export const fetchEucharisticMinisterMembers = async () => {
     if (utErr) throw utErr;
 
     const ids = (userTypes || []).map((u) => u.idNumber);
-    if (ids.length === 0) {
-      await Swal.fire("Info", "No Eucharistic Minister members found.", "info");
-      return [];
-    }
 
     const { data: members, error: memErr } = await supabase
       .from("members-information")
@@ -796,12 +753,10 @@ export const fetchEucharisticMinisterMembers = async () => {
     return members.map((m) => ({ ...m, role: "-" }));
   } catch (err) {
     console.error("fetchEucharisticMinisterMembers error:", err);
-    await Swal.fire("Error", "Failed to fetch EM members.", "error");
     return [];
   }
 };
 
-// Get ALL Choir members (no group filter)
 export const fetchChoirMembers = async () => {
   try {
     const { data: userTypes, error: utErr } = await supabase

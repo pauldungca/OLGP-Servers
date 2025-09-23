@@ -2,7 +2,6 @@ import { supabase } from "../../utils/supabase";
 import { Tooltip } from "antd";
 import Swal from "sweetalert2";
 
-// Role-related functions
 export const fetchUserRoles = async (userId, setUserRoles, setUserRoleType) => {
   try {
     const { data, error } = await supabase
@@ -57,28 +56,81 @@ export const fetchUserRoles = async (userId, setUserRoles, setUserRoleType) => {
 export const determineUserRole = (roles) => {
   const activeRoles = [];
 
-  if (roles.isParishSecretary) activeRoles.push("Parish Secretary");
-  if (roles.isAltarServerScheduler) activeRoles.push("Altar Server Scheduler");
-  if (roles.isEucharisticMinisterScheduler)
-    activeRoles.push("Eucharistic Minister Scheduler");
-  if (roles.isLectorCommentatorScheduler)
-    activeRoles.push("Lector Commentator Scheduler");
-  if (roles.isChoirScheduler) activeRoles.push("Choir Scheduler");
+  // ✅ Universal checks
+  const allSchedulers =
+    roles.isAltarServerScheduler &&
+    roles.isEucharisticMinisterScheduler &&
+    roles.isLectorCommentatorScheduler &&
+    roles.isChoirScheduler;
 
-  if (roles.isAltarServerMember) activeRoles.push("Altar Server member");
-  if (roles.isEucharisticMinisterMember)
-    activeRoles.push("Eucharistic Minister member");
-  if (roles.isLectorCommentatorMember)
-    activeRoles.push("Lector Commentator member");
-  if (roles.isChoirMember) activeRoles.push("Choir member");
+  const allMembers =
+    roles.isAltarServerMember &&
+    roles.isEucharisticMinisterMember &&
+    roles.isLectorCommentatorMember &&
+    roles.isChoirMember;
 
-  if (activeRoles.length === 0) {
-    return "None";
-  } else if (activeRoles.length === 1) {
-    return activeRoles[0];
+  if (allSchedulers && allMembers) {
+    // Both universal → show only these two
+    activeRoles.push("Universal Scheduler", "Universal Member");
   } else {
-    return activeRoles.join(" | ");
+    if (allSchedulers) {
+      activeRoles.push("Universal Scheduler");
+    } else if (allMembers) {
+      activeRoles.push("Universal Member");
+    }
+
+    // Parish Secretary
+    if (roles.isParishSecretary) {
+      activeRoles.push("Parish Secretary");
+    }
+
+    // 🔹 Department-specific only if not "both universals"
+    if (!allSchedulers && !allMembers) {
+      if (roles.isAltarServerScheduler && roles.isAltarServerMember) {
+        activeRoles.push("Altar Server Coordinator");
+      } else {
+        if (roles.isAltarServerScheduler)
+          activeRoles.push("Altar Server Scheduler");
+        if (roles.isAltarServerMember) activeRoles.push("Altar Server Member");
+      }
+
+      if (
+        roles.isEucharisticMinisterScheduler &&
+        roles.isEucharisticMinisterMember
+      ) {
+        activeRoles.push("Eucharistic Minister Coordinator");
+      } else {
+        if (roles.isEucharisticMinisterScheduler)
+          activeRoles.push("Eucharistic Minister Scheduler");
+        if (roles.isEucharisticMinisterMember)
+          activeRoles.push("Eucharistic Minister Member");
+      }
+
+      if (
+        roles.isLectorCommentatorScheduler &&
+        roles.isLectorCommentatorMember
+      ) {
+        activeRoles.push("Lector Commentator Coordinator");
+      } else {
+        if (roles.isLectorCommentatorScheduler)
+          activeRoles.push("Lector Commentator Scheduler");
+        if (roles.isLectorCommentatorMember)
+          activeRoles.push("Lector Commentator Member");
+      }
+
+      if (roles.isChoirScheduler && roles.isChoirMember) {
+        activeRoles.push("Choir Coordinator");
+      } else {
+        if (roles.isChoirScheduler) activeRoles.push("Choir Scheduler");
+        if (roles.isChoirMember) activeRoles.push("Choir Member");
+      }
+    }
   }
+
+  // Return string
+  if (activeRoles.length === 0) return "None";
+  if (activeRoles.length === 1) return activeRoles[0];
+  return activeRoles.join(" | ");
 };
 
 export const createNavigationLinks = (navigate) => {

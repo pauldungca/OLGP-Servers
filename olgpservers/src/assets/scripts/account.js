@@ -61,6 +61,16 @@ export const editMemberInfo = async (
     return false;
   }
 
+  // ✅ Required fields validation (middleName is optional)
+  if (!firstName || !lastName || !address || !sex || !email || !contactNumber) {
+    await Swal.fire({
+      icon: "warning",
+      title: "Missing Information",
+      text: "Please fill in all required fields.",
+    });
+    return false;
+  }
+
   const confirm = await Swal.fire({
     icon: "question",
     title: "Save changes?",
@@ -81,7 +91,7 @@ export const editMemberInfo = async (
         address,
         sex,
         email,
-        contactNumber: contactNumber,
+        contactNumber,
       })
       .eq("idNumber", idNumber)
       .select()
@@ -90,11 +100,7 @@ export const editMemberInfo = async (
     if (error) throw error;
     if (!data) throw new Error("No rows updated");
 
-    await Swal.fire({
-      icon: "success",
-      title: "Saved",
-      text: "Your information was updated.",
-    });
+    //window.location.reload();
 
     return true;
   } catch (err) {

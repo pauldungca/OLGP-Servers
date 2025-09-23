@@ -66,3 +66,69 @@
   color: #2e4a9e;
   border: 2px solid #2e4a9e;
 }
+
+.attachment-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap; /* keeps layout nice if long labels */
+}
+
+.preview-container {
+  position: relative;
+  display: inline-block;
+}
+
+.preview-img {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.preview-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: red;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.file-success {
+  font-size: 14px;
+  color: green;
+  margin-top: 2px;
+}
+
+.add-image-btn {
+  background: none;
+  border: none;
+  width: 100px;
+  height: 100px;
+  padding: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease-in;
+}
+
+.add-image-btn:hover {
+  background-color: #c8c8c8;
+}
+
+.icon-img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+}

@@ -18,8 +18,9 @@ export default function SelectMass() {
 
   const selectedDate = location.state?.selectedDate || "No date selected";
   const selectedISO = location.state?.selectedISO || null;
-  const source = location.state?.source || null;
+  const source = location.state?.source || null; // "sunday" | "template"
   const passedIsSunday = location.state?.isSunday;
+  const templateID = location.state?.templateID ?? null; // ← read templateID if provided
 
   const isSunday = useMemo(() => {
     if (typeof passedIsSunday === "boolean") return passedIsSunday;
@@ -39,6 +40,8 @@ export default function SelectMass() {
         selectedISO,
         selectedMass: massLabel,
         source,
+        isSunday,
+        templateID, // ← pass through
       },
     });
   };
@@ -47,7 +50,7 @@ export default function SelectMass() {
     <div className="schedule-page-container">
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>MAKE SCHEDULE</h3>
+          <h3>MAKE SCHEDULE - ALTAR SERVER</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -68,16 +71,13 @@ export default function SelectMass() {
                     </Link>
                   ),
                 },
-                {
-                  title: "Select Mass",
-                  className: "breadcrumb-item-active",
-                },
+                { title: "Select Mass", className: "breadcrumb-item-active" },
               ]}
               separator={
                 <img
                   src={icon.chevronIcon}
                   alt="Chevron Icon"
-                  style={{ width: "15px", height: "15px" }}
+                  style={{ width: 15, height: 15 }}
                 />
               }
               className="customized-breadcrumb"
@@ -88,12 +88,30 @@ export default function SelectMass() {
       </div>
 
       <div className="schedule-content">
-        <h4 style={{ marginBottom: "1rem" }}>Selected Date: {selectedDate}</h4>
+        <h4 style={{ marginBottom: "0.5rem" }}>
+          Selected Date: {selectedDate}
+        </h4>
+
+        {/* Show Template ID only for template-sourced dates */}
+        {source === "template" && templateID && (
+          <div
+            style={{
+              display: "inline-block",
+              padding: "6px 10px",
+              border: "1px solid #2e4a9e",
+              borderRadius: 8,
+              fontSize: 14,
+              color: "#2e4a9e",
+              marginBottom: "1rem",
+            }}
+          >
+            Template ID: <strong>{templateID}</strong>
+          </div>
+        )}
 
         <div className="schedule-grid">
           {isSunday ? (
             <>
-              {/* 1st Mass - Empty */}
               <div
                 className="schedule-card border-blue"
                 onClick={() => goNext("1st Mass - 6:00 AM")}
@@ -108,7 +126,6 @@ export default function SelectMass() {
                 <p className="schedule-date blue">1st Mass - 6:00 AM</p>
               </div>
 
-              {/* 2nd Mass - Empty (keep complete aside) */}
               <div
                 className="schedule-card border-blue"
                 onClick={() => goNext("2nd Mass - 8:00 AM")}
@@ -122,17 +139,7 @@ export default function SelectMass() {
                 <div className="date-divider blue"></div>
                 <p className="schedule-date blue">2nd Mass - 8:00 AM</p>
               </div>
-              {/*
-              // 🔒 Keep aside for later use:
-              <div className="schedule-card border-green">
-                <img src={image.completeScheduleImage} alt="Complete" className="schedule-icon" />
-                <p className="schedule-text">This Schedule is Complete.</p>
-                <div className="date-divider green"></div>
-                <p className="schedule-date green">2nd Mass - 8:00 AM</p>
-              </div>
-              */}
 
-              {/* 3rd Mass - Empty (keep incomplete aside) */}
               <div
                 className="schedule-card border-blue"
                 onClick={() => goNext("3rd Mass - 5:00 PM")}
@@ -146,18 +153,8 @@ export default function SelectMass() {
                 <div className="date-divider blue"></div>
                 <p className="schedule-date blue">3rd Mass - 5:00 PM</p>
               </div>
-              {/*
-              // 🔒 Keep aside for later use:
-              <div className="schedule-card border-orange">
-                <img src={image.incompleteScheduleImage} alt="Incomplete" className="schedule-icon" />
-                <p className="schedule-text">This Schedule is Incomplete.</p>
-                <div className="date-divider orange"></div>
-                <p className="schedule-date orange">3rd Mass - 5:00 PM</p>
-              </div>
-              */}
             </>
           ) : (
-            // Non-Sunday (template date): single card labeled "Mass"
             <div
               className="schedule-card border-blue"
               onClick={() => goNext("Mass")}

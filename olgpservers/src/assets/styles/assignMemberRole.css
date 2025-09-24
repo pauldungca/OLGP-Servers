@@ -43,15 +43,31 @@
   margin-top: 4px; /* small gap between label and name */
 }
 
+.bottom-buttons {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 4%;
+  padding-top: 24px;
+}
+
 .action-buttons {
-  width: 50%;
-  padding: 14px 28px;
+  width: 48%;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px;
   font-size: 18px;
   font-weight: 500;
   border-radius: 8px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
 }
 
-.cancel-btn {
+.cancel-button {
   background-color: #ff5252;
   color: white;
 }
@@ -61,8 +77,8 @@
   color: white;
 }
 
-.cancel-btn:hover {
-  background-color: #e03939;
+.cancel-button:hover {
+  background-color: #c02929;
   color: white;
 }
 
@@ -74,13 +90,7 @@
 .img-btn {
   width: 24px;
   height: 24px;
-  margin-right: 10px;
-}
-
-.bottom-buttons {
-  margin-top: auto; /* pushes it to the bottom */
-  display: flex;
-  justify-content: flex-end;
-  gap: 15px;
-  padding-top: 150px;
+  flex: 0 0 auto;
+  display: block; /* avoids inline baseline weirdness */
+  margin-right: 0; /* gap is handled by the button’s gap */
 }

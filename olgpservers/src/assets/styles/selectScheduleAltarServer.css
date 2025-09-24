@@ -11,23 +11,47 @@
 }
 
 .month-nav {
+  position: relative;
+  width: 100%;
+  max-width: 520px; /* adjust to taste */
+  margin: 0 auto;
+  padding: 0 56px; /* space so title never overlaps arrows */
   display: flex;
   align-items: center;
-  gap: 100px;
+  justify-content: center;
+  /* Remove the old gap that caused shifting */
+  gap: 0 !important;
 }
 
 .month-title {
   font-size: 20px;
   font-weight: bold;
   margin: 0;
+  text-align: center;
+  white-space: nowrap; /* prevent wrapping which can nudge layout */
 }
 
 .arrow-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px; /* fixed width prevents jitter */
+  height: 40px;
+  display: grid;
+  place-items: center;
   background: none;
   border: none;
   font-size: 22px;
   cursor: pointer;
-  padding: 5px 10px;
+  padding: 0;
+  line-height: 1;
+}
+
+.month-nav .arrow-btn:first-child {
+  left: 8px;
+}
+.month-nav .arrow-btn:last-child {
+  right: 8px;
 }
 
 .auto-btn-container {
@@ -50,6 +74,11 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
+}
+
+.auto-btn:hover {
+  background-color: rgb(28, 44, 94);
+  color: white;
 }
 
 .btn-icon {

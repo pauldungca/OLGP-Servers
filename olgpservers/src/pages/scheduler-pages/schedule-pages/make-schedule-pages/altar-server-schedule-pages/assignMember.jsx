@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Breadcrumb } from "antd";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import icon from "../../../../../helper/icon";
 import image from "../../../../../helper/images";
+import Footer from "../../../../../components/footer";
 
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/assignMemberRole.css";
@@ -11,6 +12,17 @@ export default function AssignMember() {
   useEffect(() => {
     document.title = "OLGP Servers | Make Schedule";
   }, []);
+
+  const location = useLocation();
+
+  // Read context passed from SelectRole
+  const selectedDate = location.state?.selectedDate || "No date selected";
+  const selectedISO = location.state?.selectedISO || null;
+  const selectedMass = location.state?.selectedMass || "No mass selected";
+  const source = location.state?.source || null;
+  const isSunday = location.state?.isSunday ?? null;
+  const templateID = location.state?.templateID ?? null;
+
   const members = [
     "John Paul Dungca",
     "Gabriel Cayabyab",
@@ -30,20 +42,10 @@ export default function AssignMember() {
 
   const handleAssign = (name) => {
     setAssigned((prev) => {
-      if (prev.candleBearer1 === name) {
-        return { ...prev, candleBearer1: "" };
-      }
-      if (prev.candleBearer2 === name) {
-        return { ...prev, candleBearer2: "" };
-      }
-
-      if (!prev.candleBearer1) {
-        return { ...prev, candleBearer1: name };
-      }
-      if (!prev.candleBearer2) {
-        return { ...prev, candleBearer2: name };
-      }
-
+      if (prev.candleBearer1 === name) return { ...prev, candleBearer1: "" };
+      if (prev.candleBearer2 === name) return { ...prev, candleBearer2: "" };
+      if (!prev.candleBearer1) return { ...prev, candleBearer1: name };
+      if (!prev.candleBearer2) return { ...prev, candleBearer2: name };
       return prev;
     });
   };
@@ -51,7 +53,6 @@ export default function AssignMember() {
   const isChecked = (name) =>
     assigned.candleBearer1 === name || assigned.candleBearer2 === name;
 
-  // filter members based on search term
   const filteredMembers = members.filter((name) =>
     name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -86,6 +87,13 @@ export default function AssignMember() {
                     <Link
                       to="/selectMassAltarServer"
                       className="breadcrumb-item"
+                      state={{
+                        selectedDate,
+                        selectedISO,
+                        source,
+                        isSunday,
+                        templateID,
+                      }}
                     >
                       Select Mass
                     </Link>
@@ -96,6 +104,14 @@ export default function AssignMember() {
                     <Link
                       to="/selectRoleAltarServer"
                       className="breadcrumb-item"
+                      state={{
+                        selectedDate,
+                        selectedISO,
+                        selectedMass,
+                        source,
+                        isSunday,
+                        templateID,
+                      }}
                     >
                       Select Role
                     </Link>
@@ -110,7 +126,7 @@ export default function AssignMember() {
                 <img
                   src={icon.chevronIcon}
                   alt="Chevron Icon"
-                  style={{ width: "15px", height: "15px" }}
+                  style={{ width: 15, height: 15 }}
                 />
               }
               className="customized-breadcrumb"
@@ -121,6 +137,12 @@ export default function AssignMember() {
       </div>
 
       <div className="schedule-content">
+        {/* Context header */}
+        <h4 style={{ marginBottom: "1rem" }}>
+          Selected Date: {selectedDate} &nbsp;|&nbsp; Selected Mass:{" "}
+          {selectedMass}
+        </h4>
+
         <div className="assign-container row">
           {/* Left side */}
           <div className="col-md-6 assign-left">
@@ -189,7 +211,7 @@ export default function AssignMember() {
             </div>
 
             <div className="bottom-buttons">
-              <button className="btn action-buttons cancel-btn d-flex align-items-center">
+              <button className=" action-buttons cancel-button d-flex align-items-center">
                 <img
                   src={image.noButtonImage}
                   alt="Cancel"
@@ -197,13 +219,16 @@ export default function AssignMember() {
                 />
                 Cancel
               </button>
-              <button className="btn action-buttons assign-btn d-flex align-items-center">
+              <button className=" action-buttons assign-btn d-flex align-items-center">
                 <img src={image.assignImage} alt="Assign" className="img-btn" />
                 Assign
               </button>
             </div>
           </div>
         </div>
+      </div>
+      <div>
+        <Footer />
       </div>
     </div>
   );

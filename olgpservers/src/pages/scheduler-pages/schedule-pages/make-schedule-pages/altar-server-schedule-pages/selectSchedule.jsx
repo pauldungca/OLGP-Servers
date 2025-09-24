@@ -80,7 +80,7 @@ export default function SelectSchedule() {
   };
 
   // Pass ISO + source + explicit isSunday so the next page is unambiguous
-  const handleCardClick = (dateObj, source) => {
+  /*const handleCardClick = (dateObj, source) => {
     const selectedISO = dateObj.toISOString().slice(0, 10); // YYYY-MM-DD
     navigate("/selectMassAltarServer", {
       state: {
@@ -90,13 +90,34 @@ export default function SelectSchedule() {
         isSunday: source === "sunday",
       },
     });
+  };*/
+
+  // Pass ISO + source + isSunday + (when template) templateID
+  const handleCardClick = (sched) => {
+    const { dateObj, dateStr, source, templateID } = sched;
+
+    // Use the raw dateStr for templates to avoid timezone shifts
+    const selectedISO =
+      source === "template" && dateStr
+        ? dateStr
+        : dateObj.toISOString().slice(0, 10);
+
+    navigate("/selectMassAltarServer", {
+      state: {
+        selectedDate: formatScheduleDate(dateObj),
+        selectedISO,
+        source, // "sunday" | "template"
+        isSunday: source === "sunday",
+        templateID: source === "template" ? templateID : null,
+      },
+    });
   };
 
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>MAKE SCHEDULE</h3>
+          <h3>MAKE SCHEDULE - ALTAR SERVER</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -167,7 +188,7 @@ export default function SelectSchedule() {
               <div
                 key={key}
                 className="schedule-card border-blue"
-                onClick={() => handleCardClick(sched.dateObj, sched.source)}
+                onClick={() => handleCardClick(sched)}
                 style={{ position: "relative" }}
               >
                 {/* 🔖 Restore bookmark mark ONLY for template-sourced items */}

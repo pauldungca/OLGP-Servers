@@ -161,3 +161,90 @@ export const mergeSchedules = (sundays, templates) => {
 
   return combined;
 };
+
+// Get role flags/counts for a given templateID from `template-altar-server`
+export const fetchAltarServerTemplateFlags = async (templateID) => {
+  if (templateID == null) return null;
+
+  const { data, error } = await supabase
+    .from("template-altar-server")
+    .select(
+      'templateID,isNeeded,"candle-bearer","thurifer","beller","main-server","cross-bearer","incense-bearer","plate"'
+    )
+    .eq("templateID", templateID)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Supabase fetch (template-altar-server) error:", error);
+    return null;
+  }
+  if (!data) return null;
+
+  // Normalize to camelCase keys for the UI
+  return {
+    templateID: data.templateID,
+    isNeeded: Number(data.isNeeded) === 1,
+    roles: {
+      candleBearer: Number(data["candle-bearer"] || 0),
+      thurifer: Number(data["thurifer"] || 0),
+      beller: Number(data["beller"] || 0),
+      mainServer: Number(data["main-server"] || 0), // mapped to "Book and Mic" in UI
+      crossBearer: Number(data["cross-bearer"] || 0),
+      incenseBearer: Number(data["incense-bearer"] || 0),
+      plate: Number(data["plate"] || 0),
+    },
+  };
+};
+
+// Convenience: resolve templateID by date (YYYY-MM-DD) then return flags
+// Find template flags for a given ISO date (YYYY-MM-DD)
+export const getTemplateFlagsForDate = async (isoDate) => {
+  if (!isoDate) return null;
+
+  // 1) Look up the templateID for this date
+  const { data: useRows, error: useErr } = await supabase
+    .from("use-template-table")
+    .select("templateID")
+    .eq("date", isoDate)
+    .order("id", { ascending: false })
+    .limit(1);
+
+  if (useErr) {
+    console.error("Supabase (use-template-table by date) error:", useErr);
+    return null;
+  }
+  const templateID = useRows?.[0]?.templateID;
+  if (!templateID) return null;
+
+  // 2) Fetch flags for that templateID ONLY if isNeeded = 1
+  const { data: tmplRows, error: tmplErr } = await supabase
+    .from("template-altar-server")
+    .select(
+      'templateID,isNeeded,"candle-bearer",thurifer,beller,"main-server","cross-bearer","incense-bearer",plate'
+    )
+    .eq("templateID", templateID)
+    .eq("isNeeded", 1)
+    .limit(1);
+
+  if (tmplErr) {
+    console.error("Supabase (template-altar-server) error:", tmplErr);
+    return null;
+  }
+  const row = tmplRows?.[0];
+  if (!row) return null; // not needed or no row
+
+  // Normalize to camelCase keys for the UI
+  return {
+    templateID: row.templateID,
+    isNeeded: true,
+    roles: {
+      candleBearer: Number(row["candle-bearer"] || 0),
+      thurifer: Number(row.thurifer || 0),
+      beller: Number(row.beller || 0),
+      mainServer: Number(row["main-server"] || 0), // maps to "Book and Mic"
+      crossBearer: Number(row["cross-bearer"] || 0),
+      incenseBearer: Number(row["incense-bearer"] || 0),
+      plate: Number(row.plate || 0),
+    },
+  };
+};

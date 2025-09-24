@@ -198,53 +198,65 @@ export const fetchAltarServerTemplateFlags = async (templateID) => {
 
 // Convenience: resolve templateID by date (YYYY-MM-DD) then return flags
 // Find template flags for a given ISO date (YYYY-MM-DD)
-export const getTemplateFlagsForDate = async (isoDate) => {
-  if (!isoDate) return null;
+// Fetch role counts for a given date or templateID from Supabase
+// - If templateID is provided we use it directly.
+// - Otherwise we look up the templateID for the given ISO date (YYYY-MM-DD)
+//   in "use-template-table", then read its counts from "template-altar-server".
+export const getTemplateFlagsForDate = async (
+  isoDate /* "YYYY-MM-DD" */,
+  templateID /* optional */
+) => {
+  try {
+    let tid = templateID ?? null;
 
-  // 1) Look up the templateID for this date
-  const { data: useRows, error: useErr } = await supabase
-    .from("use-template-table")
-    .select("templateID")
-    .eq("date", isoDate)
-    .order("id", { ascending: false })
-    .limit(1);
+    // 1) If we weren't given a templateID, look it up by date
+    if (!tid && isoDate) {
+      const { data: useRows, error: useErr } = await supabase
+        .from("use-template-table")
+        .select("templateID")
+        .eq("date", isoDate)
+        .limit(1);
 
-  if (useErr) {
-    console.error("Supabase (use-template-table by date) error:", useErr);
+      if (useErr) throw useErr;
+      tid = useRows?.[0]?.templateID ?? null;
+    }
+
+    if (!tid) {
+      // No template for this date
+      return null;
+    }
+
+    // 2) Read the role counts for that templateID
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-altar-server")
+      .select(
+        'templateID,isNeeded,"candle-bearer",thurifer,beller,"main-server","cross-bearer","incense-bearer",plate'
+      )
+      .eq("templateID", tid)
+      .order("id", { ascending: false })
+      .limit(1);
+
+    if (tmplErr) throw tmplErr;
+
+    const row = tmplRows?.[0];
+    if (!row) return { templateID: tid, roles: {} };
+
+    // 3) Map hyphenated DB columns -> camelCase keys used in the UI
+    return {
+      templateID: row.templateID,
+      isNeeded: row.isNeeded ?? null,
+      roles: {
+        candleBearer: Number(row["candle-bearer"] ?? 0),
+        thurifer: Number(row.thurifer ?? 0),
+        beller: Number(row.beller ?? 0),
+        mainServer: Number(row["main-server"] ?? 0),
+        crossBearer: Number(row["cross-bearer"] ?? 0),
+        incenseBearer: Number(row["incense-bearer"] ?? 0),
+        plate: Number(row.plate ?? 0),
+      },
+    };
+  } catch (err) {
+    console.error("getTemplateFlagsForDate error:", err);
     return null;
   }
-  const templateID = useRows?.[0]?.templateID;
-  if (!templateID) return null;
-
-  // 2) Fetch flags for that templateID ONLY if isNeeded = 1
-  const { data: tmplRows, error: tmplErr } = await supabase
-    .from("template-altar-server")
-    .select(
-      'templateID,isNeeded,"candle-bearer",thurifer,beller,"main-server","cross-bearer","incense-bearer",plate'
-    )
-    .eq("templateID", templateID)
-    .eq("isNeeded", 1)
-    .limit(1);
-
-  if (tmplErr) {
-    console.error("Supabase (template-altar-server) error:", tmplErr);
-    return null;
-  }
-  const row = tmplRows?.[0];
-  if (!row) return null; // not needed or no row
-
-  // Normalize to camelCase keys for the UI
-  return {
-    templateID: row.templateID,
-    isNeeded: true,
-    roles: {
-      candleBearer: Number(row["candle-bearer"] || 0),
-      thurifer: Number(row.thurifer || 0),
-      beller: Number(row.beller || 0),
-      mainServer: Number(row["main-server"] || 0), // maps to "Book and Mic"
-      crossBearer: Number(row["cross-bearer"] || 0),
-      incenseBearer: Number(row["incense-bearer"] || 0),
-      plate: Number(row.plate || 0),
-    },
-  };
 };

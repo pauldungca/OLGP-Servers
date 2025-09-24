@@ -123,3 +123,19 @@
   border: 2px solid #2e4a9e;
   color: #2e4a9e;
 }
+
+/* 5 columns x 2 rows grid for Plates preview */
+.assigned-grid-plate {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-auto-rows: auto; /* makes exactly two rows when we render 10 cells */
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* keep names tidy if they’re long */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

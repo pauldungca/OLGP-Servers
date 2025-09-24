@@ -94,3 +94,9 @@
   display: block; /* avoids inline baseline weirdness */
   margin-right: 0; /* gap is handled by the button’s gap */
 }
+
+.assign-right-scroll {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 10px;
+}

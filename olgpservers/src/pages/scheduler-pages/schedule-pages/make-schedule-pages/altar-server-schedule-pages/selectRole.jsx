@@ -1,13 +1,35 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Breadcrumb } from "antd";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import icon from "../../../../../helper/icon";
 import Footer from "../../../../../components/footer";
 
-import { getTemplateFlagsForDate } from "../../../../../assets/scripts/fetchSchedule";
+import {
+  // NEW helpers pulled from assignMember.js
+  isSundayFor,
+  needTemplateFlagsFor,
+  getTemplateFlags,
+  roleCountsFor,
+  roleVisibilityFor,
+  fetchAssignmentsGrouped,
+  resetAllAssignments,
+  buildAssignNavState,
+  getMemberNameById,
+} from "../../../../../assets/scripts/assignMember";
 
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/selectRole.css";
+
+// ---- simple in-memory name cache so we don't refetch the same idNumber ----
+const nameCache = new Map();
+const nameFor = async (id) => {
+  const key = String(id ?? "").trim();
+  if (!key) return "";
+  if (nameCache.has(key)) return nameCache.get(key);
+  const full = await getMemberNameById(key);
+  nameCache.set(key, full || key);
+  return full || key;
+};
 
 export default function SelectRole() {
   useEffect(() => {
@@ -23,22 +45,17 @@ export default function SelectRole() {
   const selectedMass = location.state?.selectedMass || "No mass selected";
   const source = location.state?.source || null;
   const passedIsSunday = location.state?.isSunday;
-  const templateID = location.state?.templateID ?? null; // ← read templateID
+  const templateID = location.state?.templateID ?? null;
 
-  // Robust Sunday detection (trust flag, else source, else compute)
-  const isSunday = useMemo(() => {
-    if (typeof passedIsSunday === "boolean") return passedIsSunday;
-    if (source === "sunday") return true;
-    if (selectedISO) {
-      const [y, m, d] = selectedISO.split("-").map(Number);
-      return new Date(y, m - 1, d).getDay() === 0;
-    }
-    return false;
-  }, [passedIsSunday, source, selectedISO]);
+  // Robust Sunday detection → helper
+  const isSunday = useMemo(
+    () => isSundayFor({ passedIsSunday, source, selectedISO }),
+    [passedIsSunday, source, selectedISO]
+  );
 
-  // Fetch template flags for non-Sunday days
-  const needTemplateFlags = useMemo(
-    () => !isSunday && !!selectedISO,
+  // Template flags only needed on non-Sunday with a date
+  const needFlags = useMemo(
+    () => needTemplateFlagsFor({ isSunday, selectedISO }),
     [isSunday, selectedISO]
   );
 
@@ -48,55 +65,100 @@ export default function SelectRole() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!needTemplateFlags) {
+      if (!needFlags) {
         setFlags(null);
         return;
       }
       setLoadingFlags(true);
-      const res = await getTemplateFlagsForDate(selectedISO);
+      const res = await getTemplateFlags(selectedISO);
       if (!cancelled) {
-        setFlags(res); // null if not needed or not found
+        setFlags(res);
         setLoadingFlags(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [needTemplateFlags, selectedISO]);
+  }, [needFlags, selectedISO]);
 
-  // Helpers
-  const showAll = isSunday === true;
-  const roleOn = (count) => Number(count || 0) > 0;
+  // Counts & visibility (computed)
+  const counts = useMemo(
+    () => roleCountsFor({ flags, isSunday }),
+    [flags, isSunday]
+  );
 
-  const showThurifer = showAll || roleOn(flags?.roles?.thurifer);
-  const showBellers = showAll || roleOn(flags?.roles?.beller);
-  const showBookAndMic = showAll || roleOn(flags?.roles?.mainServer); // "main-server"
-  const showCandleBearers = showAll || roleOn(flags?.roles?.candleBearer);
-  const showIncense = showAll || roleOn(flags?.roles?.incenseBearer);
-  const showCross = showAll || roleOn(flags?.roles?.crossBearer);
-  const showPlates = showAll || roleOn(flags?.roles?.plate);
+  const visible = useMemo(
+    () => roleVisibilityFor({ flags, isSunday }),
+    [flags, isSunday]
+  );
 
-  const handleRoleClick = () => {
-    navigate("/assignMemberAltarServer", {
-      state: { selectedDate, selectedISO, selectedMass, source, isSunday },
-    });
+  // Assignments preview (from Supabase)
+  const [assignments, setAssignments] = useState({});
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [rev, setRev] = useState(0);
+
+  const refreshAssignments = async () => {
+    if (!selectedISO || !selectedMass) {
+      setAssignments({});
+      return;
+    }
+    setLoadingAssignments(true);
+    try {
+      const grouped = await fetchAssignmentsGrouped({
+        dateISO: selectedISO,
+        massLabel: selectedMass,
+      });
+
+      // enrich: swap idNumber -> fullName via members-information
+      const roles = Object.keys(grouped || {});
+      for (const role of roles) {
+        const arr = grouped[role] || [];
+        grouped[role] = await Promise.all(
+          arr.map(async (r) => ({
+            ...r,
+            // ensure we always display a name (fallback to the id)
+            fullName: await nameFor(r.idNumber),
+          }))
+        );
+      }
+
+      setAssignments(grouped || {});
+    } catch {
+      setAssignments({});
+    } finally {
+      setLoadingAssignments(false);
+    }
   };
 
-  const handleReset = () => {
-    // TODO: clear selections for this screen, if you store any
+  useEffect(() => {
+    refreshAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedISO, selectedMass, rev]);
+
+  const handleReset = async () => {
+    const ok = await resetAllAssignments({
+      dateISO: selectedISO,
+      massLabel: selectedMass,
+    });
+    if (ok) {
+      await refreshAssignments();
+      setRev((r) => r + 1);
+    }
   };
 
-  const handleSubmit = () => {
-    navigate("/assignMemberAltarServer", {
-      state: {
-        selectedDate,
-        selectedISO,
-        selectedMass,
-        source,
-        isSunday,
-        submit: true,
-      },
+  const goAssign = (roleKey, label) => {
+    const state = buildAssignNavState({
+      selectedDate,
+      selectedISO,
+      selectedMass,
+      source,
+      isSunday,
+      templateID,
+      roleKey,
+      label,
+      counts,
     });
+    navigate("/assignMemberAltarServer", { state });
   };
 
   return (
@@ -135,7 +197,7 @@ export default function SelectRole() {
                         selectedMass,
                         source,
                         isSunday,
-                        templateID, // ← pass templateID back to Select Mass
+                        templateID,
                       }}
                     >
                       Select Mass
@@ -167,54 +229,98 @@ export default function SelectRole() {
           {selectedMass}
         </h4>
 
-        {/* Loading state for template lookup */}
-        {needTemplateFlags && loadingFlags && (
+        {(needFlags && loadingFlags) || loadingAssignments ? (
           <div style={{ padding: "8px 2px", opacity: 0.8 }}>
-            Loading template…
+            {loadingFlags ? "Loading template…" : "Loading assignments…"}
           </div>
-        )}
+        ) : null}
 
         <div className="role-cards-grid">
-          {showThurifer && (
-            <div className="role-card" onClick={handleRoleClick}>
+          {visible.thurifer && (
+            <div
+              className="role-card"
+              onClick={() => goAssign("thurifer", "Thurifer")}
+            >
+              {(assignments.thurifer || []).slice(0, 2).map((p) => (
+                <div className="assigned-member" key={p.idNumber}>
+                  {p.fullName}
+                </div>
+              ))}
               <div className="role-card-divider"></div>
               <p className="role-card-title">Thurifer</p>
             </div>
           )}
 
-          {showBellers && (
-            <div className="role-card">
+          {visible.beller && (
+            <div
+              className="role-card"
+              onClick={() => goAssign("beller", "Bellers")}
+            >
+              {(assignments.beller || []).slice(0, 2).map((p) => (
+                <div className="assigned-member" key={p.idNumber}>
+                  {p.fullName}
+                </div>
+              ))}
               <div className="role-card-divider"></div>
               <p className="role-card-title">Bellers</p>
             </div>
           )}
 
-          {showBookAndMic && (
-            <div className="role-card">
+          {visible.mainServer && (
+            <div
+              className="role-card"
+              onClick={() => goAssign("mainServer", "Book and Mic")}
+            >
+              {(assignments.mainServer || []).slice(0, 2).map((p) => (
+                <div className="assigned-member" key={p.idNumber}>
+                  {p.fullName}
+                </div>
+              ))}
               <div className="role-card-divider"></div>
               <p className="role-card-title">Book and Mic</p>
             </div>
           )}
 
-          {showCandleBearers && (
-            <div className="role-card">
-              {/* sample assigned preview */}
-              <div className="assigned-member">Argie Tapic</div>
-              <div className="assigned-member">Argie Tapic</div>
+          {visible.candleBearer && (
+            <div
+              className="role-card"
+              onClick={() => goAssign("candleBearer", "Candle Bearers")}
+            >
+              {(assignments.candleBearer || []).slice(0, 2).map((p) => (
+                <div className="assigned-member" key={p.idNumber}>
+                  {p.fullName}
+                </div>
+              ))}
               <div className="role-card-divider"></div>
               <p className="role-card-title">Candle Bearers</p>
             </div>
           )}
 
-          {showIncense && (
-            <div className="role-card">
+          {visible.incenseBearer && (
+            <div
+              className="role-card"
+              onClick={() => goAssign("incenseBearer", "Incense Bearer")}
+            >
+              {(assignments.incenseBearer || []).slice(0, 2).map((p) => (
+                <div className="assigned-member" key={p.idNumber}>
+                  {p.fullName}
+                </div>
+              ))}
               <div className="role-card-divider"></div>
               <p className="role-card-title">Incense Bearer</p>
             </div>
           )}
 
-          {showCross && (
-            <div className="role-card">
+          {visible.crossBearer && (
+            <div
+              className="role-card"
+              onClick={() => goAssign("crossBearer", "Cross Bearer")}
+            >
+              {(assignments.crossBearer || []).slice(0, 2).map((p) => (
+                <div className="assigned-member" key={p.idNumber}>
+                  {p.fullName}
+                </div>
+              ))}
               <div className="role-card-divider"></div>
               <p className="role-card-title">Cross Bearer</p>
             </div>
@@ -222,8 +328,22 @@ export default function SelectRole() {
         </div>
 
         {/* Big card at the bottom */}
-        {showPlates && (
-          <div className="role-card big-role-card">
+        {visible.plate && (
+          <div
+            className="role-card big-role-card"
+            onClick={() => goAssign("plate", "Plates")}
+          >
+            <div className="assigned-grid-plate">
+              {(assignments.plate || [])
+                .filter((p) => p?.fullName)
+                .slice(0, 10)
+                .map((p) => (
+                  <div className="assigned-member ellipsis" key={p.idNumber}>
+                    {p.fullName}
+                  </div>
+                ))}
+            </div>
+
             <div className="role-card-divider"></div>
             <p className="role-card-title">Plates</p>
           </div>
@@ -239,11 +359,7 @@ export default function SelectRole() {
         >
           Reset
         </button>
-        <button
-          type="button"
-          className="btn-submit-schedule"
-          onClick={handleSubmit}
-        >
+        <button type="button" className="btn-submit-schedule">
           Submit Schedule
         </button>
       </div>

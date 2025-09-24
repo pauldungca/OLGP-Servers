@@ -183,3 +183,47 @@
   /*margin-top: 5%;*/
   border: 1px solid #2e4a9e;
 }
+
+/* Default look (empty/blue as fallback) */
+.schedule-card .schedule-text {
+  color: #213571;
+}
+.schedule-card .date-divider {
+  background-color: #213571;
+}
+.schedule-card .schedule-date {
+  color: #213571;
+}
+
+/* Incomplete (yellow) */
+.schedule-card.status-incomplete .schedule-text {
+  color: #d08e00;
+}
+.schedule-card.status-incomplete .date-divider {
+  background-color: #d08e00;
+}
+.schedule-card.status-incomplete .schedule-date {
+  color: #d08e00;
+}
+
+/* Complete (green) */
+.schedule-card.status-complete .schedule-text {
+  color: #0c9600;
+}
+.schedule-card.status-complete .date-divider {
+  background-color: #0c9600;
+}
+.schedule-card.status-complete .schedule-date {
+  color: #0c9600;
+}
+
+/* If you want to keep the border helpers you already have */
+.border-blue {
+  border-color: #213571;
+}
+.border-orange {
+  border-color: #d08e00;
+}
+.border-green {
+  border-color: #0c9600;
+}

@@ -45,8 +45,14 @@ export default function AssignMember() {
     [selectedRoleKey, selectedRoleLabel]
   );
 
+  // Check if current role needs gender filtering (candle bearers or bellers)
+  const needsGenderFiltering = useMemo(
+    () => selectedRoleKey === "candleBearer" || selectedRoleKey === "beller",
+    [selectedRoleKey]
+  );
+
   // -------- Members (left list) --------
-  const [members, setMembers] = useState([]); // [{ idNumber, fullName, role }]
+  const [members, setMembers] = useState([]); // [{ idNumber, fullName, role, sex }]
   const [loadingMembers, setLoadingMembers] = useState(true);
 
   useEffect(() => {
@@ -99,29 +105,52 @@ export default function AssignMember() {
     };
   }, [selectedISO, selectedMass, selectedRoleKey, slotsCount]);
 
+  // -------- Gender filtering logic --------
+  const genderFilter = useMemo(() => {
+    if (!needsGenderFiltering) return null;
+
+    // Check if any members are assigned
+    const assignedMembers = assigned.filter(Boolean);
+    if (assignedMembers.length === 0) return null;
+
+    // Find the first assigned member and check their gender
+    const firstAssigned = assignedMembers[0];
+    const firstAssignedMember = members.find(
+      (m) => m.idNumber === firstAssigned.idNumber
+    );
+
+    // Return the gender of the first assigned member to filter by that gender
+    return firstAssignedMember?.sex || null;
+  }, [needsGenderFiltering, assigned, members]);
+
   // -------- Search --------
   const [searchTerm, setSearchTerm] = useState("");
-  const filteredMembers = useMemo(
-    () =>
-      members.filter((m) =>
-        m.fullName.toLowerCase().includes(searchTerm.toLowerCase())
-      ),
-    [members, searchTerm]
-  );
+  const filteredMembers = useMemo(() => {
+    let filtered = members.filter((m) =>
+      m.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Apply gender filter if needed
+    if (genderFilter) {
+      filtered = filtered.filter((m) => m.sex === genderFilter);
+    }
+
+    return filtered;
+  }, [members, searchTerm, genderFilter]);
 
   // -------- UI Handlers --------
   const handleToggleMember = (member) => {
     setAssigned((prev) => {
       const id = String(member.idNumber ?? "").trim();
-      const alreadyIdx = prev.findIndex((m) =>
-        m ? String(m.idNumber) === id : false
+      const alreadyIdx = prev.findIndex(
+        (m) => m && String(m.idNumber) === id // Add null check here too
       );
 
       // If already assigned, unassign them
       if (alreadyIdx >= 0) {
         const next = [...prev];
         next[alreadyIdx] = null; // unassign member by setting to null
-        return next.filter((m) => m !== null); // Filter out null values (unassigned members)
+        return next; // Don't filter out nulls - keep array structure intact
       }
 
       // If not assigned, assign them
@@ -259,6 +288,11 @@ export default function AssignMember() {
           style={{ color: "#2e4a9e", marginBottom: "1rem", fontWeight: 600 }}
         >
           Role: {selectedRoleLabel} &nbsp;•&nbsp; Slots: {slotsCount}
+          {genderFilter && (
+            <span style={{ color: "#e74c3c", marginLeft: "10px" }}>
+              (Filtered: {genderFilter} only)
+            </span>
+          )}
         </div>
 
         <div className="assign-container row">
@@ -309,6 +343,16 @@ export default function AssignMember() {
                         onClick={(e) => e.stopPropagation()} // Prevent the event from bubbling up to the parent `li`
                       />
                       {m.fullName} {/* Display the member's full name */}
+                      {needsGenderFiltering && (
+                        <span
+                          className={`badge ms-2 ${
+                            m.sex === "Male" ? "bg-primary" : "bg-secondary"
+                          }`}
+                          style={{ fontSize: "0.7em" }}
+                        >
+                          {m.sex === "Male" ? "M" : "F"}
+                        </span>
+                      )}
                     </li>
                   );
                 })

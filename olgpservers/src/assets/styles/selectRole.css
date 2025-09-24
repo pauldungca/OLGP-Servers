@@ -140,8 +140,8 @@
   width: 49%;
   margin: 0;
   box-sizing: border-box;
-  margin-top: -10px;
-  margin-bottom: 20px;
+  margin-top: 10px;
+  margin-bottom: 5px;
 }
 
 .btn-reset-schedule {

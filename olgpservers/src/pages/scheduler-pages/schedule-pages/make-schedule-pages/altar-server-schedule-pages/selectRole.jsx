@@ -95,11 +95,13 @@ export default function SelectRole() {
   // Assignments preview (from Supabase)
   const [assignments, setAssignments] = useState({});
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [rev, setRev] = useState(0);
 
   const refreshAssignments = async () => {
     if (!selectedISO || !selectedMass) {
       setAssignments({});
+      setInitialLoadComplete(true);
       return;
     }
 
@@ -141,13 +143,14 @@ export default function SelectRole() {
       setAssignments({});
     } finally {
       setLoadingAssignments(false);
+      setInitialLoadComplete(true);
     }
   };
 
   useEffect(() => {
     refreshAssignments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedISO, selectedMass, rev]);
+  }, [selectedISO, selectedMass, rev, counts]); // Add counts as dependency
 
   const handleReset = async () => {
     const ok = await resetAllAssignments({
@@ -174,6 +177,10 @@ export default function SelectRole() {
     });
     navigate("/assignMemberAltarServer", { state });
   };
+
+  // Determine if we should show loading screen
+  const isLoading =
+    (needFlags && loadingFlags) || loadingAssignments || !initialLoadComplete;
 
   return (
     <div className="schedule-page-container">
@@ -243,181 +250,219 @@ export default function SelectRole() {
           {selectedMass}
         </h4>
 
-        {(needFlags && loadingFlags) || loadingAssignments ? (
-          <div style={{ padding: "8px 2px", opacity: 0.8 }}>
-            {loadingFlags ? "Loading template…" : "Loading assignments…"}
-          </div>
-        ) : null}
-
-        <div className="role-cards-grid">
-          {visible.thurifer && (
-            <div
-              className={`role-card ${
-                assignments.thurifer?.status === "complete"
-                  ? "complete"
-                  : assignments.thurifer?.status === "incomplete"
-                  ? "incomplete"
-                  : "empty"
-              }`}
-              onClick={() => goAssign("thurifer", "Thurifer")}
-            >
-              {(assignments.thurifer || []).slice(0, 2).map((p) => (
-                <div className="assigned-member" key={p.idNumber}>
-                  {p.fullName}
-                </div>
-              ))}
-              <div className="role-card-divider"></div>
-              <p className="role-card-title">Thurifer</p>
-            </div>
-          )}
-
-          {visible.beller && (
-            <div
-              className={`role-card ${
-                assignments.beller?.status === "complete"
-                  ? "complete"
-                  : assignments.beller?.status === "incomplete"
-                  ? "incomplete"
-                  : "empty"
-              }`}
-              onClick={() => goAssign("beller", "Bellers")}
-            >
-              {(assignments.beller || []).slice(0, 2).map((p) => (
-                <div className="assigned-member" key={p.idNumber}>
-                  {p.fullName}
-                </div>
-              ))}
-              <div className="role-card-divider"></div>
-              <p className="role-card-title">Bellers</p>
-            </div>
-          )}
-
-          {visible.mainServer && (
-            <div
-              className={`role-card ${
-                assignments.mainServer?.status === "complete"
-                  ? "complete"
-                  : assignments.mainServer?.status === "incomplete"
-                  ? "incomplete"
-                  : "empty"
-              }`}
-              onClick={() => goAssign("mainServer", "Book and Mic")}
-            >
-              {(assignments.mainServer || []).slice(0, 2).map((p) => (
-                <div className="assigned-member" key={p.idNumber}>
-                  {p.fullName}
-                </div>
-              ))}
-              <div className="role-card-divider"></div>
-              <p className="role-card-title">Book and Mic</p>
-            </div>
-          )}
-
-          {visible.candleBearer && (
-            <div
-              className={`role-card ${
-                assignments.candleBearer?.status === "complete"
-                  ? "complete"
-                  : assignments.candleBearer?.status === "incomplete"
-                  ? "incomplete"
-                  : "empty"
-              }`}
-              onClick={() => goAssign("candleBearer", "Candle Bearers")}
-            >
-              {(assignments.candleBearer || []).slice(0, 2).map((p) => (
-                <div className="assigned-member" key={p.idNumber}>
-                  {p.fullName}
-                </div>
-              ))}
-              <div className="role-card-divider"></div>
-              <p className="role-card-title">Candle Bearers</p>
-            </div>
-          )}
-
-          {visible.incenseBearer && (
-            <div
-              className={`role-card ${
-                assignments.incenseBearer?.status === "complete"
-                  ? "complete"
-                  : assignments.incenseBearer?.status === "incomplete"
-                  ? "incomplete"
-                  : "empty"
-              }`}
-              onClick={() => goAssign("incenseBearer", "Incense Bearer")}
-            >
-              {(assignments.incenseBearer || []).slice(0, 2).map((p) => (
-                <div className="assigned-member" key={p.idNumber}>
-                  {p.fullName}
-                </div>
-              ))}
-              <div className="role-card-divider"></div>
-              <p className="role-card-title">Incense Bearer</p>
-            </div>
-          )}
-
-          {visible.crossBearer && (
-            <div
-              className={`role-card ${
-                assignments.crossBearer?.status === "complete"
-                  ? "complete"
-                  : assignments.crossBearer?.status === "incomplete"
-                  ? "incomplete"
-                  : "empty"
-              }`}
-              onClick={() => goAssign("crossBearer", "Cross Bearer")}
-            >
-              {(assignments.crossBearer || []).slice(0, 2).map((p) => (
-                <div className="assigned-member" key={p.idNumber}>
-                  {p.fullName}
-                </div>
-              ))}
-              <div className="role-card-divider"></div>
-              <p className="role-card-title">Cross Bearer</p>
-            </div>
-          )}
-        </div>
-
-        {/* Big card at the bottom */}
-        {visible.plate && (
+        {isLoading ? (
           <div
-            className={`role-card big-role-card ${
-              assignments.plate?.status === "complete"
-                ? "complete"
-                : assignments.plate?.status === "incomplete"
-                ? "incomplete"
-                : "empty"
-            }`}
-            onClick={() => goAssign("plate", "Plates")}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "300px",
+              padding: "2rem",
+            }}
           >
-            <div className="assigned-grid-plate">
-              {(assignments.plate || [])
-                .filter((p) => p?.fullName)
-                .slice(0, 10)
-                .map((p) => (
-                  <div className="assigned-member ellipsis" key={p.idNumber}>
-                    {p.fullName}
-                  </div>
-                ))}
+            <div
+              style={{
+                width: "40px",
+                height: "40px",
+                border: "3px solid #f3f3f3",
+                borderTop: "3px solid #2e4a9e",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            ></div>
+            <p
+              style={{
+                marginTop: "1rem",
+                color: "#666",
+                fontSize: "16px",
+              }}
+            >
+              {loadingFlags ? "Loading template..." : "Loading assignments..."}
+            </p>
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
+          </div>
+        ) : (
+          <>
+            <div className="role-cards-grid">
+              {visible.thurifer && (
+                <div
+                  className={`role-card ${
+                    assignments.thurifer?.status === "complete"
+                      ? "complete"
+                      : assignments.thurifer?.status === "incomplete"
+                      ? "incomplete"
+                      : "empty"
+                  }`}
+                  onClick={() => goAssign("thurifer", "Thurifer")}
+                >
+                  {(assignments.thurifer || []).slice(0, 2).map((p) => (
+                    <div className="assigned-member" key={p.idNumber}>
+                      {p.fullName}
+                    </div>
+                  ))}
+                  <div className="role-card-divider"></div>
+                  <p className="role-card-title">Thurifer</p>
+                </div>
+              )}
+
+              {visible.beller && (
+                <div
+                  className={`role-card ${
+                    assignments.beller?.status === "complete"
+                      ? "complete"
+                      : assignments.beller?.status === "incomplete"
+                      ? "incomplete"
+                      : "empty"
+                  }`}
+                  onClick={() => goAssign("beller", "Bellers")}
+                >
+                  {(assignments.beller || []).slice(0, 2).map((p) => (
+                    <div className="assigned-member" key={p.idNumber}>
+                      {p.fullName}
+                    </div>
+                  ))}
+                  <div className="role-card-divider"></div>
+                  <p className="role-card-title">Bellers</p>
+                </div>
+              )}
+
+              {visible.mainServer && (
+                <div
+                  className={`role-card ${
+                    assignments.mainServer?.status === "complete"
+                      ? "complete"
+                      : assignments.mainServer?.status === "incomplete"
+                      ? "incomplete"
+                      : "empty"
+                  }`}
+                  onClick={() => goAssign("mainServer", "Book and Mic")}
+                >
+                  {(assignments.mainServer || []).slice(0, 2).map((p) => (
+                    <div className="assigned-member" key={p.idNumber}>
+                      {p.fullName}
+                    </div>
+                  ))}
+                  <div className="role-card-divider"></div>
+                  <p className="role-card-title">Book and Mic</p>
+                </div>
+              )}
+
+              {visible.candleBearer && (
+                <div
+                  className={`role-card ${
+                    assignments.candleBearer?.status === "complete"
+                      ? "complete"
+                      : assignments.candleBearer?.status === "incomplete"
+                      ? "incomplete"
+                      : "empty"
+                  }`}
+                  onClick={() => goAssign("candleBearer", "Candle Bearers")}
+                >
+                  {(assignments.candleBearer || []).slice(0, 2).map((p) => (
+                    <div className="assigned-member" key={p.idNumber}>
+                      {p.fullName}
+                    </div>
+                  ))}
+                  <div className="role-card-divider"></div>
+                  <p className="role-card-title">Candle Bearers</p>
+                </div>
+              )}
+
+              {visible.incenseBearer && (
+                <div
+                  className={`role-card ${
+                    assignments.incenseBearer?.status === "complete"
+                      ? "complete"
+                      : assignments.incenseBearer?.status === "incomplete"
+                      ? "incomplete"
+                      : "empty"
+                  }`}
+                  onClick={() => goAssign("incenseBearer", "Incense Bearer")}
+                >
+                  {(assignments.incenseBearer || []).slice(0, 2).map((p) => (
+                    <div className="assigned-member" key={p.idNumber}>
+                      {p.fullName}
+                    </div>
+                  ))}
+                  <div className="role-card-divider"></div>
+                  <p className="role-card-title">Incense Bearer</p>
+                </div>
+              )}
+
+              {visible.crossBearer && (
+                <div
+                  className={`role-card ${
+                    assignments.crossBearer?.status === "complete"
+                      ? "complete"
+                      : assignments.crossBearer?.status === "incomplete"
+                      ? "incomplete"
+                      : "empty"
+                  }`}
+                  onClick={() => goAssign("crossBearer", "Cross Bearer")}
+                >
+                  {(assignments.crossBearer || []).slice(0, 2).map((p) => (
+                    <div className="assigned-member" key={p.idNumber}>
+                      {p.fullName}
+                    </div>
+                  ))}
+                  <div className="role-card-divider"></div>
+                  <p className="role-card-title">Cross Bearer</p>
+                </div>
+              )}
             </div>
 
-            <div className="role-card-divider"></div>
-            <p className="role-card-title">Plates</p>
-          </div>
-        )}
-      </div>
+            {/* Big card at the bottom */}
+            {visible.plate && (
+              <div
+                className={`role-card big-role-card ${
+                  assignments.plate?.status === "complete"
+                    ? "complete"
+                    : assignments.plate?.status === "incomplete"
+                    ? "incomplete"
+                    : "empty"
+                }`}
+                onClick={() => goAssign("plate", "Plates")}
+              >
+                <div className="assigned-grid-plate">
+                  {(assignments.plate || [])
+                    .filter((p) => p?.fullName)
+                    .slice(0, 10)
+                    .map((p) => (
+                      <div
+                        className="assigned-member ellipsis"
+                        key={p.idNumber}
+                      >
+                        {p.fullName}
+                      </div>
+                    ))}
+                </div>
 
-      {/* Actions under the grid (Reset / Submit) */}
-      <div className="role-card-actions">
-        <button
-          type="button"
-          className="btn-reset-schedule"
-          onClick={handleReset}
-        >
-          Reset
-        </button>
-        <button type="button" className="btn-submit-schedule">
-          Submit Schedule
-        </button>
+                <div className="role-card-divider"></div>
+                <p className="role-card-title">Plates</p>
+              </div>
+            )}
+
+            {/* Actions under the grid (Reset / Submit) */}
+            <div className="role-card-actions">
+              <button
+                type="button"
+                className="btn-reset-schedule"
+                onClick={handleReset}
+              >
+                Reset
+              </button>
+              <button type="button" className="btn-submit-schedule">
+                Submit Schedule
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <div>

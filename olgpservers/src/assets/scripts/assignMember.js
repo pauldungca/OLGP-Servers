@@ -113,7 +113,7 @@ export const clearAssignmentsFor = async (dateISO, massLabel) => {
     console.error("clearAssignmentsFor error:", e);
     await Swal.fire({
       icon: "error",
-      title: "Couldn’t reset",
+      title: "Couldn't reset",
       text: "Please try again.",
     });
     return false;
@@ -153,6 +153,7 @@ export const normalizeMembers = (rows = []) =>
       idNumber: String(m.idNumber ?? "").trim(),
       fullName: buildFullName(m),
       role: m.role || "Non-Flexible",
+      sex: m.sex || "Unknown", // Include sex field
     }))
     .filter((x) => x.idNumber && x.fullName);
 
@@ -182,62 +183,6 @@ export const buildFullName = (m) => {
   const finalName = (explicit || composed || "").trim();
   return finalName || String(m.idNumber || "").trim();
 };
-
-/*export const fetchMembersNormalized = async (dateISO, massLabel, roleKey) => {
-  // 1) Read all assignments for this date+mass (so we know who is already taken)
-  const { data: assignedRows, error: assignedErr } = await supabase
-    .from("altar-server-placeholder")
-    .select("idNumber, role")
-    .eq("date", dateISO)
-    .eq("mass", massLabel);
-
-  if (assignedErr) {
-    console.error("Error fetching assigned members:", assignedErr);
-    return [];
-  }
-
-  // Normalize/partition the assigned ids
-  const assignedAll = new Set(
-    (assignedRows || []).map((r) => String(r.idNumber ?? "").trim())
-  );
-  const assignedInThisRole = new Set(
-    (assignedRows || [])
-      .filter((r) => r.role === roleKey)
-      .map((r) => String(r.idNumber ?? "").trim())
-  );
-
-  // 2) Fetch directory of members (profile info / flexible role, etc.)
-  const rows = await fetchAltarServerMembersWithRole();
-  let normalized = normalizeMembers(rows || []);
-
-  // 3) Keep members already assigned *to this role*, but hide those assigned to other roles
-  normalized = normalized.filter(
-    (m) => assignedInThisRole.has(m.idNumber) || !assignedAll.has(m.idNumber)
-  );
-
-  // 4) Edge case: if some ids are assigned to this role but not present in the directory,
-  //    fetch their names directly so they still appear in the left list (checked).
-  const missingIds = [...assignedInThisRole].filter(
-    (id) => !normalized.some((m) => m.idNumber === id)
-  );
-  if (missingIds.length > 0) {
-    const { data: missingMembers, error: missingErr } = await supabase
-      .from("members-information")
-      .select("*")
-      .in("idNumber", missingIds);
-    if (!missingErr && Array.isArray(missingMembers)) {
-      normalized = normalized.concat(
-        missingMembers.map((m) => ({
-          idNumber: String(m.idNumber ?? "").trim(),
-          fullName: buildFullName(m),
-          role: "Non-Flexible",
-        }))
-      );
-    }
-  }
-
-  return normalized;
-};*/
 
 export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
   // Step 1: Get all members already assigned to this mass
@@ -276,6 +221,7 @@ export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
       idNumber: String(m.idNumber ?? "").trim(),
       fullName: buildFullName(m),
       role: m.role || "Non-Flexible",
+      sex: m.sex || "Unknown", // Include sex field
     }))
     .filter((m) => {
       if (!m.idNumber || !m.fullName) return false;
@@ -292,6 +238,42 @@ export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
       // If not assigned anywhere, include them
       return true;
     });
+
+  // Step 4: For assigned members, get additional info from members-information table
+  const assignedToCurrentRole = assignedByRole.get(role);
+  if (assignedToCurrentRole && assignedToCurrentRole.size > 0) {
+    const assignedIds = Array.from(assignedToCurrentRole);
+
+    // Get detailed information for assigned members
+    const { data: assignedMemberDetails, error: detailsError } = await supabase
+      .from("members-information")
+      .select("idNumber, firstName, middleName, lastName, sex")
+      .in("idNumber", assignedIds);
+
+    if (!detailsError && assignedMemberDetails) {
+      // Update the normalized array with detailed information for assigned members
+      assignedMemberDetails.forEach((detail) => {
+        const index = normalized.findIndex(
+          (m) => m.idNumber === String(detail.idNumber).trim()
+        );
+        if (index !== -1) {
+          normalized[index] = {
+            ...normalized[index],
+            fullName: buildFullName(detail),
+            sex: detail.sex || "Unknown",
+          };
+        } else {
+          // Add member if not found in the original list (edge case)
+          normalized.push({
+            idNumber: String(detail.idNumber).trim(),
+            fullName: buildFullName(detail),
+            role: "Non-Flexible",
+            sex: detail.sex || "Unknown",
+          });
+        }
+      });
+    }
+  }
 
   return normalized;
 };
@@ -374,7 +356,8 @@ export const preloadAssignedForRole = async ({
 export const isMemberChecked = (assigned, member) => {
   // Check if this member is already in the assigned list for the selected role
   return assigned.some(
-    (assignedMember) => assignedMember.idNumber === member.idNumber
+    (assignedMember) =>
+      assignedMember && assignedMember.idNumber === member.idNumber
   );
 };
 

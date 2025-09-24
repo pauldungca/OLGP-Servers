@@ -10,7 +10,6 @@ import {
   fetchMembersNormalized,
   slotBaseLabelFor,
   preloadAssignedForRole,
-  placeMember,
   isMemberChecked,
   deepResetRoleAssignments,
   saveRoleAssignments,
@@ -51,25 +50,24 @@ export default function AssignMember() {
   const [loadingMembers, setLoadingMembers] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoadingMembers(true);
-      const normalized = await fetchMembersNormalized();
-      if (!cancelled) {
-        setMembers(normalized);
-        setLoadingMembers(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
+    const loadMembers = async () => {
+      // Pass the role (e.g., "thurifer") along with dateISO and massLabel
+      const normalizedMembers = await fetchMembersNormalized(
+        selectedISO,
+        selectedMass,
+        selectedRoleKey
+      );
+      setMembers(normalizedMembers);
+      setLoadingMembers(false);
     };
-  }, []);
+    loadMembers();
+  }, [selectedISO, selectedMass, selectedRoleKey]);
 
   // -------- Assigned (right panel) --------
   const [preloading, setPreloading] = useState(true);
   const [assigned, setAssigned] = useState(ensureArraySize([], slotsCount));
 
-  // keep assigned array size in sync with slotsCount
+  // Keep assigned array size in sync with slotsCount
   useEffect(() => {
     setAssigned((prev) => ensureArraySize(prev, slotsCount));
   }, [slotsCount]);
@@ -113,7 +111,38 @@ export default function AssignMember() {
 
   // -------- UI Handlers --------
   const handleToggleMember = (member) => {
-    setAssigned((prev) => placeMember(prev, member));
+    setAssigned((prev) => {
+      const id = String(member.idNumber ?? "").trim();
+      const alreadyIdx = prev.findIndex((m) =>
+        m ? String(m.idNumber) === id : false
+      );
+
+      // If already assigned, unassign them
+      if (alreadyIdx >= 0) {
+        const next = [...prev];
+        next[alreadyIdx] = null; // unassign member by setting to null
+        return next.filter((m) => m !== null); // Filter out null values (unassigned members)
+      }
+
+      // If not assigned, assign them
+      const emptyIndex = prev.findIndex((m) => !m);
+      if (emptyIndex !== -1) {
+        const next = [...prev];
+        next[emptyIndex] = {
+          idNumber: id,
+          fullName: member.fullName,
+        };
+        return next;
+      }
+
+      // If no empty slots, replace the first slot
+      const next = [...prev];
+      next[0] = {
+        idNumber: id,
+        fullName: member.fullName,
+      };
+      return next;
+    });
   };
 
   const handleDeepReset = async () => {
@@ -262,22 +291,24 @@ export default function AssignMember() {
                 </li>
               ) : filteredMembers.length > 0 ? (
                 filteredMembers.map((m) => {
-                  const checked = isMemberChecked(assigned, m);
+                  // Check if the current member is already assigned to the role
+                  const checked = isMemberChecked(assigned, m); // Check if the member is assigned
+
                   return (
                     <li
                       key={String(m.idNumber)}
                       className="list-group-item d-flex align-items-center"
-                      onClick={() => handleToggleMember(m)}
+                      onClick={() => handleToggleMember(m)} // Handles toggling (assign/unassign)
                       style={{ cursor: "pointer" }}
                     >
                       <input
                         type="checkbox"
                         className="form-check-input me-2"
-                        checked={checked}
-                        onChange={() => handleToggleMember(m)}
-                        onClick={(e) => e.stopPropagation()}
+                        checked={checked} // Set the checkbox to be checked if the member is assigned
+                        onChange={() => handleToggleMember(m)} // Handles change of the checkbox (assign/unassign)
+                        onClick={(e) => e.stopPropagation()} // Prevent the event from bubbling up to the parent `li`
                       />
-                      {m.fullName}
+                      {m.fullName} {/* Display the member's full name */}
                     </li>
                   );
                 })

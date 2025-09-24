@@ -1,4 +1,3 @@
-/* Grid: fixed 3 columns */
 .role-cards-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* exactly 3 per row */
@@ -6,7 +5,7 @@
   margin-top: 20px;
 }
 
-/* Role card design */
+/* Common styles for role cards */
 .role-card {
   border: 1.5px solid #2e4a9e;
   border-radius: 8px;
@@ -21,7 +20,7 @@
   padding-bottom: 0;
 }
 
-/* Divider line */
+/* Divider style */
 .role-card-divider {
   height: 2px;
   background-color: #2e4a9e;
@@ -30,7 +29,7 @@
   opacity: 0.9;
 }
 
-/* Role title */
+/* Title style */
 .role-card-title {
   font-size: 16px;
   font-weight: 600;
@@ -38,13 +37,14 @@
   margin-top: 10px;
 }
 
-/* Hover effect */
+/* Hover effect for cards */
 .role-card:hover {
   background-color: #f4f7ff;
   transform: translateY(-5px);
   box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.12);
 }
 
+/* Big role card style */
 .big-role-card {
   background: #fff;
   border-radius: 12px;
@@ -58,6 +58,7 @@
   padding-bottom: 0;
 }
 
+/* Assigned member style */
 .assigned-member {
   background: green;
   color: white;
@@ -70,6 +71,60 @@
   width: 70%;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* For incomplete roles */
+.role-card.incomplete {
+  border: 1.5px solid #d08e00;
+}
+
+.role-card.incomplete .role-card-title {
+  color: #d08e00;
+}
+
+.role-card.incomplete .role-card-divider {
+  background-color: #d08e00;
+}
+
+.role-card.incomplete .assigned-member {
+  background: #d08e00;
+  color: white;
+}
+
+/* For complete roles */
+.role-card.complete {
+  border: 1.5px solid #0c9600;
+}
+
+.role-card.complete .role-card-title {
+  color: #0c9600;
+}
+
+.role-card.complete .role-card-divider {
+  background-color: #0c9600;
+}
+
+.role-card.complete .assigned-member {
+  background: #0c9600;
+  color: white;
+}
+
+/* For empty roles */
+.role-card.empty {
+  border: 1.5px solid #213571;
+}
+
+.role-card.empty .role-card-title {
+  color: #213571;
+}
+
+.role-card.empty .role-card-divider {
+  background-color: #213571;
+}
+
+.role-card.empty .assigned-member {
+  background: #213571;
+  color: white;
 }
 
 .role-card-actions {
@@ -124,16 +179,14 @@
   color: #2e4a9e;
 }
 
-/* 5 columns x 2 rows grid for Plates preview */
 .assigned-grid-plate {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  grid-auto-rows: auto; /* makes exactly two rows when we render 10 cells */
+  grid-auto-rows: auto;
   gap: 6px;
   margin-bottom: 8px;
 }
 
-/* keep names tidy if they’re long */
 .ellipsis {
   overflow: hidden;
   text-overflow: ellipsis;

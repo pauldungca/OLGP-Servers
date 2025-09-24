@@ -146,6 +146,16 @@ export const getMemberNameById = async (idNumber) => {
  * UTILITIES (from AssignMember)
  * =========================
  */
+
+export const normalizeMembers = (rows = []) =>
+  rows
+    .map((m) => ({
+      idNumber: String(m.idNumber ?? "").trim(),
+      fullName: buildFullName(m),
+      role: m.role || "Non-Flexible",
+    }))
+    .filter((x) => x.idNumber && x.fullName);
+
 export const buildFullName = (m) => {
   const first =
     m.firstName ||
@@ -173,18 +183,117 @@ export const buildFullName = (m) => {
   return finalName || String(m.idNumber || "").trim();
 };
 
-export const normalizeMembers = (rows = []) =>
-  rows
+/*export const fetchMembersNormalized = async (dateISO, massLabel, roleKey) => {
+  // 1) Read all assignments for this date+mass (so we know who is already taken)
+  const { data: assignedRows, error: assignedErr } = await supabase
+    .from("altar-server-placeholder")
+    .select("idNumber, role")
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  if (assignedErr) {
+    console.error("Error fetching assigned members:", assignedErr);
+    return [];
+  }
+
+  // Normalize/partition the assigned ids
+  const assignedAll = new Set(
+    (assignedRows || []).map((r) => String(r.idNumber ?? "").trim())
+  );
+  const assignedInThisRole = new Set(
+    (assignedRows || [])
+      .filter((r) => r.role === roleKey)
+      .map((r) => String(r.idNumber ?? "").trim())
+  );
+
+  // 2) Fetch directory of members (profile info / flexible role, etc.)
+  const rows = await fetchAltarServerMembersWithRole();
+  let normalized = normalizeMembers(rows || []);
+
+  // 3) Keep members already assigned *to this role*, but hide those assigned to other roles
+  normalized = normalized.filter(
+    (m) => assignedInThisRole.has(m.idNumber) || !assignedAll.has(m.idNumber)
+  );
+
+  // 4) Edge case: if some ids are assigned to this role but not present in the directory,
+  //    fetch their names directly so they still appear in the left list (checked).
+  const missingIds = [...assignedInThisRole].filter(
+    (id) => !normalized.some((m) => m.idNumber === id)
+  );
+  if (missingIds.length > 0) {
+    const { data: missingMembers, error: missingErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", missingIds);
+    if (!missingErr && Array.isArray(missingMembers)) {
+      normalized = normalized.concat(
+        missingMembers.map((m) => ({
+          idNumber: String(m.idNumber ?? "").trim(),
+          fullName: buildFullName(m),
+          role: "Non-Flexible",
+        }))
+      );
+    }
+  }
+
+  return normalized;
+};*/
+
+export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
+  // Step 1: Get all members already assigned to this mass
+  const { data: assignedMembers, error: assignedError } = await supabase
+    .from("altar-server-placeholder")
+    .select("idNumber, role")
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  if (assignedError) {
+    console.error("Error fetching assigned members:", assignedError);
+    return [];
+  }
+
+  // Create maps for assigned members
+  const assignedIds = new Set(
+    assignedMembers.map((member) => String(member.idNumber).trim())
+  );
+
+  // Create a map of assigned members by role
+  const assignedByRole = new Map();
+  assignedMembers.forEach((member) => {
+    const id = String(member.idNumber).trim();
+    if (!assignedByRole.has(member.role)) {
+      assignedByRole.set(member.role, new Set());
+    }
+    assignedByRole.get(member.role).add(id);
+  });
+
+  // Step 2: Fetch all altar server members with roles
+  const rows = await fetchAltarServerMembersWithRole();
+
+  // Step 3: Normalize members and filter appropriately
+  const normalized = (rows || [])
     .map((m) => ({
       idNumber: String(m.idNumber ?? "").trim(),
       fullName: buildFullName(m),
       role: m.role || "Non-Flexible",
     }))
-    .filter((x) => x.idNumber && x.fullName);
+    .filter((m) => {
+      if (!m.idNumber || !m.fullName) return false;
 
-export const fetchMembersNormalized = async () => {
-  const rows = await fetchAltarServerMembersWithRole();
-  return normalizeMembers(rows || []);
+      // If this member is assigned to the current role, always include them
+      const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
+      if (assignedToCurrentRole) return true;
+
+      // If this member is assigned to any other role, exclude them
+      const assignedToOtherRole =
+        assignedIds.has(m.idNumber) && !assignedToCurrentRole;
+      if (assignedToOtherRole) return false;
+
+      // If not assigned anywhere, include them
+      return true;
+    });
+
+  return normalized;
 };
 
 export const slotBaseLabelFor = (roleKey, fallbackLabel = "") => {
@@ -209,21 +318,64 @@ export const preloadAssignedForRole = async ({
   roleKey,
   slotsCount,
 }) => {
-  const grouped = await getAssignmentsForCards(dateISO, massLabel);
-  const existing = Array.isArray(grouped?.[roleKey]) ? grouped[roleKey] : [];
-  return ensureArraySize(
-    existing.map((r) => ({
-      idNumber: String(r.idNumber ?? "").trim(),
-      fullName: r.fullName,
-      slot: r.slot,
-    })),
-    slotsCount
-  );
+  // Get assignments for this specific role
+  const { data: assignments, error } = await supabase
+    .from("altar-server-placeholder")
+    .select("idNumber, slot")
+    .eq("date", dateISO)
+    .eq("mass", massLabel)
+    .eq("role", roleKey)
+    .order("slot", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching assignments:", error);
+    return ensureArraySize([], slotsCount);
+  }
+
+  if (!assignments || assignments.length === 0) {
+    return ensureArraySize([], slotsCount);
+  }
+
+  // Get the member details for all assigned IDs
+  const assignedIds = assignments.map((a) => a.idNumber).filter(Boolean);
+
+  if (assignedIds.length === 0) {
+    return ensureArraySize([], slotsCount);
+  }
+
+  const { data: members, error: memberError } = await supabase
+    .from("members-information")
+    .select("*")
+    .in("idNumber", assignedIds);
+
+  if (memberError) {
+    console.error("Error fetching member details:", memberError);
+    return ensureArraySize([], slotsCount);
+  }
+
+  // Create a map of ID to full name
+  const memberMap = new Map();
+  members?.forEach((m) => {
+    memberMap.set(String(m.idNumber), buildFullName(m));
+  });
+
+  // Build the result array with proper full names
+  const result = assignments.map((assignment) => ({
+    idNumber: String(assignment.idNumber),
+    fullName:
+      memberMap.get(String(assignment.idNumber)) ||
+      `Member ${assignment.idNumber}`,
+    slot: assignment.slot,
+  }));
+
+  return ensureArraySize(result, slotsCount);
 };
 
 export const isMemberChecked = (assigned, member) => {
-  const id = String(member?.idNumber ?? "").trim();
-  return assigned.some((m) => (m ? String(m.idNumber) === id : false));
+  // Check if this member is already in the assigned list for the selected role
+  return assigned.some(
+    (assignedMember) => assignedMember.idNumber === member.idNumber
+  );
 };
 
 export const placeMember = (prevAssigned, member) => {

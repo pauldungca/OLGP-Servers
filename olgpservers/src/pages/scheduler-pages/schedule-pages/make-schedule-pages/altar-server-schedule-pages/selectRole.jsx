@@ -102,6 +102,7 @@ export default function SelectRole() {
       setAssignments({});
       return;
     }
+
     setLoadingAssignments(true);
     try {
       const grouped = await fetchAssignmentsGrouped({
@@ -109,21 +110,34 @@ export default function SelectRole() {
         massLabel: selectedMass,
       });
 
-      // enrich: swap idNumber -> fullName via members-information
+      // Enrich: swap idNumber -> fullName via members-information
       const roles = Object.keys(grouped || {});
       for (const role of roles) {
-        const arr = grouped[role] || [];
+        const assignedMembers = grouped[role] || [];
+        const assignedCount = assignedMembers.length;
+        const requiredCount = counts[role] || 0; // Required count for this role
+
+        // Assign full name for each member
         grouped[role] = await Promise.all(
-          arr.map(async (r) => ({
+          assignedMembers.map(async (r) => ({
             ...r,
-            // ensure we always display a name (fallback to the id)
             fullName: await nameFor(r.idNumber),
           }))
         );
+
+        // Add role status (complete or incomplete)
+        const roleStatus =
+          assignedCount >= requiredCount
+            ? "complete"
+            : assignedCount === 0
+            ? "empty"
+            : "incomplete";
+        grouped[role].status = roleStatus; // Add this to track role completion status
       }
 
       setAssignments(grouped || {});
-    } catch {
+    } catch (err) {
+      console.error("Error refreshing assignments:", err);
       setAssignments({});
     } finally {
       setLoadingAssignments(false);
@@ -238,7 +252,13 @@ export default function SelectRole() {
         <div className="role-cards-grid">
           {visible.thurifer && (
             <div
-              className="role-card"
+              className={`role-card ${
+                assignments.thurifer?.status === "complete"
+                  ? "complete"
+                  : assignments.thurifer?.status === "incomplete"
+                  ? "incomplete"
+                  : "empty"
+              }`}
               onClick={() => goAssign("thurifer", "Thurifer")}
             >
               {(assignments.thurifer || []).slice(0, 2).map((p) => (
@@ -253,7 +273,13 @@ export default function SelectRole() {
 
           {visible.beller && (
             <div
-              className="role-card"
+              className={`role-card ${
+                assignments.beller?.status === "complete"
+                  ? "complete"
+                  : assignments.beller?.status === "incomplete"
+                  ? "incomplete"
+                  : "empty"
+              }`}
               onClick={() => goAssign("beller", "Bellers")}
             >
               {(assignments.beller || []).slice(0, 2).map((p) => (
@@ -268,7 +294,13 @@ export default function SelectRole() {
 
           {visible.mainServer && (
             <div
-              className="role-card"
+              className={`role-card ${
+                assignments.mainServer?.status === "complete"
+                  ? "complete"
+                  : assignments.mainServer?.status === "incomplete"
+                  ? "incomplete"
+                  : "empty"
+              }`}
               onClick={() => goAssign("mainServer", "Book and Mic")}
             >
               {(assignments.mainServer || []).slice(0, 2).map((p) => (
@@ -283,7 +315,13 @@ export default function SelectRole() {
 
           {visible.candleBearer && (
             <div
-              className="role-card"
+              className={`role-card ${
+                assignments.candleBearer?.status === "complete"
+                  ? "complete"
+                  : assignments.candleBearer?.status === "incomplete"
+                  ? "incomplete"
+                  : "empty"
+              }`}
               onClick={() => goAssign("candleBearer", "Candle Bearers")}
             >
               {(assignments.candleBearer || []).slice(0, 2).map((p) => (
@@ -298,7 +336,13 @@ export default function SelectRole() {
 
           {visible.incenseBearer && (
             <div
-              className="role-card"
+              className={`role-card ${
+                assignments.incenseBearer?.status === "complete"
+                  ? "complete"
+                  : assignments.incenseBearer?.status === "incomplete"
+                  ? "incomplete"
+                  : "empty"
+              }`}
               onClick={() => goAssign("incenseBearer", "Incense Bearer")}
             >
               {(assignments.incenseBearer || []).slice(0, 2).map((p) => (
@@ -313,7 +357,13 @@ export default function SelectRole() {
 
           {visible.crossBearer && (
             <div
-              className="role-card"
+              className={`role-card ${
+                assignments.crossBearer?.status === "complete"
+                  ? "complete"
+                  : assignments.crossBearer?.status === "incomplete"
+                  ? "incomplete"
+                  : "empty"
+              }`}
               onClick={() => goAssign("crossBearer", "Cross Bearer")}
             >
               {(assignments.crossBearer || []).slice(0, 2).map((p) => (
@@ -330,7 +380,13 @@ export default function SelectRole() {
         {/* Big card at the bottom */}
         {visible.plate && (
           <div
-            className="role-card big-role-card"
+            className={`role-card big-role-card ${
+              assignments.plate?.status === "complete"
+                ? "complete"
+                : assignments.plate?.status === "incomplete"
+                ? "incomplete"
+                : "empty"
+            }`}
             onClick={() => goAssign("plate", "Plates")}
           >
             <div className="assigned-grid-plate">

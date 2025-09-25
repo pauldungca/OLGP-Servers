@@ -143,6 +143,174 @@ export const getMemberNameById = async (idNumber) => {
 
 /**
  * =========================
+ * ROLE ROTATION HELPERS
+ * =========================
+ */
+
+/**
+ * Calculate rotation priority score for a member for a specific role
+ * Lower score = higher priority for assignment
+ */
+export const calculateRotationScore = (
+  memberId,
+  targetRole,
+  historicalAssignments,
+  targetDate
+) => {
+  if (!historicalAssignments || historicalAssignments.length === 0) {
+    return -5000; // New member gets high priority
+  }
+
+  // Filter assignments for this member
+  const memberAssignments = historicalAssignments.filter(
+    (assignment) =>
+      String(assignment.idNumber).trim() === String(memberId).trim()
+  );
+
+  if (memberAssignments.length === 0) {
+    return -5000; // No history = high priority
+  }
+
+  // Count role occurrences
+  const roleCount = memberAssignments.filter(
+    (assignment) => assignment.role === targetRole
+  ).length;
+
+  // Find most recent assignment in target role
+  const roleAssignments = memberAssignments
+    .filter((assignment) => assignment.role === targetRole)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const lastRoleDate =
+    roleAssignments.length > 0 ? new Date(roleAssignments[0].date) : null;
+  const daysSinceLastRole = lastRoleDate
+    ? Math.floor((new Date(targetDate) - lastRoleDate) / (1000 * 60 * 60 * 24))
+    : Infinity;
+
+  // Calculate total assignments across all roles
+  const totalAssignments = memberAssignments.length;
+
+  // Calculate rotation balance - how evenly distributed are their roles?
+  const roleCounts = new Map();
+  memberAssignments.forEach((assignment) => {
+    roleCounts.set(assignment.role, (roleCounts.get(assignment.role) || 0) + 1);
+  });
+
+  const roleCountsArray = Array.from(roleCounts.values());
+  const averageRoleCount = totalAssignments / roleCounts.size;
+  const roleBalance =
+    roleCountsArray.reduce(
+      (sum, count) => sum + Math.abs(count - averageRoleCount),
+      0
+    ) / roleCounts.size;
+
+  // Scoring algorithm
+  let score = 0;
+
+  // Heavy penalty for recent assignments in same role
+  if (daysSinceLastRole < 7) score += 5000;
+  else if (daysSinceLastRole < 30) score += 2000;
+  else if (daysSinceLastRole < 90) score += 500;
+
+  // Penalty for high role count (encourage rotation)
+  score += roleCount * 1000;
+
+  // Slight penalty for having many total assignments (give others chances)
+  score += totalAssignments * 10;
+
+  // Bonus for good role balance (they rotate well)
+  score -= roleBalance * 50;
+
+  // Major bonus for never doing this role
+  if (roleCount === 0) score -= 10000;
+
+  return score;
+};
+
+/**
+ * Get rotation statistics for a member
+ */
+export const getMemberRotationStats = (memberId, historicalAssignments) => {
+  const memberAssignments = historicalAssignments.filter(
+    (assignment) =>
+      String(assignment.idNumber).trim() === String(memberId).trim()
+  );
+
+  if (memberAssignments.length === 0) {
+    return {
+      totalAssignments: 0,
+      roleDistribution: {},
+      lastAssignmentDate: null,
+      isNewMember: true,
+    };
+  }
+
+  const roleDistribution = {};
+  let lastAssignmentDate = null;
+
+  memberAssignments.forEach((assignment) => {
+    roleDistribution[assignment.role] =
+      (roleDistribution[assignment.role] || 0) + 1;
+
+    const assignmentDate = new Date(assignment.date);
+    if (!lastAssignmentDate || assignmentDate > lastAssignmentDate) {
+      lastAssignmentDate = assignmentDate;
+    }
+  });
+
+  return {
+    totalAssignments: memberAssignments.length,
+    roleDistribution,
+    lastAssignmentDate,
+    isNewMember: false,
+  };
+};
+
+/**
+ * Check if a member needs priority for role rotation
+ */
+export const shouldPrioritizeForRotation = (
+  memberId,
+  targetRole,
+  historicalAssignments,
+  targetDate
+) => {
+  const stats = getMemberRotationStats(memberId, historicalAssignments);
+
+  if (stats.isNewMember) return true;
+
+  const roleCount = stats.roleDistribution[targetRole] || 0;
+
+  // Never done this role
+  if (roleCount === 0) return true;
+
+  // Done this role much less than others
+  const avgRoleCount =
+    stats.totalAssignments / Object.keys(stats.roleDistribution).length;
+  if (roleCount < avgRoleCount * 0.7) return true;
+
+  // Haven't done this role in a long time
+  const roleAssignments = historicalAssignments
+    .filter(
+      (assignment) =>
+        String(assignment.idNumber).trim() === String(memberId).trim() &&
+        assignment.role === targetRole
+    )
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (roleAssignments.length > 0) {
+    const daysSinceLastRole = Math.floor(
+      (new Date(targetDate) - new Date(roleAssignments[0].date)) /
+        (1000 * 60 * 60 * 24)
+    );
+    return daysSinceLastRole > 30;
+  }
+
+  return false;
+};
+
+/**
+ * =========================
  * UTILITIES (from AssignMember)
  * =========================
  */
@@ -185,26 +353,52 @@ export const buildFullName = (m) => {
 };
 
 export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
-  // Step 1: Get all members already assigned to this mass
-  const { data: assignedMembers, error: assignedError } = await supabase
+  // Step 1: Get all members already assigned to ANY mass on this date
+  const { data: allAssignedMembers, error: allAssignedError } = await supabase
+    .from("altar-server-placeholder")
+    .select("idNumber, role, mass")
+    .eq("date", dateISO);
+
+  if (allAssignedError) {
+    console.error("Error fetching all assigned members:", allAssignedError);
+    return [];
+  }
+
+  // Step 2: Get members assigned to the current mass specifically
+  const { data: currentMassMembers, error: currentMassError } = await supabase
     .from("altar-server-placeholder")
     .select("idNumber, role")
     .eq("date", dateISO)
     .eq("mass", massLabel);
 
-  if (assignedError) {
-    console.error("Error fetching assigned members:", assignedError);
+  if (currentMassError) {
+    console.error("Error fetching current mass members:", currentMassError);
     return [];
   }
 
-  // Create maps for assigned members
-  const assignedIds = new Set(
-    assignedMembers.map((member) => String(member.idNumber).trim())
+  // Step 3: Get historical role assignments for rotation analysis (last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+  const { data: historicalAssignments, error: histError } = await supabase
+    .from("altar-server-placeholder")
+    .select("idNumber, role, date")
+    .gte("date", sixMonthsAgoISO)
+    .order("date", { ascending: false });
+
+  if (histError) {
+    console.error("Error fetching historical assignments:", histError);
+  }
+
+  // Create sets for different assignment scenarios
+  const allAssignedIds = new Set(
+    allAssignedMembers.map((member) => String(member.idNumber).trim())
   );
 
-  // Create a map of assigned members by role
+  // Create a map of assigned members by role for current mass
   const assignedByRole = new Map();
-  assignedMembers.forEach((member) => {
+  currentMassMembers.forEach((member) => {
     const id = String(member.idNumber).trim();
     if (!assignedByRole.has(member.role)) {
       assignedByRole.set(member.role, new Set());
@@ -212,34 +406,91 @@ export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
     assignedByRole.get(member.role).add(id);
   });
 
-  // Step 2: Fetch all altar server members with roles
+  // Step 4: Fetch all altar server members with roles
   const rows = await fetchAltarServerMembersWithRole();
 
-  // Step 3: Normalize members and filter appropriately
+  // Step 5: Normalize members and apply rotation logic
   const normalized = (rows || [])
     .map((m) => ({
       idNumber: String(m.idNumber ?? "").trim(),
       fullName: buildFullName(m),
       role: m.role || "Non-Flexible",
-      sex: m.sex || "Unknown", // Include sex field
+      sex: m.sex || "Unknown",
     }))
     .filter((m) => {
       if (!m.idNumber || !m.fullName) return false;
 
-      // If this member is assigned to the current role, always include them
+      // If this member is assigned to the current role in the current mass, always include them
       const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
       if (assignedToCurrentRole) return true;
 
-      // If this member is assigned to any other role, exclude them
-      const assignedToOtherRole =
-        assignedIds.has(m.idNumber) && !assignedToCurrentRole;
-      if (assignedToOtherRole) return false;
+      // If this member is assigned to ANY mass on this date (including current mass), exclude them
+      const assignedToAnyMass = allAssignedIds.has(m.idNumber);
+      if (assignedToAnyMass) return false;
 
-      // If not assigned anywhere, include them
+      // If not assigned anywhere on this date, include them
       return true;
+    })
+    .map((m) => {
+      // Add rotation priority score and statistics
+      const rotationScore = calculateRotationScore(
+        m.idNumber,
+        role,
+        historicalAssignments || [],
+        dateISO
+      );
+
+      const stats = getMemberRotationStats(
+        m.idNumber,
+        historicalAssignments || []
+      );
+      const shouldPrioritize = shouldPrioritizeForRotation(
+        m.idNumber,
+        role,
+        historicalAssignments || [],
+        dateISO
+      );
+
+      const roleCount = stats.roleDistribution[role] || 0;
+
+      // Calculate days since last role assignment
+      const roleAssignments = (historicalAssignments || [])
+        .filter(
+          (assignment) =>
+            String(assignment.idNumber).trim() === m.idNumber &&
+            assignment.role === role
+        )
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      const daysSinceLastRole =
+        roleAssignments.length > 0
+          ? Math.floor(
+              (new Date(dateISO) - new Date(roleAssignments[0].date)) /
+                (1000 * 60 * 60 * 24)
+            )
+          : Infinity;
+
+      return {
+        ...m,
+        rotationScore,
+        roleCount,
+        daysSinceLastRole,
+        shouldPrioritize,
+        totalAssignments: stats.totalAssignments,
+        isNewMember: stats.isNewMember,
+      };
+    })
+    // Sort by rotation priority (lower score = higher priority)
+    .sort((a, b) => {
+      // First sort by rotation score
+      if (a.rotationScore !== b.rotationScore) {
+        return a.rotationScore - b.rotationScore;
+      }
+      // Then by name for consistency
+      return a.fullName.localeCompare(b.fullName);
     });
 
-  // Step 4: For assigned members, get additional info from members-information table
+  // Step 6: For assigned members, get additional info from members-information table
   const assignedToCurrentRole = assignedByRole.get(role);
   if (assignedToCurrentRole && assignedToCurrentRole.size > 0) {
     const assignedIds = Array.from(assignedToCurrentRole);
@@ -248,7 +499,8 @@ export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
     const { data: assignedMemberDetails, error: detailsError } = await supabase
       .from("members-information")
       .select("idNumber, firstName, middleName, lastName, sex")
-      .in("idNumber", assignedIds);
+      .in("idNumber", assignedIds)
+      .order("id", { ascending: true });
 
     if (!detailsError && assignedMemberDetails) {
       // Update the normalized array with detailed information for assigned members
@@ -269,6 +521,12 @@ export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
             fullName: buildFullName(detail),
             role: "Non-Flexible",
             sex: detail.sex || "Unknown",
+            rotationScore: 0,
+            roleCount: 0,
+            daysSinceLastRole: Infinity,
+            shouldPrioritize: true,
+            totalAssignments: 0,
+            isNewMember: true,
           });
         }
       });

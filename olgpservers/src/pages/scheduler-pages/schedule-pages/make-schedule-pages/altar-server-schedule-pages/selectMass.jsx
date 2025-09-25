@@ -5,6 +5,13 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import icon from "../../../../../helper/icon";
 import image from "../../../../../helper/images";
 import Footer from "../../../../../components/footer";
+import DropDownButton from "../../../../../components/dropDownButton";
+
+import {
+  exportAltarServerSchedulesPDF,
+  exportAltarServerSchedulesPNG,
+  printAltarServerSchedules,
+} from "../../../../../assets/scripts/exportSchedule";
 
 import {
   isSundayFor,
@@ -31,6 +38,8 @@ export default function SelectMass() {
   const source = location.state?.source || null;
   const passedIsSunday = location.state?.isSunday;
   const templateID = location.state?.templateID ?? null;
+
+  const department = "Altar Server";
 
   // Sunday detection
   const isSunday = useMemo(
@@ -91,9 +100,13 @@ export default function SelectMass() {
   );
 
   // Which masses to show
-  const masses = isSunday
-    ? ["1st Mass - 6:00 AM", "2nd Mass - 8:00 AM", "3rd Mass - 5:00 PM"]
-    : ["Mass"];
+  const masses = useMemo(
+    () =>
+      isSunday
+        ? ["1st Mass - 6:00 AM", "2nd Mass - 8:00 AM", "3rd Mass - 5:00 PM"]
+        : ["Mass"],
+    [isSunday]
+  );
 
   // Compute a status for one mass
   const computeStatusForMass = async (massLabel) => {
@@ -212,6 +225,11 @@ export default function SelectMass() {
   // Determine if we should show loading screen
   const isLoading =
     (needFlags && loadingFlags) || loadingMass || !initialLoadComplete;
+
+  const allMassesComplete = useMemo(
+    () => masses.every((label) => massStatus[label] === "complete"),
+    [masses, massStatus]
+  );
 
   return (
     <div className="schedule-page-container">
@@ -332,6 +350,53 @@ export default function SelectMass() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {!isLoading && (
+          <div
+            className="action-buttons"
+            style={
+              !allMassesComplete
+                ? { pointerEvents: "none", opacity: 0.6 }
+                : undefined
+            }
+          >
+            <DropDownButton
+              onExportPDF={() =>
+                exportAltarServerSchedulesPDF({
+                  dateISO: selectedISO,
+                  isSunday,
+                  department,
+                })
+              }
+              onExportPNG={() =>
+                exportAltarServerSchedulesPNG({
+                  dateISO: selectedISO,
+                  isSunday,
+                  department,
+                })
+              }
+            />
+
+            <button
+              className="btn btn-blue flex items-center gap-2"
+              style={
+                !allMassesComplete
+                  ? { pointerEvents: "none", opacity: 0.9 }
+                  : undefined
+              }
+              onClick={() =>
+                printAltarServerSchedules({
+                  dateISO: selectedISO,
+                  isSunday,
+                  department,
+                })
+              }
+            >
+              <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
+              Print Schedules
+            </button>
           </div>
         )}
       </div>

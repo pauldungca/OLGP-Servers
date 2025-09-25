@@ -1,6 +1,17 @@
+// assets/scripts/fetchSchedule.js
 import { supabase } from "../../utils/supabase";
 
-// UPPERCASE month names for the header
+// If computeStatusForDate is used, we need these helpers:
+import {
+  fetchAssignmentsGrouped,
+  getTemplateFlags,
+  roleCountsFor,
+  roleVisibilityFor,
+} from "./assignMember";
+
+/* =========================
+ * Month helpers and labels
+ * ========================= */
 export const MONTH_NAMES_UC = [
   "JANUARY",
   "FEBRUARY",
@@ -16,7 +27,6 @@ export const MONTH_NAMES_UC = [
   "DECEMBER",
 ];
 
-// Title-case month names for card labels (e.g., "April 6 - Sunday")
 export const MONTH_NAMES_TC = [
   "January",
   "February",
@@ -32,39 +42,30 @@ export const MONTH_NAMES_TC = [
   "December",
 ];
 
-// Get all Sundays (Date objects) for a given month/year
-export const getSundays = (year, month /* 0=Jan */) => {
+/* =========================
+ * Date utilities
+ * ========================= */
+
+// All Sundays in a (year, month) where month is 0–11
+export const getSundays = (year, month) => {
   const sundays = [];
   const d = new Date(year, month, 1);
-
   while (d.getMonth() === month) {
-    if (d.getDay() === 0) {
-      sundays.push(new Date(d));
-    }
+    if (d.getDay() === 0) sundays.push(new Date(d));
     d.setDate(d.getDate() + 1);
   }
   return sundays;
 };
 
-// Previous month/year
-export const prevMonth = (year, month) => {
-  return month === 0
-    ? { year: year - 1, month: 11 }
-    : { year, month: month - 1 };
-};
+export const prevMonth = (year, month) =>
+  month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 };
 
-// Next month/year
-export const nextMonth = (year, month) => {
-  return month === 11
-    ? { year: year + 1, month: 0 }
-    : { year, month: month + 1 };
-};
+export const nextMonth = (year, month) =>
+  month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 };
 
-// Header: "MONTH OF APRIL - 2025"
 export const formatHeader = (year, month) =>
   `MONTH OF ${MONTH_NAMES_UC[month]} - ${year}`;
 
-// Card label: "April 6 - Sunday"
 export const formatScheduleDate = (dateObj) => {
   const month = MONTH_NAMES_TC[dateObj.getMonth()];
   const day = dateObj.getDate();
@@ -80,26 +81,33 @@ export const formatScheduleDate = (dateObj) => {
   return `${month} ${day} - ${weekday}`;
 };
 
+// Parse "YYYY-MM-DD" **as LOCAL time** to avoid month-shift bugs
+const parseLocalDate = (isoDate) => {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0);
+};
+
+/* =========================
+ * Supabase fetchers
+ * ========================= */
+
+// 1) All template uses (dates) that are marked as needed
 export const fetchAltarServerTemplateDates = async () => {
-  // 1) Read uses (dates) with their templateID
   const { data: uses, error: useErr } = await supabase
     .from("use-template-table")
     .select("id,date,templateID")
     .order("date", { ascending: true });
 
   if (useErr) {
-    console.error("Supabase fetch (use-template-table) error:", useErr);
+    console.error("Supabase (use-template-table) error:", useErr);
     return [];
   }
 
-  // Unique templateIDs referenced by the uses
   const templateIDs = Array.from(
     new Set((uses || []).map((u) => u.templateID).filter((v) => v != null))
   );
-
   if (templateIDs.length === 0) return [];
 
-  // 2) Read template flags and keep only those with isNeeded=1
   const { data: needed, error: tmplErr } = await supabase
     .from("template-altar-server")
     .select("templateID,isNeeded")
@@ -107,13 +115,12 @@ export const fetchAltarServerTemplateDates = async () => {
     .eq("isNeeded", 1);
 
   if (tmplErr) {
-    console.error("Supabase fetch (template-altar-server) error:", tmplErr);
+    console.error("Supabase (template-altar-server) error:", tmplErr);
     return [];
   }
 
   const allowed = new Set((needed || []).map((t) => t.templateID));
 
-  // 3) Return normalized rows only for allowed templateIDs
   return (uses || [])
     .filter(
       (r) =>
@@ -122,47 +129,17 @@ export const fetchAltarServerTemplateDates = async () => {
         allowed.has(r.templateID)
     )
     .map((r) => {
-      const d = new Date(`${r.date}T00:00:00`);
+      const d = parseLocalDate(r.date);
       return {
         id: r.id,
         templateID: r.templateID,
-        dateStr: r.date, // "YYYY-MM-DD"
+        dateStr: r.date,
         dateObj: d,
-        source: "template", // mark as template-sourced
+        source: "template",
       };
     });
 };
 
-// Keep only items that match the visible month/year
-export const filterByMonthYear = (items, year, month /* 0=Jan */) =>
-  (items || []).filter(
-    (it) =>
-      it.dateObj instanceof Date &&
-      !isNaN(it.dateObj) &&
-      it.dateObj.getFullYear() === year &&
-      it.dateObj.getMonth() === month
-  );
-
-// Merge Sundays + Templates -> sort asc by date; keep type/source
-export const mergeSchedules = (sundays, templates) => {
-  // Tag Sundays
-  const sundayItems = (sundays || []).map((d) => ({
-    id: `sun-${d.toISOString()}`,
-    dateStr: d.toISOString().slice(0, 10),
-    dateObj: d,
-    source: "sunday",
-  }));
-
-  // Combine
-  const combined = [...sundayItems, ...(templates || [])];
-
-  // Sort by date ascending
-  combined.sort((a, b) => a.dateObj - b.dateObj);
-
-  return combined;
-};
-
-// Get role flags/counts for a given templateID from `template-altar-server`
 export const fetchAltarServerTemplateFlags = async (templateID) => {
   if (templateID == null) return null;
 
@@ -175,12 +152,11 @@ export const fetchAltarServerTemplateFlags = async (templateID) => {
     .maybeSingle();
 
   if (error) {
-    console.error("Supabase fetch (template-altar-server) error:", error);
+    console.error("Supabase fetch flags error:", error);
     return null;
   }
   if (!data) return null;
 
-  // Normalize to camelCase keys for the UI
   return {
     templateID: data.templateID,
     isNeeded: Number(data.isNeeded) === 1,
@@ -188,7 +164,7 @@ export const fetchAltarServerTemplateFlags = async (templateID) => {
       candleBearer: Number(data["candle-bearer"] || 0),
       thurifer: Number(data["thurifer"] || 0),
       beller: Number(data["beller"] || 0),
-      mainServer: Number(data["main-server"] || 0), // mapped to "Book and Mic" in UI
+      mainServer: Number(data["main-server"] || 0),
       crossBearer: Number(data["cross-bearer"] || 0),
       incenseBearer: Number(data["incense-bearer"] || 0),
       plate: Number(data["plate"] || 0),
@@ -196,37 +172,22 @@ export const fetchAltarServerTemplateFlags = async (templateID) => {
   };
 };
 
-// Convenience: resolve templateID by date (YYYY-MM-DD) then return flags
-// Find template flags for a given ISO date (YYYY-MM-DD)
-// Fetch role counts for a given date or templateID from Supabase
-// - If templateID is provided we use it directly.
-// - Otherwise we look up the templateID for the given ISO date (YYYY-MM-DD)
-//   in "use-template-table", then read its counts from "template-altar-server".
-export const getTemplateFlagsForDate = async (
-  isoDate /* "YYYY-MM-DD" */,
-  templateID /* optional */
-) => {
+export const getTemplateFlagsForDate = async (isoDate, templateID) => {
   try {
     let tid = templateID ?? null;
 
-    // 1) If we weren't given a templateID, look it up by date
     if (!tid && isoDate) {
       const { data: useRows, error: useErr } = await supabase
         .from("use-template-table")
         .select("templateID")
         .eq("date", isoDate)
         .limit(1);
-
       if (useErr) throw useErr;
       tid = useRows?.[0]?.templateID ?? null;
     }
 
-    if (!tid) {
-      // No template for this date
-      return null;
-    }
+    if (!tid) return null;
 
-    // 2) Read the role counts for that templateID
     const { data: tmplRows, error: tmplErr } = await supabase
       .from("template-altar-server")
       .select(
@@ -241,7 +202,6 @@ export const getTemplateFlagsForDate = async (
     const row = tmplRows?.[0];
     if (!row) return { templateID: tid, roles: {} };
 
-    // 3) Map hyphenated DB columns -> camelCase keys used in the UI
     return {
       templateID: row.templateID,
       isNeeded: row.isNeeded ?? null,
@@ -259,4 +219,113 @@ export const getTemplateFlagsForDate = async (
     console.error("getTemplateFlagsForDate error:", err);
     return null;
   }
+};
+
+/* =========================
+ * Filtering / merging
+ * ========================= */
+
+export const filterByMonthYear = (items, year, month) =>
+  (items || []).filter(
+    (it) =>
+      it?.dateObj instanceof Date &&
+      !isNaN(it.dateObj) &&
+      it.dateObj.getFullYear() === year &&
+      it.dateObj.getMonth() === month
+  );
+
+export const mergeSchedules = (sundays, templates) => {
+  const sundayItems = (sundays || []).map((d) => ({
+    id: `sun-${d.toISOString()}`,
+    dateStr: d.toISOString().slice(0, 10),
+    dateObj: d,
+    source: "sunday",
+  }));
+  const combined = [...sundayItems, ...(templates || [])];
+  combined.sort((a, b) => a.dateObj - b.dateObj);
+  return combined;
+};
+
+/* =========================
+ * UI helpers moved from JSX
+ * ========================= */
+
+// Map schedule status → card visuals/text/icon keys
+export const viewFor = (status, image) => {
+  if (status === "complete") {
+    return {
+      border: "border-green",
+      text: "Complete schedule",
+      textClass: "green",
+      dividerClass: "green",
+      img: image.completeScheduleImage,
+    };
+  }
+  if (status === "incomplete") {
+    return {
+      border: "border-orange",
+      text: "Incomplete schedule",
+      textClass: "orange",
+      dividerClass: "orange",
+      img: image.incompleteScheduleImage,
+    };
+  }
+  return {
+    border: "border-blue",
+    text: "This Schedule is Empty.",
+    textClass: "blue",
+    dividerClass: "blue",
+    img: image.emptyScheduleImage,
+  };
+};
+
+// Loading text variants
+export const getLoadingMessage = ({ loading, navigating, loadingStatus }) => {
+  if (loading) return "Loading schedules...";
+  if (navigating) return "Loading month schedules...";
+  if (loadingStatus) return "Checking schedule statuses...";
+  return "Loading...";
+};
+
+// Compute status for one date (async)
+export const computeStatusForDate = async ({
+  dateISO,
+  isSunday,
+  templateID,
+}) => {
+  const masses = isSunday
+    ? ["1st Mass - 6:00 AM", "2nd Mass - 8:00 AM", "3rd Mass - 5:00 PM"]
+    : ["Mass"];
+
+  let flags = null;
+  if (!isSunday && dateISO) {
+    flags = await getTemplateFlags(dateISO);
+  }
+  const counts = roleCountsFor({ flags, isSunday });
+  const visible = roleVisibilityFor({ flags, isSunday });
+
+  let allEmpty = true;
+  let allComplete = true;
+
+  for (const massLabel of masses) {
+    const grouped = await fetchAssignmentsGrouped({ dateISO, massLabel });
+    const totalAssigned = Object.values(grouped || {}).reduce(
+      (sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
+      0
+    );
+    if (totalAssigned > 0) allEmpty = false;
+
+    for (const roleKey of Object.keys(visible || {})) {
+      if (!visible[roleKey]) continue;
+      const need = Number(counts[roleKey] || 0);
+      if (need <= 0) continue;
+      const have = Array.isArray(grouped[roleKey])
+        ? grouped[roleKey].length
+        : 0;
+      if (have < need) allComplete = false;
+    }
+  }
+
+  if (allEmpty) return "empty";
+  return allComplete ? "complete" : "incomplete";
 };

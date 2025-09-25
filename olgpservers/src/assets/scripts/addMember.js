@@ -42,10 +42,10 @@ export const handleContactNumberChange = (e, setContactNumber) => {
   setContactNumber(formatted);
 };
 
-function insertMemberAuthentication(idNumber, password, email) {
+function insertMemberAuthentication(idNumber, password, email, hasAgree) {
   return supabase
     .from("authentication")
-    .insert([{ idNumber, password, email }])
+    .insert([{ idNumber, password, email, hasAgree }])
     .then(({ error }) => {
       if (error) {
         Swal.fire({ icon: "error", title: "Error", text: error.message });
@@ -54,9 +54,20 @@ function insertMemberAuthentication(idNumber, password, email) {
     });
 }
 
-export const addMemberAuthentication = async (idNumber, password, email) => {
+export const addMemberAuthentication = async (
+  idNumber,
+  password,
+  email,
+  hasAgree
+) => {
   const hashedPassword = bcrypt.hashSync(password, 10);
-  return await insertMemberAuthentication(idNumber, hashedPassword, email);
+  const hasAgreed = 0;
+  return await insertMemberAuthentication(
+    idNumber,
+    hashedPassword,
+    email,
+    hasAgreed
+  );
 };
 
 export const insertMemberInformation = async (

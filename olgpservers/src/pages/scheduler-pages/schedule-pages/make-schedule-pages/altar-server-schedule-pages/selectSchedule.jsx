@@ -4,7 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import icon from "../../../../../helper/icon";
 import image from "../../../../../helper/images";
 import Footer from "../../../../../components/footer";
-import DropDownButton from "../../../../../components/dropDownButton";
 
 import {
   getSundays,
@@ -15,14 +14,10 @@ import {
   fetchAltarServerTemplateDates,
   filterByMonthYear,
   mergeSchedules,
+  computeStatusForDate,
+  viewFor,
+  getLoadingMessage,
 } from "../../../../../assets/scripts/fetchSchedule";
-
-import {
-  fetchAssignmentsGrouped,
-  getTemplateFlags,
-  roleCountsFor,
-  roleVisibilityFor,
-} from "../../../../../assets/scripts/assignMember";
 
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/selectScheduleAltarServer.css";
@@ -31,7 +26,6 @@ export default function SelectSchedule() {
   useEffect(() => {
     document.title = "OLGP Servers | Make Schedule";
   }, []);
-
   const navigate = useNavigate();
 
   const today = useMemo(() => new Date(), []);
@@ -41,12 +35,16 @@ export default function SelectSchedule() {
   const [templateDates, setTemplateDates] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // show loader when navigating months
+  const [navigating, setNavigating] = useState(false);
+
   // schedule-level statuses
   const [scheduleStatus, setScheduleStatus] = useState({});
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [initialStatusLoadComplete, setInitialStatusLoadComplete] =
     useState(false);
 
+  // fetch template dates (once)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -66,27 +64,38 @@ export default function SelectSchedule() {
     };
   }, []);
 
+  // recompute visible items for the current month
   const sundays = useMemo(() => getSundays(year, month), [year, month]);
   const visibleTemplates = useMemo(
     () => filterByMonthYear(templateDates, year, month),
     [templateDates, year, month]
   );
-
   const scheduleItems = useMemo(
     () => mergeSchedules(sundays, visibleTemplates),
     [sundays, visibleTemplates]
   );
 
+  // ensure the grid fully remounts when month/year changes (prevents flash of previous month)
+  const viewKey = `${year}-${month}`;
+
   const handlePrev = () => {
     const { year: y, month: m } = prevMonth(year, month);
+    setNavigating(true);
     setYear(y);
     setMonth(m);
+    setInitialStatusLoadComplete(false);
+    setScheduleStatus({});
+    window.scrollTo(0, 0);
   };
 
   const handleNext = () => {
     const { year: y, month: m } = nextMonth(year, month);
+    setNavigating(true);
     setYear(y);
     setMonth(m);
+    setInitialStatusLoadComplete(false);
+    setScheduleStatus({});
+    window.scrollTo(0, 0);
   };
 
   const handleCardClick = (sched) => {
@@ -107,63 +116,15 @@ export default function SelectSchedule() {
     });
   };
 
-  // --- compute status for each date ---
-  const computeStatusForDate = async (
-    dateISO,
-    isSunday,
-    templateID,
-    source
-  ) => {
-    const masses = isSunday
-      ? ["1st Mass - 6:00 AM", "2nd Mass - 8:00 AM", "3rd Mass - 5:00 PM"]
-      : ["Mass"];
-
-    // get template flags if needed
-    let flags = null;
-    if (!isSunday && dateISO) {
-      flags = await getTemplateFlags(dateISO);
-    }
-    const counts = roleCountsFor({ flags, isSunday });
-    const visible = roleVisibilityFor({ flags, isSunday });
-
-    let allEmpty = true;
-    let allComplete = true;
-    for (const massLabel of masses) {
-      const grouped = await fetchAssignmentsGrouped({
-        dateISO,
-        massLabel,
-      });
-      const totalAssigned = Object.values(grouped || {}).reduce(
-        (sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
-        0
-      );
-      if (totalAssigned > 0) allEmpty = false;
-
-      for (const roleKey of Object.keys(visible || {})) {
-        if (!visible[roleKey]) continue;
-        const need = Number(counts[roleKey] || 0);
-        if (need <= 0) continue;
-        const have = Array.isArray(grouped[roleKey])
-          ? grouped[roleKey].length
-          : 0;
-        if (have < need) {
-          allComplete = false;
-        }
-      }
-    }
-
-    if (allEmpty) return "empty";
-    return allComplete ? "complete" : "incomplete";
-  };
-
+  // recalc statuses whenever the visible items change; end navigation when done
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (scheduleItems.length === 0) {
         setInitialStatusLoadComplete(true);
+        setNavigating(false);
         return;
       }
-
       setLoadingStatus(true);
       setInitialStatusLoadComplete(false);
 
@@ -175,28 +136,24 @@ export default function SelectSchedule() {
               ? sched.dateStr
               : sched.dateObj.toISOString().slice(0, 10);
           try {
-            next[dateISO] = await computeStatusForDate(
+            next[dateISO] = await computeStatusForDate({
               dateISO,
-              sched.source === "sunday",
-              sched.templateID,
-              sched.source
-            );
+              isSunday: sched.source === "sunday",
+              templateID: sched.templateID,
+            });
           } catch {
             next[dateISO] = "empty";
           }
         }
-        if (!cancelled) {
-          setScheduleStatus(next);
-        }
+        if (!cancelled) setScheduleStatus(next);
       } catch (error) {
         console.error("Error computing schedule statuses:", error);
-        if (!cancelled) {
-          setScheduleStatus({});
-        }
+        if (!cancelled) setScheduleStatus({});
       } finally {
         if (!cancelled) {
           setLoadingStatus(false);
           setInitialStatusLoadComplete(true);
+          setNavigating(false); // turn off month loader when done
         }
       }
     })();
@@ -205,39 +162,12 @@ export default function SelectSchedule() {
     };
   }, [scheduleItems]);
 
-  const viewFor = (status) => {
-    if (status === "complete") {
-      return {
-        border: "border-green",
-        text: "Complete schedule",
-        textClass: "green",
-        dividerClass: "green",
-        img: image.completeScheduleImage,
-      };
-    }
-    if (status === "incomplete") {
-      return {
-        border: "border-orange",
-        text: "Incomplete schedule",
-        textClass: "orange",
-        dividerClass: "orange",
-        img: image.incompleteScheduleImage,
-      };
-    }
-    return {
-      border: "border-blue",
-      text: "This Schedule is Empty.",
-      textClass: "blue",
-      dividerClass: "blue",
-      img: image.emptyScheduleImage,
-    };
-  };
-
-  // Determine if we should show loading screen
-  const isLoading = loading || loadingStatus || !initialStatusLoadComplete;
+  // Show loading if initial loading, status loading, or navigating between months
+  const isLoading =
+    loading || loadingStatus || !initialStatusLoadComplete || navigating;
 
   return (
-    <div className="schedule-page-container">
+    <div className="schedule-page-container" key={viewKey}>
       <div className="schedule-header">
         <div className="header-text-with-line">
           <h3>MAKE SCHEDULE - ALTAR SERVER</h3>
@@ -260,7 +190,7 @@ export default function SelectSchedule() {
                 <img
                   src={icon.chevronIcon}
                   alt="Chevron Icon"
-                  style={{ width: "15px", height: "15px" }}
+                  style={{ width: 15, height: 15 }}
                 />
               }
               className="customized-breadcrumb"
@@ -305,37 +235,23 @@ export default function SelectSchedule() {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              minHeight: "300px",
-              padding: "2rem",
+              padding: "1rem",
             }}
           >
             <div
               style={{
-                width: "40px",
-                height: "40px",
-                border: "3px solid #f3f3f3",
-                borderTop: "3px solid #2e4a9e",
+                width: 22,
+                height: 22,
+                border: "2px solid #f3f3f3",
+                borderTop: "2px solid #2e4a9e",
                 borderRadius: "50%",
                 animation: "spin 1s linear infinite",
               }}
-            ></div>
-            <p
-              style={{
-                marginTop: "1rem",
-                color: "#666",
-                fontSize: "16px",
-              }}
-            >
-              {loading
-                ? "Loading schedules..."
-                : "Checking schedule statuses..."}
+            />
+            <p style={{ marginTop: 8, color: "#666", fontSize: 14 }}>
+              {getLoadingMessage({ loading, navigating, loadingStatus })}
             </p>
-            <style>{`
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-            `}</style>
+            <style>{`@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}`}</style>
           </div>
         ) : (
           <div className="schedule-grid schedule-content">
@@ -346,9 +262,9 @@ export default function SelectSchedule() {
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  minHeight: "200px",
+                  minHeight: 200,
                   color: "#666",
-                  fontSize: "16px",
+                  fontSize: 16,
                 }}
               >
                 <p>No schedules available for {formatHeader(year, month)}</p>
@@ -360,10 +276,10 @@ export default function SelectSchedule() {
                     ? sched.dateStr
                     : sched.dateObj.toISOString().slice(0, 10);
                 const status = scheduleStatus[dateISO] || "empty";
-                const v = viewFor(status);
+                const v = viewFor(status, image);
                 return (
                   <div
-                    key={dateISO}
+                    key={`${dateISO}-${sched.source}`}
                     className={`schedule-card status-${status} ${v.border}`}
                     onClick={() => handleCardClick(sched)}
                     style={{ position: "relative" }}
@@ -412,14 +328,6 @@ export default function SelectSchedule() {
             )}
           </div>
         )}
-
-        <div className="action-buttons">
-          <DropDownButton />
-          <button className="btn btn-blue" disabled={isLoading}>
-            <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
-            Print Members List
-          </button>
-        </div>
       </div>
 
       <div>

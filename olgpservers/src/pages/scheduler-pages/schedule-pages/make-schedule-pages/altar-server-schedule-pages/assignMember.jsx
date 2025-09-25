@@ -199,6 +199,23 @@ export default function AssignMember() {
     }
   };
 
+  const formatRotationInfo = (member) => {
+    if (member.roleCount === 0) {
+      return "New to role";
+    }
+
+    const dayText =
+      member.daysSinceLastRole === Infinity
+        ? "Never"
+        : member.daysSinceLastRole === 0
+        ? "Today"
+        : member.daysSinceLastRole === 1
+        ? "1 day ago"
+        : `${member.daysSinceLastRole} days ago`;
+
+    return `${member.roleCount}x done • Last: ${dayText}`;
+  };
+
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">
@@ -315,44 +332,88 @@ export default function AssignMember() {
             </div>
 
             <ul className="list-group assign-member-list">
-              <li className="list-group-item active">Name</li>
+              <li className="list-group-item active d-flex justify-content-between">
+                <span>Name</span>
+                <span style={{ fontSize: "0.85em", opacity: 0.9 }}>
+                  Role History
+                </span>
+              </li>
 
               {loadingMembers || preloading ? (
                 <li className="list-group-item text-muted">
                   {loadingMembers
-                    ? "Fetching members…"
-                    : "Loading assignments…"}
+                    ? "Fetching members..."
+                    : "Loading assignments..."}
                 </li>
               ) : filteredMembers.length > 0 ? (
                 filteredMembers.map((m) => {
-                  // Check if the current member is already assigned to the role
-                  const checked = isMemberChecked(assigned, m); // Check if the member is assigned
+                  const checked = isMemberChecked(assigned, m);
+                  const isPriorityMember =
+                    m.roleCount === 0 || m.daysSinceLastRole > 30;
 
                   return (
                     <li
                       key={String(m.idNumber)}
-                      className="list-group-item d-flex align-items-center"
-                      onClick={() => handleToggleMember(m)} // Handles toggling (assign/unassign)
-                      style={{ cursor: "pointer" }}
+                      className={`list-group-item d-flex align-items-center justify-content-between ${
+                        isPriorityMember ? "priority-member" : ""
+                      }`}
+                      onClick={() => handleToggleMember(m)}
+                      style={{
+                        cursor: "pointer",
+                        backgroundColor: isPriorityMember
+                          ? "#f8f9ff"
+                          : "inherit",
+                        borderLeft: isPriorityMember
+                          ? "3px solid #2e4a9e"
+                          : "none",
+                      }}
                     >
-                      <input
-                        type="checkbox"
-                        className="form-check-input me-2"
-                        checked={checked} // Set the checkbox to be checked if the member is assigned
-                        onChange={() => handleToggleMember(m)} // Handles change of the checkbox (assign/unassign)
-                        onClick={(e) => e.stopPropagation()} // Prevent the event from bubbling up to the parent `li`
-                      />
-                      {m.fullName} {/* Display the member's full name */}
-                      {needsGenderFiltering && (
-                        <span
-                          className={`badge ms-2 ${
-                            m.sex === "Male" ? "bg-primary" : "bg-secondary"
-                          }`}
-                          style={{ fontSize: "0.7em" }}
-                        >
-                          {m.sex === "Male" ? "M" : "F"}
-                        </span>
-                      )}
+                      <div className="d-flex align-items-center flex-grow-1">
+                        <input
+                          type="checkbox"
+                          className="form-check-input me-2"
+                          checked={checked}
+                          onChange={() => handleToggleMember(m)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div>
+                          <div className="d-flex align-items-center">
+                            {m.fullName}
+                            {needsGenderFiltering && (
+                              <span
+                                className={`badge ms-2 ${
+                                  m.sex === "Male"
+                                    ? "bg-primary"
+                                    : "bg-secondary"
+                                }`}
+                                style={{ fontSize: "0.7em" }}
+                              >
+                                {m.sex === "Male" ? "M" : "F"}
+                              </span>
+                            )}
+                            {isPriorityMember && (
+                              <span
+                                className="badge bg-success ms-2"
+                                style={{ fontSize: "0.7em" }}
+                                title="Priority for role rotation"
+                              >
+                                Priority
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        className="text-end"
+                        style={{
+                          fontSize: "0.75em",
+                          color: "#6c757d",
+                          minWidth: "120px",
+                        }}
+                      >
+                        {formatRotationInfo(m)}
+                      </div>
                     </li>
                   );
                 })

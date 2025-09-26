@@ -19,6 +19,8 @@ import {
   getLoadingMessage,
 } from "../../../../../assets/scripts/fetchSchedule";
 
+import { autoAssignSundaySchedules } from "../../../../../assets/scripts/assignMember";
+
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/selectScheduleAltarServer.css";
 
@@ -40,6 +42,9 @@ export default function SelectSchedule() {
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [initialStatusLoadComplete, setInitialStatusLoadComplete] =
     useState(false);
+
+  // Track if auto-assignment is in progress
+  const [autoAssigning, setAutoAssigning] = useState(false);
 
   // Fetch template dates (includes .time)
   useEffect(() => {
@@ -107,6 +112,31 @@ export default function SelectSchedule() {
         time: item.template?.time || null, // pass time only (don't show here)
       },
     });
+  };
+
+  // Handle automatic assignment
+  const handleAutoAssign = async () => {
+    if (autoAssigning) return;
+
+    setAutoAssigning(true);
+    try {
+      const result = await autoAssignSundaySchedules(year, month);
+
+      if (result.success) {
+        // Refresh the schedule status after successful auto-assignment
+        setInitialStatusLoadComplete(false);
+        setScheduleStatus({});
+
+        // Re-fetch statuses to show updated cards
+        setTimeout(() => {
+          setInitialStatusLoadComplete(true);
+        }, 500);
+      }
+    } catch (error) {
+      console.error("Auto-assignment error:", error);
+    } finally {
+      setAutoAssigning(false);
+    }
   };
 
   // Compute statuses for each combined date
@@ -218,7 +248,7 @@ export default function SelectSchedule() {
             <button
               className="arrow-btn"
               onClick={handlePrev}
-              disabled={isLoading}
+              disabled={isLoading || autoAssigning}
             >
               ←
             </button>
@@ -226,16 +256,21 @@ export default function SelectSchedule() {
             <button
               className="arrow-btn"
               onClick={handleNext}
-              disabled={isLoading}
+              disabled={isLoading || autoAssigning}
             >
               →
             </button>
           </div>
 
           <div className="auto-btn-container">
-            <button className="auto-btn" disabled={isLoading}>
+            <button
+              className="auto-btn"
+              disabled={isLoading || autoAssigning}
+              onClick={handleAutoAssign}
+              title="Automatically assign all Sunday masses for this month"
+            >
               <img src={image.automaticIcon} alt="Auto" className="btn-icon" />
-              Automatic
+              {autoAssigning ? "Assigning..." : "Automatic"}
             </button>
           </div>
         </div>
@@ -291,7 +326,11 @@ export default function SelectSchedule() {
                     key={dateISO}
                     className={`schedule-card status-${status} ${v.border}`}
                     onClick={() => handleCardClick(item)}
-                    style={{ position: "relative" }}
+                    style={{
+                      position: "relative",
+                      pointerEvents: autoAssigning ? "none" : "auto",
+                      opacity: autoAssigning ? 0.7 : 1,
+                    }}
                   >
                     {item.template &&
                       (icon.bookmarkIcon ? (

@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Breadcrumb, DatePicker } from "antd";
 import icon from "../../../../helper/icon";
 import Footer from "../../../../components/footer";
-import DropDownButton from "../../../../components/dropDownButton";
+import ScheduleDropdownButton from "../../../../components/scheduleDropdownButton";
 
 import {
   CURRENT_YEAR,
@@ -254,7 +254,7 @@ export default function ViewSchedule() {
                     }}
                   >
                     {/* Export PNG for this day */}
-                    <DropDownButton
+                    <ScheduleDropdownButton
                       onExportPNG={() => exportScheduleDayAsPNG(iso, dayItems)}
                       onExportPDF={() => exportScheduleDayAsPDF(iso, dayItems)}
                     />

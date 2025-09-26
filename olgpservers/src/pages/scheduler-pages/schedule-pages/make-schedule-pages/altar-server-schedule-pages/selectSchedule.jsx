@@ -34,24 +34,21 @@ export default function SelectSchedule() {
 
   const [templateDates, setTemplateDates] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // show loader when navigating months
   const [navigating, setNavigating] = useState(false);
 
-  // schedule-level statuses
   const [scheduleStatus, setScheduleStatus] = useState({});
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [initialStatusLoadComplete, setInitialStatusLoadComplete] =
     useState(false);
 
-  // fetch template dates (once)
+  // Fetch template dates (includes .time)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
         const rows = await fetchAltarServerTemplateDates();
-        if (!cancelled) setTemplateDates(rows);
+        if (!cancelled) setTemplateDates(rows || []);
       } catch (err) {
         console.error("Error fetching template dates:", err);
         if (!cancelled) setTemplateDates([]);
@@ -64,18 +61,19 @@ export default function SelectSchedule() {
     };
   }, []);
 
-  // recompute visible items for the current month
+  // Month data
   const sundays = useMemo(() => getSundays(year, month), [year, month]);
   const visibleTemplates = useMemo(
     () => filterByMonthYear(templateDates, year, month),
     [templateDates, year, month]
   );
+
+  // One combined item per date from mergeSchedules
   const scheduleItems = useMemo(
     () => mergeSchedules(sundays, visibleTemplates),
     [sundays, visibleTemplates]
   );
 
-  // ensure the grid fully remounts when month/year changes (prevents flash of previous month)
   const viewKey = `${year}-${month}`;
 
   const handlePrev = () => {
@@ -98,71 +96,85 @@ export default function SelectSchedule() {
     window.scrollTo(0, 0);
   };
 
-  const handleCardClick = (sched) => {
-    const { dateObj, dateStr, source, templateID } = sched;
-    const selectedISO =
-      source === "template" && dateStr
-        ? dateStr
-        : dateObj.toISOString().slice(0, 10);
-
+  const handleCardClick = (item) => {
     navigate("/selectMassAltarServer", {
       state: {
-        selectedDate: formatScheduleDate(dateObj),
-        selectedISO,
-        source,
-        isSunday: source === "sunday",
-        templateID: source === "template" ? templateID : null,
+        selectedDate: formatScheduleDate(item.dateObj),
+        selectedISO: item.dateStr,
+        source: "combined",
+        isSunday: !!item.hasSunday,
+        templateID: item.template?.templateID ?? null,
+        time: item.template?.time || null, // pass time only (don't show here)
       },
     });
   };
 
-  // recalc statuses whenever the visible items change; end navigation when done
+  // Compute statuses for each combined date
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+
+    const fetchStatuses = async () => {
       if (scheduleItems.length === 0) {
-        setInitialStatusLoadComplete(true);
-        setNavigating(false);
+        if (!cancelled) {
+          setInitialStatusLoadComplete(true);
+          setNavigating(false);
+        }
         return;
       }
-      setLoadingStatus(true);
-      setInitialStatusLoadComplete(false);
+
+      if (!cancelled) {
+        setLoadingStatus(true);
+        setInitialStatusLoadComplete(false);
+      }
 
       try {
         const next = {};
-        for (const sched of scheduleItems) {
-          const dateISO =
-            sched.source === "template" && sched.dateStr
-              ? sched.dateStr
-              : sched.dateObj.toISOString().slice(0, 10);
+
+        for (const item of scheduleItems) {
+          const dateISO = item.dateStr;
+
           try {
-            next[dateISO] = await computeStatusForDate({
+            const status = await computeStatusForDate({
               dateISO,
-              isSunday: sched.source === "sunday",
-              templateID: sched.templateID,
+              isSunday: !!item.hasSunday,
+              templateID: item.template?.templateID ?? null,
+              templateTime: item.template?.time || null, // include template time
             });
+
+            if (!cancelled) {
+              next[dateISO] = status;
+            }
           } catch {
-            next[dateISO] = "empty";
+            if (!cancelled) {
+              next[dateISO] = "empty";
+            }
           }
         }
-        if (!cancelled) setScheduleStatus(next);
+
+        if (!cancelled) {
+          setScheduleStatus(next);
+        }
       } catch (error) {
         console.error("Error computing schedule statuses:", error);
-        if (!cancelled) setScheduleStatus({});
+        if (!cancelled) {
+          setScheduleStatus({});
+        }
       } finally {
         if (!cancelled) {
           setLoadingStatus(false);
           setInitialStatusLoadComplete(true);
-          setNavigating(false); // turn off month loader when done
+          setNavigating(false);
         }
       }
-    })();
+    };
+
+    fetchStatuses();
+
     return () => {
       cancelled = true;
     };
   }, [scheduleItems]);
 
-  // Show loading if initial loading, status loading, or navigating between months
   const isLoading =
     loading || loadingStatus || !initialStatusLoadComplete || navigating;
 
@@ -270,21 +282,18 @@ export default function SelectSchedule() {
                 <p>No schedules available for {formatHeader(year, month)}</p>
               </div>
             ) : (
-              scheduleItems.map((sched) => {
-                const dateISO =
-                  sched.source === "template" && sched.dateStr
-                    ? sched.dateStr
-                    : sched.dateObj.toISOString().slice(0, 10);
+              scheduleItems.map((item) => {
+                const dateISO = item.dateStr;
                 const status = scheduleStatus[dateISO] || "empty";
                 const v = viewFor(status, image);
                 return (
                   <div
-                    key={`${dateISO}-${sched.source}`}
+                    key={dateISO}
                     className={`schedule-card status-${status} ${v.border}`}
-                    onClick={() => handleCardClick(sched)}
+                    onClick={() => handleCardClick(item)}
                     style={{ position: "relative" }}
                   >
-                    {sched.source === "template" &&
+                    {item.template &&
                       (icon.bookmarkIcon ? (
                         <img
                           src={icon.bookmarkIcon}
@@ -320,7 +329,7 @@ export default function SelectSchedule() {
                     <p className={`schedule-text ${v.textClass}`}>{v.text}</p>
                     <div className={`date-divider ${v.dividerClass}`}></div>
                     <p className={`schedule-date ${v.textClass}`}>
-                      {formatScheduleDate(sched.dateObj)}
+                      {formatScheduleDate(item.dateObj)}
                     </p>
                   </div>
                 );

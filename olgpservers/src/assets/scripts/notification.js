@@ -637,3 +637,78 @@ export const fetchGlobalNotificationById = async (id) => {
   // tag for UI
   return data ? { _kind: "global", ...data } : null;
 };
+
+export const insertUserSpecificNotifications = async ({
+  dateISO,
+  time = "",
+  assignments = {},
+}) => {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Missing date", "No date was provided.", "error");
+      return 0;
+    }
+
+    // 🔹 Ask confirmation first
+    /*const { isConfirmed } = await Swal.fire({
+      title: "Send Notifications?",
+      text: "Are you sure you want to send notifications to the assigned members?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, send",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });*/
+
+    //if (!isConfirmed) return 0;
+
+    const rows = [];
+    const roleKeys = Object.keys(assignments || {});
+
+    for (const roleKey of roleKeys) {
+      const members = assignments[roleKey];
+      if (!Array.isArray(members)) continue; // skip metadata like .status
+
+      for (const m of members) {
+        const idNumber = String(m?.idNumber || "").trim();
+        if (!idNumber) continue;
+        rows.push({
+          idNumber,
+          date: dateISO,
+          time: time || "",
+          role: roleKey,
+        });
+      }
+    }
+
+    if (rows.length === 0) {
+      await Swal.fire(
+        "Nothing to insert",
+        "No assigned members found.",
+        "info"
+      );
+      return 0;
+    }
+
+    const { data, error } = await supabase
+      .from("user-specific-notification")
+      .insert(rows)
+      .select();
+
+    if (error) throw error;
+
+    await Swal.fire({
+      icon: "success",
+      title: "Inserted",
+      text: `Added ${data?.length || rows.length} notification record(s).`,
+      timer: 1400,
+      showConfirmButton: false,
+    });
+
+    return data?.length || rows.length;
+  } catch (err) {
+    console.error("insertUserSpecificNotifications error:", err);
+    await Swal.fire("Failed", "Could not insert notifications.", "error");
+    return 0;
+  }
+};

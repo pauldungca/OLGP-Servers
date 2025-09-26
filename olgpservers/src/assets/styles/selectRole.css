@@ -179,6 +179,31 @@
   color: #2e4a9e;
 }
 
+/* before: .btn-reset-schedule:hover { ... } */
+.btn-reset-schedule:hover:not(:disabled) {
+  background-color: white;
+  color: #ff5252;
+  border: 2px solid #ff5252;
+}
+
+/* before: .btn-submit-schedule:hover { ... } */
+.btn-submit-schedule:hover:not(:disabled) {
+  background-color: #ffffff;
+  border: 2px solid #2e4a9e;
+  color: #2e4a9e;
+}
+
+.btn-reset-schedule:disabled,
+.btn-submit-schedule:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none; /* block hover + clicks */
+  /* optional: keep original bg/border, or set a unified look */
+  /* background-color: #cfd6e6;
+     border-color: #cfd6e6;
+     color: #fff; */
+}
+
 .assigned-grid-plate {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

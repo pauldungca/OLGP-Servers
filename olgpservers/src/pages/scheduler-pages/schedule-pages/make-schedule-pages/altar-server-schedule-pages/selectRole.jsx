@@ -3,12 +3,11 @@ import { Breadcrumb } from "antd";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import icon from "../../../../../helper/icon";
 import Footer from "../../../../../components/footer";
+import Swal from "sweetalert2";
 
 import {
-  // NEW helpers pulled from assignMember.js
   isSundayFor,
-  needTemplateFlagsFor,
-  getTemplateFlags,
+  getTemplateFlags, // <- only call this for template masses
   roleCountsFor,
   roleVisibilityFor,
   fetchAssignmentsGrouped,
@@ -17,10 +16,11 @@ import {
   getMemberNameById,
 } from "../../../../../assets/scripts/assignMember";
 
+import { insertUserSpecificNotifications } from "../../../../../assets/scripts/notification";
+
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/selectRole.css";
 
-// ---- simple in-memory name cache so we don't refetch the same idNumber ----
 const nameCache = new Map();
 const nameFor = async (id) => {
   const key = String(id ?? "").trim();
@@ -31,6 +31,12 @@ const nameFor = async (id) => {
   return full || key;
 };
 
+const deriveTime = (selectedMassDisplay = "", explicitTime = "") => {
+  if (explicitTime) return explicitTime;
+  const m = /(\d{1,2}:\d{2}\s?(AM|PM))/i.exec(selectedMassDisplay || "");
+  return m ? m[1] : "";
+};
+
 export default function SelectRole() {
   useEffect(() => {
     document.title = "OLGP Servers | Make Schedule";
@@ -39,67 +45,90 @@ export default function SelectRole() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Context from SelectMass
   const selectedDate = location.state?.selectedDate || "No date selected";
-  const selectedISO = location.state?.selectedISO || null;
-  const selectedMass = location.state?.selectedMass || "No mass selected";
+  const selectedISO = location.state?.selectedISO || null; // display date
+  const dateISOForDB = location.state?.dateISOForDB || selectedISO; // DB key
+  const selectedMass = location.state?.selectedMass || "No mass selected"; // DB label
+  const selectedMassDisplay =
+    location.state?.selectedMassDisplay || selectedMass; // UI label
   const source = location.state?.source || null;
   const passedIsSunday = location.state?.isSunday;
   const templateID = location.state?.templateID ?? null;
+  const time = location.state?.time || null;
+  const massKind = location.state?.massKind || (time ? "template" : "sunday"); // "template" | "sunday"
 
-  // Robust Sunday detection → helper
   const isSunday = useMemo(
     () => isSundayFor({ passedIsSunday, source, selectedISO }),
     [passedIsSunday, source, selectedISO]
   );
 
-  // Template flags only needed on non-Sunday with a date
-  const needFlags = useMemo(
-    () => needTemplateFlagsFor({ isSunday, selectedISO }),
-    [isSunday, selectedISO]
-  );
-
+  /** ---------------------------
+   * Load flags ONLY for template masses
+   * -------------------------- */
   const [flags, setFlags] = useState(null);
   const [loadingFlags, setLoadingFlags] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!needFlags) {
+      if (massKind !== "template" || !templateID) {
         setFlags(null);
         return;
       }
       setLoadingFlags(true);
-      const res = await getTemplateFlags(selectedISO);
-      if (!cancelled) {
-        setFlags(res);
-        setLoadingFlags(false);
+      try {
+        const res = await getTemplateFlags(selectedISO, templateID);
+        if (!cancelled) setFlags(res);
+      } finally {
+        if (!cancelled) setLoadingFlags(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [needFlags, selectedISO]);
+  }, [massKind, selectedISO, templateID]);
 
-  // Counts & visibility (computed)
+  // For the selected mass:
+  // - template mass: use template flags and non-Sunday semantics
+  // - sunday mass:   no flags, use Sunday semantics
   const counts = useMemo(
-    () => roleCountsFor({ flags, isSunday }),
-    [flags, isSunday]
+    () =>
+      roleCountsFor({
+        flags: massKind === "template" ? flags : null,
+        isSunday: massKind !== "template",
+      }),
+    [flags, massKind]
   );
 
   const visible = useMemo(
-    () => roleVisibilityFor({ flags, isSunday }),
-    [flags, isSunday]
+    () =>
+      roleVisibilityFor({
+        flags: massKind === "template" ? flags : null,
+        isSunday: massKind !== "template",
+      }),
+    [flags, massKind]
   );
 
-  // Assignments preview (from Supabase)
+  // Show a role only if it's visible AND requires at least 1
+  const showRole = (key) =>
+    Boolean(visible?.[key]) && Number(counts?.[key] || 0) > 0;
+
+  /** ---------------------------
+   * Assignments preview
+   * -------------------------- */
   const [assignments, setAssignments] = useState({});
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [rev, setRev] = useState(0);
 
+  const [notifyDisabled, setNotifyDisabled] = useState(false);
+
+  useEffect(() => {
+    setNotifyDisabled(false);
+  }, [dateISOForDB, selectedMass]);
+
   const refreshAssignments = async () => {
-    if (!selectedISO || !selectedMass) {
+    if (!dateISOForDB || !selectedMass) {
       setAssignments({});
       setInitialLoadComplete(true);
       return;
@@ -108,18 +137,16 @@ export default function SelectRole() {
     setLoadingAssignments(true);
     try {
       const grouped = await fetchAssignmentsGrouped({
-        dateISO: selectedISO,
-        massLabel: selectedMass,
+        dateISO: dateISOForDB,
+        massLabel: selectedMass, // DB label
       });
 
-      // Enrich: swap idNumber -> fullName via members-information
       const roles = Object.keys(grouped || {});
       for (const role of roles) {
         const assignedMembers = grouped[role] || [];
         const assignedCount = assignedMembers.length;
-        const requiredCount = counts[role] || 0; // Required count for this role
+        const requiredCount = Number(counts?.[role] || 0);
 
-        // Assign full name for each member
         grouped[role] = await Promise.all(
           assignedMembers.map(async (r) => ({
             ...r,
@@ -127,19 +154,16 @@ export default function SelectRole() {
           }))
         );
 
-        // Add role status (complete or incomplete)
-        const roleStatus =
+        grouped[role].status =
           assignedCount >= requiredCount
             ? "complete"
             : assignedCount === 0
             ? "empty"
             : "incomplete";
-        grouped[role].status = roleStatus; // Add this to track role completion status
       }
 
       setAssignments(grouped || {});
-    } catch (err) {
-      console.error("Error refreshing assignments:", err);
+    } catch {
       setAssignments({});
     } finally {
       setLoadingAssignments(false);
@@ -150,11 +174,11 @@ export default function SelectRole() {
   useEffect(() => {
     refreshAssignments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedISO, selectedMass, rev, counts]); // Add counts as dependency
+  }, [dateISOForDB, selectedMass, rev, counts]);
 
   const handleReset = async () => {
     const ok = await resetAllAssignments({
-      dateISO: selectedISO,
+      dateISO: dateISOForDB,
       massLabel: selectedMass,
     });
     if (ok) {
@@ -166,21 +190,78 @@ export default function SelectRole() {
   const goAssign = (roleKey, label) => {
     const state = buildAssignNavState({
       selectedDate,
-      selectedISO,
-      selectedMass,
+      selectedISO, // display date
+      selectedMass, // DB label
+      selectedMassDisplay, // UI label
       source,
       isSunday,
       templateID,
       roleKey,
       label,
       counts,
+      time,
+      dateISOForDB, // DB key
+      massKind,
     });
     navigate("/assignMemberAltarServer", { state });
   };
 
-  // Determine if we should show loading screen
   const isLoading =
-    (needFlags && loadingFlags) || loadingAssignments || !initialLoadComplete;
+    (massKind === "template" && loadingFlags) ||
+    loadingAssignments ||
+    !initialLoadComplete;
+
+  const backToMassState = {
+    selectedDate,
+    selectedISO,
+    dateISOForDB,
+    selectedMass, // DB label
+    selectedMassDisplay, // UI label
+    source,
+    isSunday,
+    templateID,
+    time,
+    massKind,
+  };
+
+  // ⬇️ REPLACE this handler
+  const handleNotifyAssigned = async (e) => {
+    e.preventDefault(); // prevent form/button default
+
+    await refreshAssignments(); // make sure we have the latest
+    const timeText = deriveTime(selectedMassDisplay, time);
+
+    // count assigned members (ignores .status fields)
+    const total = Object.values(assignments || {}).reduce(
+      (sum, v) => sum + (Array.isArray(v) ? v.length : 0),
+      0
+    );
+
+    const { isConfirmed } = await Swal.fire({
+      title: "Send Notifications?",
+      text:
+        total > 0
+          ? `Send notifications to ${total} assigned member${
+              total !== 1 ? "s" : ""
+            }? You can only do this once per schedule.`
+          : "No assigned members found.",
+      icon: total > 0 ? "question" : "info",
+      showCancelButton: total > 0,
+      confirmButtonText: "Yes, send",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+
+    if (!isConfirmed) return;
+
+    const inserted = await insertUserSpecificNotifications({
+      dateISO: dateISOForDB,
+      time: timeText,
+      assignments,
+    });
+
+    if (inserted > 0) setNotifyDisabled(true);
+  };
 
   return (
     <div className="schedule-page-container">
@@ -211,24 +292,14 @@ export default function SelectRole() {
                   title: (
                     <Link
                       to="/selectMassAltarServer"
+                      state={backToMassState}
                       className="breadcrumb-item"
-                      state={{
-                        selectedDate,
-                        selectedISO,
-                        selectedMass,
-                        source,
-                        isSunday,
-                        templateID,
-                      }}
                     >
                       Select Mass
                     </Link>
                   ),
                 },
-                {
-                  title: "Select Role",
-                  className: "breadcrumb-item-active",
-                },
+                { title: "Select Role", className: "breadcrumb-item-active" },
               ]}
               separator={
                 <img
@@ -246,8 +317,7 @@ export default function SelectRole() {
 
       <div className="schedule-content">
         <h4 style={{ marginBottom: "1rem" }}>
-          Selected Date: {selectedDate} &nbsp;|&nbsp; Selected Mass:{" "}
-          {selectedMass}
+          Selected Date: {selectedDate} | Selected Mass: {selectedMassDisplay}
         </h4>
 
         {isLoading ? (
@@ -263,34 +333,27 @@ export default function SelectRole() {
           >
             <div
               style={{
-                width: "40px",
-                height: "40px",
+                width: 40,
+                height: 40,
                 border: "3px solid #f3f3f3",
                 borderTop: "3px solid #2e4a9e",
                 borderRadius: "50%",
                 animation: "spin 1s linear infinite",
               }}
-            ></div>
-            <p
-              style={{
-                marginTop: "1rem",
-                color: "#666",
-                fontSize: "16px",
-              }}
-            >
-              {loadingFlags ? "Loading template..." : "Loading assignments..."}
+            />
+            {/* make the spinner actually spin */}
+            <style>{`@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}`}</style>
+
+            <p style={{ marginTop: "1rem", color: "#666", fontSize: 16 }}>
+              {massKind === "template" && loadingFlags
+                ? "Loading template..."
+                : "Loading assignments..."}
             </p>
-            <style>{`
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-            `}</style>
           </div>
         ) : (
           <>
             <div className="role-cards-grid">
-              {visible.thurifer && (
+              {showRole("thurifer") && (
                 <div
                   className={`role-card ${
                     assignments.thurifer?.status === "complete"
@@ -311,7 +374,7 @@ export default function SelectRole() {
                 </div>
               )}
 
-              {visible.beller && (
+              {showRole("beller") && (
                 <div
                   className={`role-card ${
                     assignments.beller?.status === "complete"
@@ -332,7 +395,7 @@ export default function SelectRole() {
                 </div>
               )}
 
-              {visible.mainServer && (
+              {showRole("mainServer") && (
                 <div
                   className={`role-card ${
                     assignments.mainServer?.status === "complete"
@@ -353,7 +416,7 @@ export default function SelectRole() {
                 </div>
               )}
 
-              {visible.candleBearer && (
+              {showRole("candleBearer") && (
                 <div
                   className={`role-card ${
                     assignments.candleBearer?.status === "complete"
@@ -374,7 +437,7 @@ export default function SelectRole() {
                 </div>
               )}
 
-              {visible.incenseBearer && (
+              {showRole("incenseBearer") && (
                 <div
                   className={`role-card ${
                     assignments.incenseBearer?.status === "complete"
@@ -395,7 +458,7 @@ export default function SelectRole() {
                 </div>
               )}
 
-              {visible.crossBearer && (
+              {showRole("crossBearer") && (
                 <div
                   className={`role-card ${
                     assignments.crossBearer?.status === "complete"
@@ -417,8 +480,7 @@ export default function SelectRole() {
               )}
             </div>
 
-            {/* Big card at the bottom */}
-            {visible.plate && (
+            {showRole("plate") && (
               <div
                 className={`role-card big-role-card ${
                   assignments.plate?.status === "complete"
@@ -448,7 +510,6 @@ export default function SelectRole() {
               </div>
             )}
 
-            {/* Actions under the grid (Reset / Submit) */}
             <div className="role-card-actions">
               <button
                 type="button"
@@ -457,17 +518,20 @@ export default function SelectRole() {
               >
                 Reset
               </button>
-              <button type="button" className="btn-submit-schedule">
-                Submit Schedule
+              <button
+                type="button"
+                className="btn-submit-schedule"
+                onClick={handleNotifyAssigned}
+                disabled={notifyDisabled}
+              >
+                Send Notification
               </button>
             </div>
           </>
         )}
       </div>
 
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

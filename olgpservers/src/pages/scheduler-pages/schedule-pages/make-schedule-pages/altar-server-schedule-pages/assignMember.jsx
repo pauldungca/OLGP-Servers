@@ -199,7 +199,7 @@ export default function AssignMember() {
     }
   };
 
-  const formatRotationInfo = (member) => {
+  /*const formatRotationInfo = (member) => {
     if (member.roleCount === 0) {
       return "New to role";
     }
@@ -214,6 +214,27 @@ export default function AssignMember() {
         : `${member.daysSinceLastRole} days ago`;
 
     return `${member.roleCount}x done • Last: ${dayText}`;
+  };*/
+
+  const formatRotationInfo = (member) => {
+    const roleCount =
+      typeof member.roleCount === "number" ? member.roleCount : 0;
+
+    if (roleCount === 0) return "New to role";
+
+    const d = member.daysSinceLastRole;
+    const dayText =
+      d === Infinity
+        ? "Never"
+        : d === 0
+        ? "Today"
+        : d === 1
+        ? "1 day ago"
+        : Number.isFinite(d)
+        ? `${d} days ago`
+        : "—";
+
+    return `${roleCount}x done • Last: ${dayText}`;
   };
 
   return (

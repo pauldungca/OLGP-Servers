@@ -19,7 +19,10 @@ import {
   getLoadingMessage,
 } from "../../../../../assets/scripts/fetchSchedule";
 
-import { autoAssignSundaySchedules } from "../../../../../assets/scripts/assignMember";
+import {
+  autoAssignSundaySchedules,
+  isMonthFullyScheduled,
+} from "../../../../../assets/scripts/assignMember";
 
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/selectScheduleAltarServer.css";
@@ -33,6 +36,17 @@ export default function SelectSchedule() {
   const today = useMemo(() => new Date(), []);
   const [month, setMonth] = useState(today.getMonth());
   const [year, setYear] = useState(today.getFullYear());
+
+  const [autoDisabled, setAutoDisabled] = React.useState(false);
+
+  const refreshMonthStatus = React.useCallback(async () => {
+    const { isComplete } = await isMonthFullyScheduled(year, month);
+    setAutoDisabled(isComplete);
+  }, [year, month]);
+
+  useEffect(() => {
+    refreshMonthStatus();
+  }, [refreshMonthStatus]);
 
   const [templateDates, setTemplateDates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -132,6 +146,7 @@ export default function SelectSchedule() {
           setInitialStatusLoadComplete(true);
         }, 500);
       }
+      await refreshMonthStatus();
     } catch (error) {
       console.error("Auto-assignment error:", error);
     } finally {
@@ -265,7 +280,7 @@ export default function SelectSchedule() {
           <div className="auto-btn-container">
             <button
               className="auto-btn"
-              disabled={isLoading || autoAssigning}
+              disabled={isLoading || autoAssigning || autoDisabled}
               onClick={handleAutoAssign}
               title="Automatically assign all Sunday masses for this month"
             >

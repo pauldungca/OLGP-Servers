@@ -88,6 +88,17 @@
   display: block;
 }
 
+.auto-btn:disabled {
+  background-color: #ccc; /* gray out */
+  color: #666;
+  cursor: default;
+}
+
+.auto-btn:disabled:hover {
+  background-color: #ccc; /* same as disabled state */
+  color: #666;
+}
+
 .schedule-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

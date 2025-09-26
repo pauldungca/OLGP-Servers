@@ -637,3 +637,181 @@ export const fetchGlobalNotificationById = async (id) => {
   // tag for UI
   return data ? { _kind: "global", ...data } : null;
 };
+
+export const insertUserSpecificNotifications = async ({
+  dateISO,
+  time = "",
+  assignments = {},
+}) => {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Missing date", "No date was provided.", "error");
+      return 0;
+    }
+
+    const rows = [];
+    const roleKeys = Object.keys(assignments || {});
+
+    for (const roleKey of roleKeys) {
+      const members = assignments[roleKey];
+      if (!Array.isArray(members)) continue; // skip metadata like .status
+
+      for (const m of members) {
+        const idNumber = String(m?.idNumber || "").trim();
+        if (!idNumber) continue;
+        rows.push({
+          idNumber,
+          date: dateISO,
+          time: time || "",
+          role: roleKey,
+        });
+      }
+    }
+
+    if (rows.length === 0) {
+      await Swal.fire(
+        "Nothing to insert",
+        "No assigned members found.",
+        "info"
+      );
+      return 0;
+    }
+
+    const { data, error } = await supabase
+      .from("user-specific-notification")
+      .insert(rows)
+      .select();
+
+    if (error) throw error;
+
+    await Swal.fire({
+      icon: "success",
+      title: "Inserted",
+      text: `Added ${data?.length || rows.length} notification record(s).`,
+      timer: 1400,
+      showConfirmButton: false,
+    });
+
+    return data?.length || rows.length;
+  } catch (err) {
+    console.error("insertUserSpecificNotifications error:", err);
+    await Swal.fire("Failed", "Could not insert notifications.", "error");
+    return 0;
+  }
+};
+
+export const fetchUserSpecificNotifications = async (idNumber) => {
+  try {
+    const safeId = String(idNumber || "").trim();
+    if (!safeId) return [];
+
+    const { data, error } = await supabase
+      .from("user-specific-notification")
+      .select("*")
+      .eq("idNumber", safeId)
+      .order("date", { ascending: false })
+      .order("time", { ascending: false });
+
+    if (error) {
+      console.error("[UserSpecific] select error:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error("[UserSpecific] unexpected error:", err);
+    return [];
+  }
+};
+
+export const fetchUserSpecificNotificationById = async (id, idNumber) => {
+  try {
+    let q = supabase
+      .from("user-specific-notification")
+      .select("*")
+      .eq("id", id)
+      .limit(1)
+      .single();
+
+    if (idNumber) q = q.eq("idNumber", String(idNumber || ""));
+
+    const { data, error } = await q;
+    if (error) {
+      console.error("[UserSpecificById] select error:", error);
+      return null;
+    }
+    return data || null;
+  } catch (err) {
+    console.error("[UserSpecificById] unexpected error:", err);
+    return null;
+  }
+};
+
+// Fetch date, time, note, clientName from use-template-table by scheduleID
+export const fetchTemplateMetaByScheduleID = async (scheduleID) => {
+  try {
+    const key = String(scheduleID ?? "").trim();
+    if (!key) return null;
+
+    const { data, error } = await supabase
+      .from("use-template-table")
+      .select("date, time, note, clientName")
+      .eq("scheduleID", key)
+      .single();
+
+    if (error) {
+      console.error("[use-template-table] select error:", error);
+      return null;
+    }
+    return data || null;
+  } catch (err) {
+    console.error("[use-template-table] unexpected error:", err);
+    return null;
+  }
+};
+
+// Delete a user-specific (assignment) notification row
+export const deleteUserSpecificNotification = async (id, setNotifications) => {
+  try {
+    const { isConfirmed } = await Swal.fire({
+      title: "Delete this notification?",
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+      focusCancel: true,
+    });
+
+    if (!isConfirmed) return false;
+
+    const { error } = await supabase
+      .from("user-specific-notification")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    if (typeof setNotifications === "function") {
+      setNotifications((prev) =>
+        (prev || []).filter(
+          (n) => !(n?._kind === "assignment" && String(n?.id) === String(id))
+        )
+      );
+    }
+
+    await Swal.fire({
+      icon: "success",
+      title: "Deleted",
+      timer: 900,
+      showConfirmButton: false,
+    });
+
+    return true;
+  } catch (err) {
+    console.error("[Assignment] delete error:", err);
+    await Swal.fire("Failed", "Could not delete the notification.", "error");
+    return false;
+  }
+};

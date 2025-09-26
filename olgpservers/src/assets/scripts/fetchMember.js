@@ -568,7 +568,7 @@ export const fetchAltarServerMembersWithRole = async () => {
       .from("members-information")
       .select("*")
       .in("idNumber", idNumbers)
-      .order("dateJoined", { ascending: false });
+      .order("id", { ascending: true });
 
     if (membersError) throw membersError;
 

@@ -11,23 +11,47 @@
 }
 
 .month-nav {
+  position: relative;
+  width: 100%;
+  max-width: 520px; /* adjust to taste */
+  margin: 0 auto;
+  padding: 0 56px; /* space so title never overlaps arrows */
   display: flex;
   align-items: center;
-  gap: 100px;
+  justify-content: center;
+  /* Remove the old gap that caused shifting */
+  gap: 0 !important;
 }
 
 .month-title {
   font-size: 20px;
   font-weight: bold;
   margin: 0;
+  text-align: center;
+  white-space: nowrap; /* prevent wrapping which can nudge layout */
 }
 
 .arrow-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px; /* fixed width prevents jitter */
+  height: 40px;
+  display: grid;
+  place-items: center;
   background: none;
   border: none;
   font-size: 22px;
   cursor: pointer;
-  padding: 5px 10px;
+  padding: 0;
+  line-height: 1;
+}
+
+.month-nav .arrow-btn:first-child {
+  left: 8px;
+}
+.month-nav .arrow-btn:last-child {
+  right: 8px;
 }
 
 .auto-btn-container {
@@ -52,11 +76,27 @@
   gap: 10px;
 }
 
+.auto-btn:hover {
+  background-color: rgb(28, 44, 94);
+  color: white;
+}
+
 .btn-icon {
   width: 30px;
   height: 30px;
   object-fit: contain;
   display: block;
+}
+
+.auto-btn:disabled {
+  background-color: #ccc; /* gray out */
+  color: #666;
+  cursor: default;
+}
+
+.auto-btn:disabled:hover {
+  background-color: #ccc; /* same as disabled state */
+  color: #666;
 }
 
 .schedule-grid {
@@ -92,6 +132,10 @@
   border: 3px solid #ff9800 !important;
 }
 
+.border-green {
+  border: 3px solid #0c9600 !important;
+}
+
 .schedule-icon {
   width: 90px;
   height: 90px;
@@ -119,6 +163,10 @@
   background-color: #ff9800;
 }
 
+.date-divider.green {
+  background-color: #0c9600;
+}
+
 .schedule-date {
   font-weight: bold;
   font-size: 16px;
@@ -132,6 +180,10 @@
   color: #ff9800;
 }
 
+.schedule-date.green {
+  color: #0c9600;
+}
+
 .action-buttons {
   display: flex;
   gap: 15px;
@@ -141,4 +193,58 @@
   /*background-color: #2e4a9e;*/
   /*margin-top: 5%;*/
   border: 1px solid #2e4a9e;
+}
+
+/* Default look (empty/blue as fallback) */
+.schedule-card .schedule-text {
+  color: #213571;
+}
+.schedule-card .date-divider {
+  background-color: #213571;
+}
+.schedule-card .schedule-date {
+  color: #213571;
+}
+
+/* Incomplete (yellow) */
+.schedule-card.status-incomplete .schedule-text {
+  color: #d08e00;
+}
+.schedule-card.status-incomplete .date-divider {
+  background-color: #d08e00;
+}
+.schedule-card.status-incomplete .schedule-date {
+  color: #d08e00;
+}
+
+/* Complete (green) */
+.schedule-card.status-complete .schedule-text {
+  color: #0c9600;
+}
+.schedule-card.status-complete .date-divider {
+  background-color: #0c9600;
+}
+.schedule-card.status-complete .schedule-date {
+  color: #0c9600;
+}
+
+/* If you want to keep the border helpers you already have */
+.border-blue {
+  border-color: #213571;
+}
+.border-orange {
+  border-color: #d08e00;
+}
+.border-green {
+  border-color: #0c9600;
+}
+
+.no-schedule {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #666;
+  font-size: 16px;
 }

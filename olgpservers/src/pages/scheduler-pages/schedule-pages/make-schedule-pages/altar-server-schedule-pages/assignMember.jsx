@@ -1,8 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Breadcrumb } from "antd";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import icon from "../../../../../helper/icon";
 import image from "../../../../../helper/images";
+import Footer from "../../../../../components/footer";
+
+import {
+  // DB + helpers
+  fetchMembersNormalized,
+  slotBaseLabelFor,
+  preloadAssignedForRole,
+  isMemberChecked,
+  deepResetRoleAssignments,
+  saveRoleAssignments,
+  ensureArraySize,
+} from "../../../../../assets/scripts/assignMember";
 
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/assignMemberRole.css";
@@ -11,56 +23,225 @@ export default function AssignMember() {
   useEffect(() => {
     document.title = "OLGP Servers | Make Schedule";
   }, []);
-  const members = [
-    "John Paul Dungca",
-    "Gabriel Cayabyab",
-    "Argie Tapic",
-    "Andrea Morales",
-    "Arcee Cabilangan",
-    "Justine Willi Rigos",
-    "Johnlie Tundayag",
-  ];
 
-  const [assigned, setAssigned] = useState({
-    candleBearer1: "",
-    candleBearer2: "",
-  });
+  const navigate = useNavigate();
+  const location = useLocation();
 
+  // -------- Context from SelectRole --------
+  const selectedDate = location.state?.selectedDate || "No date selected";
+  const selectedISO = location.state?.selectedISO || null;
+  const selectedMass = location.state?.selectedMass || "No mass selected";
+  const source = location.state?.source || null;
+  const isSunday = location.state?.isSunday ?? null;
+  const templateID = location.state?.templateID ?? null;
+
+  const selectedRoleKey = location.state?.selectedRoleKey || "candleBearer";
+  const selectedRoleLabel =
+    location.state?.selectedRoleLabel || "Candle Bearers";
+  const slotsCount = Math.max(1, Number(location.state?.slotsCount || 1));
+
+  const slotBaseLabel = useMemo(
+    () => slotBaseLabelFor(selectedRoleKey, selectedRoleLabel),
+    [selectedRoleKey, selectedRoleLabel]
+  );
+
+  // Check if current role needs gender filtering (candle bearers or bellers)
+  const needsGenderFiltering = useMemo(
+    () => selectedRoleKey === "candleBearer" || selectedRoleKey === "beller",
+    [selectedRoleKey]
+  );
+
+  // -------- Members (left list) --------
+  const [members, setMembers] = useState([]); // [{ idNumber, fullName, role, sex }]
+  const [loadingMembers, setLoadingMembers] = useState(true);
+
+  useEffect(() => {
+    const loadMembers = async () => {
+      // Pass the role (e.g., "thurifer") along with dateISO and massLabel
+      const normalizedMembers = await fetchMembersNormalized(
+        selectedISO,
+        selectedMass,
+        selectedRoleKey
+      );
+      setMembers(normalizedMembers);
+      setLoadingMembers(false);
+    };
+    loadMembers();
+  }, [selectedISO, selectedMass, selectedRoleKey]);
+
+  // -------- Assigned (right panel) --------
+  const [preloading, setPreloading] = useState(true);
+  const [assigned, setAssigned] = useState(ensureArraySize([], slotsCount));
+
+  // Keep assigned array size in sync with slotsCount
+  useEffect(() => {
+    setAssigned((prev) => ensureArraySize(prev, slotsCount));
+  }, [slotsCount]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!selectedISO || !selectedMass) {
+        setPreloading(false);
+        return;
+      }
+      try {
+        setPreloading(true);
+        const arr = await preloadAssignedForRole({
+          dateISO: selectedISO,
+          massLabel: selectedMass,
+          roleKey: selectedRoleKey,
+          slotsCount,
+        });
+        if (!cancelled) setAssigned(arr);
+      } catch {
+        if (!cancelled) setAssigned(ensureArraySize([], slotsCount));
+      } finally {
+        if (!cancelled) setPreloading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedISO, selectedMass, selectedRoleKey, slotsCount]);
+
+  // -------- Gender filtering logic --------
+  const genderFilter = useMemo(() => {
+    if (!needsGenderFiltering) return null;
+
+    // Check if any members are assigned
+    const assignedMembers = assigned.filter(Boolean);
+    if (assignedMembers.length === 0) return null;
+
+    // Find the first assigned member and check their gender
+    const firstAssigned = assignedMembers[0];
+    const firstAssignedMember = members.find(
+      (m) => m.idNumber === firstAssigned.idNumber
+    );
+
+    // Return the gender of the first assigned member to filter by that gender
+    return firstAssignedMember?.sex || null;
+  }, [needsGenderFiltering, assigned, members]);
+
+  // -------- Search --------
   const [searchTerm, setSearchTerm] = useState("");
+  const filteredMembers = useMemo(() => {
+    let filtered = members.filter((m) =>
+      m.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-  const handleAssign = (name) => {
+    // Apply gender filter if needed
+    if (genderFilter) {
+      filtered = filtered.filter((m) => m.sex === genderFilter);
+    }
+
+    return filtered;
+  }, [members, searchTerm, genderFilter]);
+
+  // -------- UI Handlers --------
+  const handleToggleMember = (member) => {
     setAssigned((prev) => {
-      if (prev.candleBearer1 === name) {
-        return { ...prev, candleBearer1: "" };
-      }
-      if (prev.candleBearer2 === name) {
-        return { ...prev, candleBearer2: "" };
+      const id = String(member.idNumber ?? "").trim();
+      const alreadyIdx = prev.findIndex(
+        (m) => m && String(m.idNumber) === id // Add null check here too
+      );
+
+      // If already assigned, unassign them
+      if (alreadyIdx >= 0) {
+        const next = [...prev];
+        next[alreadyIdx] = null; // unassign member by setting to null
+        return next; // Don't filter out nulls - keep array structure intact
       }
 
-      if (!prev.candleBearer1) {
-        return { ...prev, candleBearer1: name };
-      }
-      if (!prev.candleBearer2) {
-        return { ...prev, candleBearer2: name };
+      // If not assigned, assign them
+      const emptyIndex = prev.findIndex((m) => !m);
+      if (emptyIndex !== -1) {
+        const next = [...prev];
+        next[emptyIndex] = {
+          idNumber: id,
+          fullName: member.fullName,
+        };
+        return next;
       }
 
-      return prev;
+      // If no empty slots, replace the first slot
+      const next = [...prev];
+      next[0] = {
+        idNumber: id,
+        fullName: member.fullName,
+      };
+      return next;
     });
   };
 
-  const isChecked = (name) =>
-    assigned.candleBearer1 === name || assigned.candleBearer2 === name;
+  const handleDeepReset = async () => {
+    const next = await deepResetRoleAssignments({
+      dateISO: selectedISO,
+      massLabel: selectedMass,
+      templateID,
+      roleKey: selectedRoleKey,
+      slotsCount,
+    });
+    setAssigned(next);
+  };
 
-  // filter members based on search term
-  const filteredMembers = members.filter((name) =>
-    name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSave = async () => {
+    try {
+      await saveRoleAssignments({
+        dateISO: selectedISO,
+        massLabel: selectedMass,
+        templateID,
+        roleKey: selectedRoleKey,
+        assigned,
+      });
+    } finally {
+      navigate(-1);
+    }
+  };
+
+  /*const formatRotationInfo = (member) => {
+    if (member.roleCount === 0) {
+      return "New to role";
+    }
+
+    const dayText =
+      member.daysSinceLastRole === Infinity
+        ? "Never"
+        : member.daysSinceLastRole === 0
+        ? "Today"
+        : member.daysSinceLastRole === 1
+        ? "1 day ago"
+        : `${member.daysSinceLastRole} days ago`;
+
+    return `${member.roleCount}x done • Last: ${dayText}`;
+  };*/
+
+  const formatRotationInfo = (member) => {
+    const roleCount =
+      typeof member.roleCount === "number" ? member.roleCount : 0;
+
+    if (roleCount === 0) return "New to role";
+
+    const d = member.daysSinceLastRole;
+    const dayText =
+      d === Infinity
+        ? "Never"
+        : d === 0
+        ? "Today"
+        : d === 1
+        ? "1 day ago"
+        : Number.isFinite(d)
+        ? `${d} days ago`
+        : "—";
+
+    return `${roleCount}x done • Last: ${dayText}`;
+  };
 
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>MAKE SCHEDULE</h3>
+          <h3>MAKE SCHEDULE - ALTAR SERVER</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -86,6 +267,13 @@ export default function AssignMember() {
                     <Link
                       to="/selectMassAltarServer"
                       className="breadcrumb-item"
+                      state={{
+                        selectedDate,
+                        selectedISO,
+                        source,
+                        isSunday,
+                        templateID,
+                      }}
                     >
                       Select Mass
                     </Link>
@@ -96,6 +284,14 @@ export default function AssignMember() {
                     <Link
                       to="/selectRoleAltarServer"
                       className="breadcrumb-item"
+                      state={{
+                        selectedDate,
+                        selectedISO,
+                        selectedMass,
+                        source,
+                        isSunday,
+                        templateID,
+                      }}
                     >
                       Select Role
                     </Link>
@@ -110,7 +306,7 @@ export default function AssignMember() {
                 <img
                   src={icon.chevronIcon}
                   alt="Chevron Icon"
-                  style={{ width: "15px", height: "15px" }}
+                  style={{ width: 15, height: 15 }}
                 />
               }
               className="customized-breadcrumb"
@@ -121,45 +317,127 @@ export default function AssignMember() {
       </div>
 
       <div className="schedule-content">
+        {/* Context header */}
+        <h4 style={{ marginBottom: "0.5rem" }}>
+          Selected Date: {selectedDate} &nbsp;|&nbsp; Selected Mass:{" "}
+          {selectedMass}
+        </h4>
+        <div
+          style={{ color: "#2e4a9e", marginBottom: "1rem", fontWeight: 600 }}
+        >
+          Role: {selectedRoleLabel} &nbsp;•&nbsp; Slots: {slotsCount}
+          {genderFilter && (
+            <span style={{ color: "#e74c3c", marginLeft: "10px" }}>
+              (Filtered: {genderFilter} only)
+            </span>
+          )}
+        </div>
+
         <div className="assign-container row">
           {/* Left side */}
           <div className="col-md-6 assign-left">
-            <h5 className="assign-title">Candle Bearers</h5>
+            <h5 className="assign-title">{selectedRoleLabel}</h5>
+
             <div className="input-group mb-3">
               <input
                 type="text"
                 className="form-control"
-                placeholder="Search"
+                placeholder={loadingMembers ? "Loading members..." : "Search"}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={loadingMembers}
               />
-              <button className="btn btn-primary">
+              <button className="btn btn-primary" disabled>
                 <i className="bi bi-search"></i>
               </button>
             </div>
 
             <ul className="list-group assign-member-list">
-              <li className="list-group-item active">Name</li>
-              {filteredMembers.length > 0 ? (
-                filteredMembers.map((name) => (
-                  <li
-                    key={name}
-                    className="list-group-item d-flex align-items-center"
-                  >
-                    <input
-                      type="checkbox"
-                      className="form-check-input me-2"
-                      checked={isChecked(name)}
-                      onChange={() => handleAssign(name)}
-                      disabled={
-                        !isChecked(name) &&
-                        assigned.candleBearer1 &&
-                        assigned.candleBearer2
-                      }
-                    />
-                    {name}
-                  </li>
-                ))
+              <li className="list-group-item active d-flex justify-content-between">
+                <span>Name</span>
+                <span style={{ fontSize: "0.85em", opacity: 0.9 }}>
+                  Role History
+                </span>
+              </li>
+
+              {loadingMembers || preloading ? (
+                <li className="list-group-item text-muted">
+                  {loadingMembers
+                    ? "Fetching members..."
+                    : "Loading assignments..."}
+                </li>
+              ) : filteredMembers.length > 0 ? (
+                filteredMembers.map((m) => {
+                  const checked = isMemberChecked(assigned, m);
+                  const isPriorityMember =
+                    m.roleCount === 0 || m.daysSinceLastRole > 30;
+
+                  return (
+                    <li
+                      key={String(m.idNumber)}
+                      className={`list-group-item d-flex align-items-center justify-content-between ${
+                        isPriorityMember ? "priority-member" : ""
+                      }`}
+                      onClick={() => handleToggleMember(m)}
+                      style={{
+                        cursor: "pointer",
+                        backgroundColor: isPriorityMember
+                          ? "#f8f9ff"
+                          : "inherit",
+                        borderLeft: isPriorityMember
+                          ? "3px solid #2e4a9e"
+                          : "none",
+                      }}
+                    >
+                      <div className="d-flex align-items-center flex-grow-1">
+                        <input
+                          type="checkbox"
+                          className="form-check-input me-2"
+                          checked={checked}
+                          onChange={() => handleToggleMember(m)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div>
+                          <div className="d-flex align-items-center">
+                            {m.fullName}
+                            {needsGenderFiltering && (
+                              <span
+                                className={`badge ms-2 ${
+                                  m.sex === "Male"
+                                    ? "bg-primary"
+                                    : "bg-secondary"
+                                }`}
+                                style={{ fontSize: "0.7em" }}
+                              >
+                                {m.sex === "Male" ? "M" : "F"}
+                              </span>
+                            )}
+                            {isPriorityMember && (
+                              <span
+                                className="badge bg-success ms-2"
+                                style={{ fontSize: "0.7em" }}
+                                title="Priority for role rotation"
+                              >
+                                Priority
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        className="text-end"
+                        style={{
+                          fontSize: "0.75em",
+                          color: "#6c757d",
+                          minWidth: "120px",
+                        }}
+                      >
+                        {formatRotationInfo(m)}
+                      </div>
+                    </li>
+                  );
+                })
               ) : (
                 <li className="list-group-item text-muted">No results found</li>
               )}
@@ -168,42 +446,45 @@ export default function AssignMember() {
 
           {/* Right side */}
           <div className="col-md-6 assign-right">
-            <div className="mb-4">
-              <label className="form-label">Candle Bearer 1:</label>
-              <div className="assigned-name">
-                {assigned.candleBearer1 || (
-                  <span className="text-muted">Empty</span>
-                )}
-              </div>
-              <div className="assign-line"></div>
-            </div>
-
-            <div className="mb-4">
-              <label className="form-label">Candle Bearer 2:</label>
-              <div className="assigned-name">
-                {assigned.candleBearer2 || (
-                  <span className="text-muted">Empty</span>
-                )}
-              </div>
-              <div className="assign-line"></div>
+            <div className="assign-right-scroll">
+              {Array.from({ length: slotsCount }).map((_, i) => (
+                <div className="mb-4" key={i}>
+                  <label className="form-label">
+                    {slotBaseLabel} {slotsCount > 1 ? i + 1 : ""}
+                  </label>
+                  <div className="assigned-name">
+                    {assigned[i]?.fullName || (
+                      <span className="text-muted">Empty</span>
+                    )}
+                  </div>
+                  <div className="assign-line"></div>
+                </div>
+              ))}
             </div>
 
             <div className="bottom-buttons">
-              <button className="btn action-buttons cancel-btn d-flex align-items-center">
-                <img
-                  src={image.noButtonImage}
-                  alt="Cancel"
-                  className="img-btn"
-                />
-                Cancel
+              <button
+                className="action-buttons cancel-button d-flex align-items-center"
+                onClick={handleDeepReset}
+                disabled={preloading}
+              >
+                Reset
               </button>
-              <button className="btn action-buttons assign-btn d-flex align-items-center">
-                <img src={image.assignImage} alt="Assign" className="img-btn" />
-                Assign
+              <button
+                className="action-buttons assign-btn d-flex align-items-center"
+                onClick={handleSave}
+                disabled={preloading}
+              >
+                <img src={image.assignImage} alt="Save" className="img-btn" />
+                Save
               </button>
             </div>
           </div>
         </div>
+      </div>
+
+      <div>
+        <Footer />
       </div>
     </div>
   );

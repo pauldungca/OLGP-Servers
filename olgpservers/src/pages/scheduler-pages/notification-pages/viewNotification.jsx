@@ -1,3 +1,4 @@
+// src/pages/scheduler-pages/viewNotification.jsx
 import React, { useEffect, useState } from "react";
 import { Breadcrumb } from "antd";
 import {
@@ -12,7 +13,9 @@ import Footer from "../../../components/footer";
 
 import {
   fetchRequestNotificationById,
-  fetchGlobalNotificationById, // ⬅️ add this import
+  fetchGlobalNotificationById,
+  fetchUserSpecificNotificationById,
+  fetchTemplateMetaByScheduleID, // ← used to pull date/time/note/clientName
   renderNotificationBody,
   renderNotificationTitle,
   approveRequest,
@@ -25,7 +28,7 @@ import "../../../assets/styles/viewNotification.css";
 export default function ViewNotification() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const kind = (searchParams.get("kind") || "personal").toLowerCase(); // "personal" | "global"
+  const kind = (searchParams.get("kind") || "personal").toLowerCase();
 
   const [notif, setNotif] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +45,19 @@ export default function ViewNotification() {
 
       let row = null;
       if (kind === "global") {
+        // 1) fetch the global/broadcast row
         row = await fetchGlobalNotificationById(id);
+
+        // 2) if it has scheduleID, pull meta (date/time/note/clientName) and merge
+        if (row?.scheduleID) {
+          const meta = await fetchTemplateMetaByScheduleID(row.scheduleID);
+          if (meta) row = { ...row, ...meta };
+        }
+
+        if (row) row._kind = "global";
+      } else if (kind === "assignment") {
+        row = await fetchUserSpecificNotificationById(id, storedIdNumber);
+        if (row) row._kind = "assignment";
       } else {
         row = await fetchRequestNotificationById(id, storedIdNumber);
         if (row) row._kind = "personal";
@@ -63,18 +78,72 @@ export default function ViewNotification() {
     if (ok) setNotif(null);
   };
 
-  // Simple renderers for GLOBAL/broadcast rows
+  // ===== Global (broadcast) renderers =====
   const renderGlobalTitle = (n) => n?.title || "Announcement";
+
   const renderGlobalBody = (n) => {
     if (!n) return null;
+
+    // Prefer explicit fields from row; fallback to created_at
     const created = n.created_at ? new Date(n.created_at) : null;
-    const date = created ? created.toLocaleDateString() : "";
-    const time = created
-      ? created.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-      : "";
+
+    const displayDate = n.date || (created ? created.toLocaleDateString() : "");
+
+    const displayTime =
+      n.time ||
+      n.scheduled_time ||
+      n.start_time ||
+      n.mass_time ||
+      (created
+        ? created.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+        : "");
+
+    // NOTE should default to "non" (as requested)
+    const noteText = (n.note ?? "").toString().trim() ? n.note : "non";
+
+    const clientText =
+      (n.clientName ?? n.client_name ?? n.client ?? "").toString().trim() ||
+      "non";
+
     return (
       <div className="view-notification-card">
-        <p className="view-notification-text">{n.message}</p>
+        {/* Optional message body (keep if you store one) */}
+        {n.message && <p className="view-notification-text">{n.message}</p>}
+
+        <div className="view-notification-detail">
+          <span className="label">Client:</span>
+          <span className="value">{clientText}</span>
+        </div>
+        <div className="view-notification-detail">
+          <span className="label">Date:</span>
+          <span className="value">{displayDate}</span>
+        </div>
+        <div className="view-notification-detail">
+          <span className="label">Time:</span>
+          <span className="value">{displayTime}</span>
+        </div>
+        <div className="view-notification-detail">
+          <span className="label">Note:</span>
+          <span className="value">{noteText}</span>
+        </div>
+      </div>
+    );
+  };
+
+  // ===== Assignment (user-specific) renderers =====
+  const renderAssignmentTitle = () => "Assignment";
+
+  const renderAssignmentBody = (n) => {
+    if (!n) return null;
+    const date = n.date ?? "";
+    const time = n.time ?? "";
+    const role = n.role ?? "";
+    return (
+      <div className="view-notification-card">
+        <p className="view-notification-text">
+          You are assigned as <strong>{role}</strong>.
+        </p>
+
         <div className="view-notification-detail">
           <span className="label">Date:</span>
           <span className="value">{date}</span>
@@ -82,6 +151,10 @@ export default function ViewNotification() {
         <div className="view-notification-detail">
           <span className="label">Time:</span>
           <span className="value">{time}</span>
+        </div>
+        <div className="view-notification-detail">
+          <span className="label">Role:</span>
+          <span className="value">{role}</span>
         </div>
       </div>
     );
@@ -132,6 +205,13 @@ export default function ViewNotification() {
               {renderGlobalTitle(notif)}
             </h2>
             {renderGlobalBody(notif)}
+          </>
+        ) : kind === "assignment" ? (
+          <>
+            <h2 className="view-notification-title">
+              {renderAssignmentTitle(notif)}
+            </h2>
+            {renderAssignmentBody(notif)}
           </>
         ) : (
           <>

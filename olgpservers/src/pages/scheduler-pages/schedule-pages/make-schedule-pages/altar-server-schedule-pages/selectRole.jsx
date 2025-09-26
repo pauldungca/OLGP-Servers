@@ -121,8 +121,11 @@ export default function SelectRole() {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [rev, setRev] = useState(0);
 
-  const [notifyDisabled, setNotifyDisabled] = useState(false);
+  // notification states
+  const [notifyDisabled, setNotifyDisabled] = useState(false); // disabled after success
+  const [isNotifying, setIsNotifying] = useState(false); // in-flight guard
 
+  // re-enable when switching to another schedule/mass
   useEffect(() => {
     setNotifyDisabled(false);
   }, [dateISOForDB, selectedMass]);
@@ -224,43 +227,75 @@ export default function SelectRole() {
     massKind,
   };
 
-  // ⬇️ REPLACE this handler
-  const handleNotifyAssigned = async (e) => {
-    e.preventDefault(); // prevent form/button default
+  // Required/visible roles for this mass
+  const requiredRoleKeys = useMemo(
+    () =>
+      Object.keys(counts || {}).filter(
+        (k) => Boolean(visible?.[k]) && Number(counts?.[k] || 0) > 0
+      ),
+    [counts, visible]
+  );
 
-    await refreshAssignments(); // make sure we have the latest
-    const timeText = deriveTime(selectedMassDisplay, time);
-
-    // count assigned members (ignores .status fields)
-    const total = Object.values(assignments || {}).reduce(
-      (sum, v) => sum + (Array.isArray(v) ? v.length : 0),
-      0
+  // All roles must be completed BEFORE enabling the button
+  const allRolesCompleted = useMemo(() => {
+    if (!initialLoadComplete || requiredRoleKeys.length === 0) return false;
+    return requiredRoleKeys.every(
+      (k) => assignments?.[k]?.status === "complete"
     );
+  }, [assignments, requiredRoleKeys, initialLoadComplete]);
 
-    const { isConfirmed } = await Swal.fire({
-      title: "Send Notifications?",
-      text:
-        total > 0
-          ? `Send notifications to ${total} assigned member${
-              total !== 1 ? "s" : ""
-            }? You can only do this once per schedule.`
-          : "No assigned members found.",
-      icon: total > 0 ? "question" : "info",
-      showCancelButton: total > 0,
-      confirmButtonText: "Yes, send",
-      cancelButtonText: "Cancel",
-      reverseButtons: true,
-    });
+  // Send notifications handler
+  const handleNotifyAssigned = async (e) => {
+    e.preventDefault();
 
-    if (!isConfirmed) return;
+    if (!allRolesCompleted) {
+      await Swal.fire(
+        "Complete all roles",
+        "You can only send notifications after all required roles are filled.",
+        "info"
+      );
+      return;
+    }
+    if (notifyDisabled || isNotifying) return; // guard double clicks
 
-    const inserted = await insertUserSpecificNotifications({
-      dateISO: dateISOForDB,
-      time: timeText,
-      assignments,
-    });
+    setIsNotifying(true);
+    try {
+      await refreshAssignments(); // ensure latest
+      const timeText = deriveTime(selectedMassDisplay, time);
 
-    if (inserted > 0) setNotifyDisabled(true);
+      // count assigned members (arrays only)
+      const total = Object.values(assignments || {}).reduce(
+        (sum, v) => sum + (Array.isArray(v) ? v.length : 0),
+        0
+      );
+
+      const { isConfirmed } = await Swal.fire({
+        title: "Send Notifications?",
+        text:
+          total > 0
+            ? `Send notifications to ${total} assigned member${
+                total !== 1 ? "s" : ""
+              }? You can only do this once per schedule.`
+            : "No assigned members found.",
+        icon: total > 0 ? "question" : "info",
+        showCancelButton: total > 0,
+        confirmButtonText: "Yes, send",
+        cancelButtonText: "Cancel",
+        reverseButtons: true,
+      });
+      if (!isConfirmed) return;
+
+      const inserted = await insertUserSpecificNotifications({
+        dateISO: dateISOForDB,
+        time: timeText,
+        assignments,
+      });
+
+      // Disable after successful insert; will reset when schedule/mass changes
+      if (inserted > 0) setNotifyDisabled(true);
+    } finally {
+      setIsNotifying(false);
+    }
   };
 
   return (
@@ -522,9 +557,18 @@ export default function SelectRole() {
                 type="button"
                 className="btn-submit-schedule"
                 onClick={handleNotifyAssigned}
-                disabled={notifyDisabled}
+                disabled={notifyDisabled || !allRolesCompleted || isNotifying}
+                title={
+                  notifyDisabled
+                    ? "Notifications already sent for this schedule."
+                    : !allRolesCompleted
+                    ? "Complete all required roles to enable."
+                    : isNotifying
+                    ? "Sending..."
+                    : "Send Notification to assigned members"
+                }
               >
-                Send Notification
+                {isNotifying ? "Sending..." : "Send Notification"}
               </button>
             </div>
           </>

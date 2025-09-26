@@ -8,6 +8,8 @@ import {
   deleteNotification, // personal
   fetchGlobalNotificationsForUser, // global
   dismissGlobalNotification, // global
+  fetchUserSpecificNotifications, // <-- assignment (user-specific)
+  deleteUserSpecificNotification,
 } from "../../assets/scripts/notification";
 
 import "../../assets/styles/notification.css";
@@ -20,14 +22,18 @@ export default function Notification() {
 
   useEffect(() => {
     document.title = "OLGP Servers | Notifications";
+
     (async () => {
       setLoading(true);
 
-      const [personal, global] = await Promise.all([
+      // fetch all three: personal, global, and assignment notifications
+      const [personal, global, assigned] = await Promise.all([
         fetchRequestNotification(storedIdNumber),
         fetchGlobalNotificationsForUser(storedIdNumber),
+        fetchUserSpecificNotifications(storedIdNumber), // <-- new
       ]);
 
+      // normalize global (broadcasts)
       const normalizedGlobal = (global || []).map((g) => ({
         ...g,
         _kind: "global",
@@ -39,13 +45,31 @@ export default function Notification() {
         }),
       }));
 
+      // normalize personal (request-type)
       const normalizedPersonal = (personal || []).map((p) => ({
         ...p,
         _kind: "personal",
         label: `${p.department} Request`,
+        // keep existing p.date / p.time if you already store them; otherwise add similar formatting
       }));
 
-      const merged = [...normalizedGlobal, ...normalizedPersonal];
+      // normalize assignment/user-specific
+      const normalizedAssigned = (assigned || []).map((a) => ({
+        ...a,
+        _kind: "assignment",
+        label: `Assigned: ${a.role}`,
+        // a.date and a.time come from the table; keep as-is so we don't misparse
+        date: a.date || "",
+        time: a.time || "",
+      }));
+
+      // merge; you can sort if you want, but for now just show together
+      const merged = [
+        ...normalizedGlobal,
+        ...normalizedPersonal,
+        ...normalizedAssigned,
+      ];
+
       setNotifications(merged);
       setLoading(false);
     })();
@@ -54,6 +78,11 @@ export default function Notification() {
   const handleDelete = async (e, notif) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (notif._kind === "assignment") {
+      await deleteUserSpecificNotification(notif.id, setNotifications);
+      return;
+    }
 
     if (notif._kind === "global") {
       await dismissGlobalNotification(
@@ -82,25 +111,26 @@ export default function Notification() {
           <p>No notifications found.</p>
         ) : (
           notifications.map((notif) => {
-            const rowKey = `${notif._kind}-${notif.id}`;
+            const rowKey = `${notif._kind}-${
+              notif.id ??
+              `${notif.idNumber}-${notif.date}-${notif.time}-${notif.role}`
+            }`;
+
+            const titleText =
+              notif._kind === "personal"
+                ? `Type ${notif["notification-type"]} • ${notif.department}`
+                : notif._kind === "assignment"
+                ? `Assigned as ${notif.role}`
+                : notif.title;
 
             return (
               <Link
-                // ✅ always redirect to /viewNotification
-                //    pass `_kind` so ViewNotification knows what to load
-                to={`/viewNotification/${notif.id}?kind=${notif._kind}`}
+                to={`/viewNotification/${notif.id ?? ""}?kind=${notif._kind}`}
                 className="notification-row"
                 key={rowKey}
                 style={{ textDecoration: "none" }}
               >
-                <div
-                  className="notification-message"
-                  title={
-                    notif._kind === "personal"
-                      ? `Type ${notif["notification-type"]} • ${notif.department}`
-                      : notif.title
-                  }
-                >
+                <div className="notification-message" title={titleText}>
                   {notif.label}
                 </div>
 
@@ -108,13 +138,17 @@ export default function Notification() {
                   <span className="notification-time">
                     {notif.date} {notif.time}
                   </span>
+
+                  {/* hide delete for assignment items (fetch-only for now) */}
                   <button
                     className="notification-btn delete-btn"
                     onClick={(e) => handleDelete(e, notif)}
                     title={
                       notif._kind === "personal"
                         ? "Delete request"
-                        : "Hide broadcast"
+                        : notif._kind === "global"
+                        ? "Hide broadcast"
+                        : "Delete"
                     }
                   >
                     <FaTrash />

@@ -29,6 +29,8 @@ const MASS_LINE_TO_TITLE_GAP = 30;
 const TITLE_TO_ROLES_GAP = 40;
 const COLUMN_GAP = -50;
 
+const ROW_EXTRA_SPACING_LC = -5;
+
 /** Helpers */
 const prettyDate = (iso) =>
   new Date(iso).toLocaleDateString(undefined, {
@@ -43,6 +45,12 @@ const fullName = (m) => {
     : "";
   return `${m?.firstName || ""}${mi} ${m?.lastName || ""}`.trim();
 };
+
+function chunk(arr = [], size = 3) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 async function fetchGrouped(dateISO) {
   const { data: rows, error } = await supabase
@@ -79,10 +87,23 @@ async function fetchGrouped(dateISO) {
   return grouped;
 }
 
-function chunk(arr = [], size = 3) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
+const isSundayMassLabel = (label = "") =>
+  /^(?:\d+(?:st|nd|rd|th)\s+Mass)/i.test(label);
+
+const isTemplateMassLabel = (label = "") => /^Mass\s*-\s*/i.test(label);
+
+function splitMasses(masses) {
+  const sunday = [];
+  const template = [];
+  for (const m of masses) {
+    if (isSundayMassLabel(m)) sunday.push(m);
+    else if (isTemplateMassLabel(m)) template.push(m);
+    else sunday.push(m); // fallback: treat unknown labels as Sunday
+  }
+  // Sort numerically for "1st/2nd/3rd", then by time for template
+  sunday.sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0));
+  template.sort((a, b) => (a || "").localeCompare(b || ""));
+  return { sunday, template };
 }
 
 /** ---------------------- PDF RENDER HELPERS ---------------------- */
@@ -219,6 +240,7 @@ async function renderSchedulePageHTML({
     </div>
   `;
 }
+
 function drawFooter(pdf) {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10.5);
@@ -809,23 +831,136 @@ function getSchedulePrintStyles() {
   `;
 }
 
-const isSundayMassLabel = (label = "") =>
-  /^(?:\d+(?:st|nd|rd|th)\s+Mass)/i.test(label);
+/* LECTOR COMMENTATOR  */
 
-const isTemplateMassLabel = (label = "") => /^Mass\s*-\s*/i.test(label);
+async function fetchGroupedLectorCommentator(dateISO) {
+  const { data: rows, error } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("*")
+    .eq("date", dateISO)
+    .order("slot", { ascending: true });
 
-function splitMasses(masses) {
-  const sunday = [];
-  const template = [];
-  for (const m of masses) {
-    if (isSundayMassLabel(m)) sunday.push(m);
-    else if (isTemplateMassLabel(m)) template.push(m);
-    else sunday.push(m); // fallback: treat unknown labels as Sunday
+  if (error) throw error;
+
+  if (!rows?.length) return {};
+  const ids = [...new Set(rows.map((r) => r.idNumber).filter(Boolean))];
+
+  let map = {};
+  if (ids.length) {
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("idNumber, firstName, middleName, lastName")
+      .in("idNumber", ids);
+    if (memErr) throw memErr;
+    map = (members || []).reduce((a, m) => {
+      a[String(m.idNumber)] = fullName(m);
+      return a;
+    }, {});
   }
-  // Sort numerically for "1st/2nd/3rd", then by time for template
-  sunday.sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0));
-  template.sort((a, b) => (a || "").localeCompare(b || ""));
-  return { sunday, template };
+
+  const grouped = {};
+  for (const r of rows) {
+    const mass = r.mass || "Mass";
+    const role = r.role === "plates" ? "plate" : r.role;
+    const name = map[String(r.idNumber)] || "";
+    grouped[mass] ||= {};
+    (grouped[mass][role] ||= []).push(name);
+  }
+  return grouped;
+}
+
+function renderMassSectionLectorCommentator(
+  pdf,
+  { massLabel, roles, sectionTop, sectionHeight }
+) {
+  let y = sectionTop;
+
+  // Dotted separator for each section
+  pdf.setDrawColor(185);
+  pdf.setLineWidth(0.6);
+  pdf.setLineDashPattern([3, 3], 0);
+  pdf.line(MARGIN, y, PAGE_W - MARGIN, y);
+  pdf.setLineDashPattern([], 0);
+
+  // Mass title
+  y += MASS_LINE_TO_TITLE_GAP;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(15);
+  pdf.text(massLabel, MARGIN, y);
+
+  // Roles gap
+  y += TITLE_TO_ROLES_GAP;
+
+  const leftX = MARGIN; // Both Preface and Readings will use the same column
+
+  const labelWLeft = 120; // Label width for left column (Preface + Readings)
+
+  let rowStep = 24; // Adjust spacing to fit content correctly
+
+  // LEFT COLUMN: Preface
+  let yL = y;
+  yL =
+    roleRowLectorCommentator(pdf, {
+      x: leftX,
+      y: yL,
+      label: "Preface:",
+      value: (roles.preface || []).filter(Boolean).join(" | "),
+      labelW: labelWLeft,
+    }) +
+    rowStep -
+    ROW_EXTRA_SPACING_LC;
+
+  // LEFT COLUMN: Readings (after Preface)
+  let yR = yL; // Start after Preface
+  yR =
+    roleRowLectorCommentator(pdf, {
+      x: leftX,
+      y: yR,
+      label: "Readings:",
+      value: (roles.reading || []).filter(Boolean).join(" | "),
+      labelW: labelWLeft,
+    }) +
+    rowStep -
+    ROW_EXTRA_SPACING;
+
+  // Bottom separator
+  const sepY = yR + 6;
+  pdf.setDrawColor(185);
+  pdf.setLineWidth(0.6);
+  pdf.setLineDashPattern([3, 3], 0);
+  pdf.line(MARGIN, sepY, PAGE_W - MARGIN, sepY);
+  pdf.setLineDashPattern([], 0);
+
+  return sepY + 6;
+}
+
+function roleRowLectorCommentator(pdf, { x, y, label, value, labelW }) {
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(FONT_LABEL);
+  pdf.text(label, x, y);
+
+  const textX = x + labelW;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(FONT_VALUE);
+  if (value) pdf.text(value.replace(/\|/g, " | "), textX, y);
+
+  underlineToTextLectorCommentator(pdf, value || "", textX, y);
+  return y + ROW_EXTRA_SPACING;
+}
+
+function underlineToTextLectorCommentator(
+  pdf,
+  text,
+  x,
+  y,
+  maxRight = PAGE_W - MARGIN
+) {
+  const width = pdf.getTextWidth(text || "");
+  const endX = Math.min(x + width + 1, maxRight);
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setLineWidth(0.9);
+  pdf.line(x, y + 5, endX, y + 5);
 }
 
 export async function exportLectorCommentatorSchedulesPDF({
@@ -840,17 +975,16 @@ export async function exportLectorCommentatorSchedulesPDF({
       return;
     }
 
-    const grouped = await fetchGrouped(dateISO); // Fetch the assigned members
-    const allMasses = Object.keys(grouped); // Get the list of masses for the date
+    const grouped = await fetchGroupedLectorCommentator(dateISO);
+    const allMasses = Object.keys(grouped);
     if (!allMasses.length) {
       await Swal.fire("No data", "No assignments found for that date.", "info");
       return;
     }
 
-    const { sunday, template } = splitMasses(allMasses); // Split the masses into Sunday and template
+    const { sunday, template } = splitMasses(allMasses);
     const pdf = new jsPDF("p", "pt", [PAGE_W, PAGE_H]);
 
-    // Helper to render one page with a set of masses
     const renderMassPage = async (masses, centerLabel) => {
       const label = centerLabel ?? undefined;
 
@@ -863,7 +997,7 @@ export async function exportLectorCommentatorSchedulesPDF({
 
       masses.forEach((mass, i) => {
         const sectionTop = single ? top : top + i * sectionH;
-        drawMassSection(pdf, {
+        renderMassSectionLectorCommentator(pdf, {
           massLabel: mass,
           roles: grouped[mass] || {},
           sectionTop,
@@ -875,7 +1009,6 @@ export async function exportLectorCommentatorSchedulesPDF({
       drawFooter(pdf);
     };
 
-    // Sunday pages
     if (sunday.length) {
       const pages = chunk(sunday, 3);
       for (let i = 0; i < pages.length; i++) {
@@ -884,7 +1017,6 @@ export async function exportLectorCommentatorSchedulesPDF({
       }
     }
 
-    // Template pages
     if (template.length) {
       const type = await getTemplateMassType(templateID);
       const centerLabel = type;
@@ -896,6 +1028,7 @@ export async function exportLectorCommentatorSchedulesPDF({
         await renderMassPage(pages[i], centerLabel);
       }
     }
+
     pdf.save(`lector-commentator-schedule-${dateISO}.pdf`);
   } catch (e) {
     console.error("PDF export failed:", e);
@@ -915,7 +1048,7 @@ export async function exportLectorCommentatorSchedulesPNG({
       return;
     }
 
-    const grouped = await fetchGrouped(dateISO); // Fetch the assigned members
+    const grouped = await fetchGroupedLectorCommentator(dateISO); // Fetch the assigned members
     const allMasses = Object.keys(grouped); // Get the list of masses for the date
     if (!allMasses.length) {
       await Swal.fire("No data", "No assignments found for that date.", "info");
@@ -924,7 +1057,7 @@ export async function exportLectorCommentatorSchedulesPNG({
 
     const { sunday, template } = splitMasses(allMasses); // Split the masses into Sunday and template
 
-    // Small canvas "PDF" shim (same as your current code)
+    // Create a "canvas" context as a workaround for generating PNG from PDF content
     const makeCanvasCtx = () => {
       const canvas = document.createElement("canvas");
       canvas.width = PAGE_W;
@@ -1002,7 +1135,7 @@ export async function exportLectorCommentatorSchedulesPNG({
 
       masses.forEach((mass, i) => {
         const sectionTop = single ? top : top + i * sectionH;
-        drawMassSection(fakePDF, {
+        renderMassSectionLectorCommentator(fakePDF, {
           massLabel: mass,
           roles: grouped[mass] || {},
           sectionTop,
@@ -1017,7 +1150,7 @@ export async function exportLectorCommentatorSchedulesPNG({
 
     const zip = new JSZip();
 
-    // Sunday pages
+    // Exporting Sunday Masses
     if (sunday.length) {
       const pages = chunk(sunday, 3);
       for (let i = 0; i < pages.length; i++) {
@@ -1030,7 +1163,7 @@ export async function exportLectorCommentatorSchedulesPNG({
       }
     }
 
-    // Template pages
+    // Exporting Template Masses
     if (template.length) {
       const type = await getTemplateMassType(templateID);
       const centerLabel = type;
@@ -1065,22 +1198,26 @@ export async function printLectorCommentatorSchedules({
       return;
     }
 
-    const grouped = await fetchGrouped(dateISO); // Fetch the assigned members
-    const allMasses = Object.keys(grouped); // Get the list of masses for the date
+    // Fetch the grouped data for Lector Commentator roles based on the selected date
+    const grouped = await fetchGroupedLectorCommentator(dateISO);
+    const allMasses = Object.keys(grouped); // Get all the masses for the date
+
+    // Check if any masses are assigned for the provided date
     if (!allMasses.length) {
       await Swal.fire("Info", "No assignments found for that date.", "info");
       return;
     }
 
+    // Split the masses into Sunday and template categories
     const { sunday, template } = splitMasses(allMasses);
 
     const pages = [];
 
-    // Sunday pages
+    // Export the Sunday Masses
     if (sunday.length) {
       for (const group of chunk(sunday, 3)) {
         pages.push(
-          await renderSchedulePageHTML({
+          await renderMassSectionHTMLLectorCommentator({
             grouped,
             masses: group,
             department,
@@ -1091,13 +1228,13 @@ export async function printLectorCommentatorSchedules({
       }
     }
 
-    // Template pages
+    // Export the Template Masses if available
     if (template.length) {
       const type = await getTemplateMassType(templateID);
       const centerLabel = type;
       for (const group of chunk(template, 3)) {
         pages.push(
-          await renderSchedulePageHTML({
+          await renderMassSectionHTMLLectorCommentator({
             grouped,
             masses: group,
             department,
@@ -1108,10 +1245,12 @@ export async function printLectorCommentatorSchedules({
       }
     }
 
+    // Join all the page contents to form the full HTML
     const html = pages.join("");
 
-    const w = window.open("", "_blank", "width=816,height=1056");
-    if (!w) {
+    // Open a new window to display the printable schedule
+    const printWindow = window.open("", "_blank", "width=816,height=1056");
+    if (!printWindow) {
       await Swal.fire(
         "Popup Blocked",
         "Please allow popups to print.",
@@ -1119,21 +1258,25 @@ export async function printLectorCommentatorSchedules({
       );
       return;
     }
-    w.document.open();
-    w.document.write(`
+
+    // Write the HTML content to the print window
+    printWindow.document.open();
+    printWindow.document.write(`
       <html>
         <head>
           <title>Schedule (${dateISO})</title>
-          <style>${getSchedulePrintStyles()}</style>
+          <style>${getSchedulePrintStylesLectorCommentator()}</style>
         </head>
         <body>${html}</body>
       </html>
     `);
-    w.document.close();
-    w.onload = () => {
-      w.focus();
-      w.print();
-      w.close();
+    printWindow.document.close();
+
+    // Focus on the print window and trigger the print action
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
     };
   } catch (err) {
     console.error("Print failed:", err);
@@ -1143,4 +1286,288 @@ export async function printLectorCommentatorSchedules({
       "error"
     );
   }
+}
+
+function renderMassSectionHTMLLectorCommentator({
+  grouped,
+  masses,
+  department,
+  dateISO,
+  centerLabel,
+}) {
+  const j = (arr) =>
+    Array.isArray(arr) ? arr.filter(Boolean).join(" | ") : "";
+
+  // Build HTML for each mass in the group
+  let sectionsHTML = "";
+
+  masses.forEach((mass, index) => {
+    const rolesObj = grouped[mass] || {};
+
+    // Get the Preface and Readings roles
+    const preface = j(rolesObj.preface || []);
+    const readings = j(rolesObj.reading || []);
+
+    sectionsHTML += `
+      <div class="mass-section" ${index === 0 ? 'style="margin-top: 0;"' : ""}>
+        <div class="dotted-line"></div>
+        <div class="mass-title">${mass}</div>
+
+        <div class="roles-container">
+          <div class="role-row">
+            <span class="role-label">Readings:</span>
+            <span class="role-value">${readings || ""}</span>
+          </div>
+          <div class="role-row">
+            <span class="role-label">Preface:</span>
+            <span class="role-value">${preface || ""}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  // Only show centerLabel if it has actual content
+  const displayLabel =
+    centerLabel && centerLabel.trim() ? centerLabel.trim() : "";
+
+  // Use your existing logo
+  const logoHtml = `<img src="${image.OLGPlogo}" class="logo" alt="OLGP Logo">`;
+
+  return `
+    <div class="page">
+      <div class="header">
+        <div class="logo-title-section">
+          <div class="logo-container">
+            ${logoHtml}
+          </div>
+          <div class="title-container">
+            <div class="main-title">Our Lady of Guadalupe Parish</div>
+            <div class="subtitle">${department}</div>
+          </div>
+        </div>
+        <div class="center-heading">
+          <div class="schedule-title">Schedule for ${prettyDate(dateISO)}</div>
+          ${displayLabel ? `<div class="mass-type">${displayLabel}</div>` : ""}
+        </div>
+      </div>
+      
+      <div class="content">
+        ${sectionsHTML}
+      </div>
+      
+      <div class="footer">
+        Generated: ${new Date().toLocaleDateString()}
+      </div>
+    </div>
+  `;
+}
+
+function getSchedulePrintStylesLectorCommentator() {
+  return `
+  @page { 
+    size: 8.5in 11in; 
+    margin: 0; 
+  }
+
+  /* Lock to letter size, remove UA margins */
+  html, body { 
+    margin: 0; 
+    padding: 0; 
+    width: 816px; 
+    height: 1056px; 
+    background: #fff; 
+    font-family: Helvetica, Arial, sans-serif;
+  }
+  
+  * { 
+    box-sizing: border-box; 
+  }
+
+  /* Page canvas */
+  .page { 
+    width: 816px; 
+    height: 1056px; 
+    padding: 28px; 
+    margin: 0; 
+    background: #fff; 
+    position: relative;
+    page-break-inside: avoid;
+  }
+
+  /* Header */
+  .header { 
+    margin-bottom: 30px; 
+  }
+  
+  .logo-title-section { 
+    display: flex; 
+    align-items: flex-start; 
+    margin-bottom: 22px;
+  }
+  
+  .logo-container { 
+    width: 52px; 
+    height: 52px; 
+    margin-right: 14px; 
+  }
+  
+  .logo { 
+    width: 52px; 
+    height: 52px; 
+    display: block; 
+  }
+  
+  .title-container { 
+    flex: 1; 
+    margin-top: 6px; 
+  }
+  
+  .main-title { 
+    font-weight: 700; 
+    font-size: 26px; 
+    line-height: 1.1; 
+    margin: 0;
+  }
+  
+  .subtitle { 
+    font-weight: 400; 
+    font-size: 14.5px; 
+    margin-top: 8px; 
+    margin-bottom: 0;
+  }
+  
+  .center-heading { 
+    text-align: center; 
+  }
+  
+  .schedule-title { 
+    font-weight: 700; 
+    font-size: 18px; 
+    margin: 0;
+  }
+  
+  .mass-type { 
+    font-weight: 400; 
+    font-size: 16px; 
+    margin-top: 6px; 
+    margin-bottom: 0;
+  }
+
+  /* Content */
+  .content { 
+    margin-top: 30px; 
+  }
+
+  /* Mass sections - matching PDF/PNG spacing */
+  .mass-section { 
+    margin-bottom: 80px;
+    page-break-inside: avoid;
+  }
+  
+  .mass-section:first-child { 
+    margin-top: 0; 
+  }
+  
+  .mass-section:last-child { 
+    margin-bottom: 0; 
+  }
+
+  /* Dotted separator line */
+  .dotted-line { 
+    border-top: 0.6px dashed #b9b9b9; 
+    margin-bottom: 20px; 
+    width: 100%;
+  }
+  
+  .mass-title { 
+    font-weight: 700; 
+    font-size: 15px; 
+    margin-bottom: 30px; 
+    margin-top: 0;
+  }
+
+  /* Roles container - single column layout like PDF */
+  .roles-container {
+    margin-left: 0;
+  }
+
+  /* Role rows - matching PDF spacing */
+  .role-row { 
+    display: flex; 
+    align-items: baseline; 
+    margin-bottom: 30px;
+    gap: 8px;
+  }
+  
+  .role-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .role-label { 
+    width: 120px; 
+    flex: 0 0 120px; 
+    font-weight: 700; 
+    font-size: 15.5px; 
+  }
+
+  /* Underlined text matching PDF style - only underline the text width */
+  .role-value {
+    font-size: 15.5px;
+    font-weight: 400;
+    border-bottom: 0.9px solid #000;
+    padding-bottom: 5px;
+    display: inline-block;
+    min-height: 1.2em;
+    /* Remove flex and min-width to let it size to content */
+  }
+
+  /* Empty values still get underline */
+  .role-value:empty::after {
+    content: " ";
+    white-space: pre;
+  }
+
+  /* Footer */
+  .footer { 
+    position: absolute; 
+    bottom: 28px; 
+    left: 28px; 
+    right: 28px; 
+    font-size: 10.5px; 
+    text-align: center;
+  }
+
+  /* Print-specific styles */
+  @media print {
+    html, body { 
+      width: 816px; 
+      height: 1056px; 
+    }
+    
+    .page { 
+      page-break-inside: avoid; 
+    }
+    
+    body { 
+      -webkit-print-color-adjust: exact; 
+      print-color-adjust: exact; 
+    }
+    
+    /* Ensure dotted lines print correctly */
+    .dotted-line {
+      border-top: 0.6px dashed #b9b9b9 !important;
+    }
+    
+    /* Ensure underlines print correctly */
+    .role-value {
+      border-bottom: 0.9px solid #000 !important;
+    }
+  }
+
+  /* Page break handling for multiple pages */
+  .page:not(:first-child) {
+    page-break-before: always;
+  }
+  `;
 }

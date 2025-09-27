@@ -14,10 +14,10 @@ import {
 
 import {
   isSundayFor,
-  getTemplateFlags,
-  roleCountsFor,
-  roleVisibilityFor,
-  fetchAssignmentsGrouped,
+  getTemplateFlagsLectorCommentator,
+  roleCountsForLectorCommentator,
+  roleVisibilityForLectorCommentator,
+  fetchAssignmentsGroupedLectorCommentator,
 } from "../../../../../assets/scripts/assignMember";
 
 import {
@@ -113,11 +113,11 @@ export default function SelectMassLectorCommentator() {
 
   /** Precompute default (Sunday) rules */
   const sundayCounts = useMemo(
-    () => roleCountsFor({ flags: null, isSunday: true }),
+    () => roleCountsForLectorCommentator({ flags: null, isSunday: true }),
     []
   );
   const sundayVisible = useMemo(
-    () => roleVisibilityFor({ flags: null, isSunday: true }),
+    () => roleVisibilityForLectorCommentator({ flags: null, isSunday: true }),
     []
   );
 
@@ -131,7 +131,7 @@ export default function SelectMassLectorCommentator() {
       const next = {};
       for (const id of ids) {
         try {
-          next[id] = await getTemplateFlags(selectedISO, id);
+          next[id] = await getTemplateFlagsLectorCommentator(selectedISO, id);
         } catch {
           next[id] = null;
         }
@@ -149,20 +149,20 @@ export default function SelectMassLectorCommentator() {
       const tmplMeta = templateCards.get(displayLabel); // undefined for Sunday cards
       const labelToRead = tmplMeta ? tmplMeta.storageLabel : displayLabel;
 
-      const grouped = await fetchAssignmentsGrouped({
+      const grouped = await fetchAssignmentsGroupedLectorCommentator({
         dateISO: selectedISO,
         massLabel: labelToRead,
       });
 
       // choose rules
       const counts = tmplMeta
-        ? roleCountsFor({
+        ? roleCountsForLectorCommentator({
             flags: tmplFlags[tmplMeta.templateID],
             isSunday: false,
           })
         : sundayCounts;
       const visible = tmplMeta
-        ? roleVisibilityFor({
+        ? roleVisibilityForLectorCommentator({
             flags: tmplFlags[tmplMeta.templateID],
             isSunday: false,
           })

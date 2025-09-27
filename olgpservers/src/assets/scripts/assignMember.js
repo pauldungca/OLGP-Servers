@@ -1,8 +1,13 @@
-// assets/scripts/assignMember.js
 import Swal from "sweetalert2";
 import { supabase } from "../../utils/supabase";
-import { fetchAltarServerMembersWithRole } from "./fetchMember";
-import { getTemplateFlagsForDate } from "./fetchSchedule";
+import {
+  fetchAltarServerMembersWithRole,
+  fetchLectorCommentatorMembersWithRole,
+} from "./fetchMember";
+import {
+  getTemplateFlagsForDate,
+  getTemplateFlagsForLectorCommentator,
+} from "./fetchSchedule";
 
 export const ROLE_COLUMN_MAP = {
   candleBearer: "candle-bearer",
@@ -373,277 +378,6 @@ export const buildFullName = (m) => {
   return finalName || String(m.idNumber || "").trim();
 };
 
-/*export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
-  // Step 1: Get all members already assigned to ANY mass on this date
-  const { data: allAssignedMembers, error: allAssignedError } = await supabase
-    .from("altar-server-placeholder")
-    .select("idNumber, role, mass")
-    .eq("date", dateISO);
-
-  if (allAssignedError) {
-    console.error("Error fetching all assigned members:", allAssignedError);
-    return [];
-  }
-
-  // Step 2: Get members assigned to the current mass specifically
-  const { data: currentMassMembers, error: currentMassError } = await supabase
-    .from("altar-server-placeholder")
-    .select("idNumber, role")
-    .eq("date", dateISO)
-    .eq("mass", massLabel);
-
-  if (currentMassError) {
-    console.error("Error fetching current mass members:", currentMassError);
-    return [];
-  }
-
-  // Step 3: Get historical role assignments for rotation analysis (last 6 months)
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-
-  const { data: historicalAssignments, error: histError } = await supabase
-    .from("altar-server-placeholder")
-    .select("idNumber, role, date")
-    .gte("date", sixMonthsAgoISO)
-    .order("date", { ascending: false });
-
-  if (histError) {
-    console.error("Error fetching historical assignments:", histError);
-  }
-
-  // Create sets for different assignment scenarios
-  const allAssignedIds = new Set(
-    allAssignedMembers.map((member) => String(member.idNumber).trim())
-  );
-
-  // Create a map of assigned members by role for current mass
-  const assignedByRole = new Map();
-  currentMassMembers.forEach((member) => {
-    const id = String(member.idNumber).trim();
-    if (!assignedByRole.has(member.role)) {
-      assignedByRole.set(member.role, new Set());
-    }
-    assignedByRole.get(member.role).add(id);
-  });
-
-  // Step 4: Fetch all altar server members with roles
-  const rows = await fetchAltarServerMembersWithRole();
-
-  // Step 5: Normalize members and apply rotation logic
-  const normalized = (rows || [])
-    .map((m) => ({
-      idNumber: String(m.idNumber ?? "").trim(),
-      fullName: buildFullName(m),
-      role: m.role || "Non-Flexible",
-      sex: m.sex || "Unknown",
-    }))
-    .filter((m) => {
-      if (!m.idNumber || !m.fullName) return false;
-
-      // If this member is assigned to the current role in the current mass, always include them
-      const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
-      if (assignedToCurrentRole) return true;
-
-      // If this member is assigned to ANY mass on this date (including current mass), exclude them
-      const assignedToAnyMass = allAssignedIds.has(m.idNumber);
-      if (assignedToAnyMass) return false;
-
-      // If not assigned anywhere on this date, include them
-      return true;
-    })
-    .map((m) => {
-      // Add rotation priority score and statistics
-      const rotationScore = calculateRotationScore(
-        m.idNumber,
-        role,
-        historicalAssignments || [],
-        dateISO
-      );
-
-      const stats = getMemberRotationStats(
-        m.idNumber,
-        historicalAssignments || []
-      );
-      const shouldPrioritize = shouldPrioritizeForRotation(
-        m.idNumber,
-        role,
-        historicalAssignments || [],
-        dateISO
-      );
-
-      const roleCount = stats.roleDistribution[role] || 0;
-
-      // Calculate days since last role assignment
-      const roleAssignments = (historicalAssignments || [])
-        .filter(
-          (assignment) =>
-            String(assignment.idNumber).trim() === m.idNumber &&
-            assignment.role === role
-        )
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-      const daysSinceLastRole =
-        roleAssignments.length > 0
-          ? Math.floor(
-              (new Date(dateISO) - new Date(roleAssignments[0].date)) /
-                (1000 * 60 * 60 * 24)
-            )
-          : Infinity;
-
-      return {
-        ...m,
-        rotationScore,
-        roleCount,
-        daysSinceLastRole,
-        shouldPrioritize,
-        totalAssignments: stats.totalAssignments,
-        isNewMember: stats.isNewMember,
-      };
-    })
-    // Sort by rotation priority (lower score = higher priority)
-    .sort((a, b) => {
-      // First sort by rotation score
-      if (a.rotationScore !== b.rotationScore) {
-        return a.rotationScore - b.rotationScore;
-      }
-      // Then by name for consistency
-      return a.fullName.localeCompare(b.fullName);
-    });
-
-  // Step 6: For assigned members, get additional info from members-information table
-  const assignedToCurrentRole = assignedByRole.get(role);
-  if (assignedToCurrentRole && assignedToCurrentRole.size > 0) {
-    const assignedIds = Array.from(assignedToCurrentRole);
-
-    // Get detailed information for assigned members
-    const { data: assignedMemberDetails, error: detailsError } = await supabase
-      .from("members-information")
-      .select("idNumber, firstName, middleName, lastName, sex")
-      .in("idNumber", assignedIds)
-      .order("id", { ascending: true });
-
-    if (!detailsError && assignedMemberDetails) {
-      // Update the normalized array with detailed information for assigned members
-      assignedMemberDetails.forEach((detail) => {
-        const index = normalized.findIndex(
-          (m) => m.idNumber === String(detail.idNumber).trim()
-        );
-        if (index !== -1) {
-          normalized[index] = {
-            ...normalized[index],
-            fullName: buildFullName(detail),
-            sex: detail.sex || "Unknown",
-          };
-        } else {
-          // Add member if not found in the original list (edge case)
-          normalized.push({
-            idNumber: String(detail.idNumber).trim(),
-            fullName: buildFullName(detail),
-            role: "Non-Flexible",
-            sex: detail.sex || "Unknown",
-            rotationScore: 0,
-            roleCount: 0,
-            daysSinceLastRole: Infinity,
-            shouldPrioritize: true,
-            totalAssignments: 0,
-            isNewMember: true,
-          });
-        }
-      });
-    }
-  }
-
-  return normalized;
-};*/
-
-/*export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
-  // 🔐 Eligibility maps
-  const { perRoleAllowed } = await buildEligibilityMaps();
-  const allowedSet = perRoleAllowed.get(role) || new Set();
-
-  // Step 1: Get all members already assigned to ANY mass on this date
-  const { data: allAssignedMembers, error: allAssignedError } = await supabase
-    .from("altar-server-placeholder")
-    .select("idNumber, role, mass")
-    .eq("date", dateISO);
-
-  if (allAssignedError) {
-    console.error("Error fetching assigned members:", allAssignedError);
-    return [];
-  }
-
-  const allAssignedIds = new Set(
-    (allAssignedMembers || []).map((m) => String(m.idNumber).trim())
-  );
-
-  // Step 2: Group by role
-  const assignedByRole = new Map();
-  (allAssignedMembers || []).forEach((m) => {
-    const k = m.role;
-    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
-    assignedByRole.get(k).add(String(m.idNumber).trim());
-  });
-
-  // Step 3: Fetch historical assignments (rotation scoring)
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-
-  const { data: historicalAssignments } = await supabase
-    .from("altar-server-placeholder")
-    .select("idNumber, role, date, mass")
-    .gte("date", sixMonthsAgoISO)
-    .order("date", { ascending: false });
-
-  // Step 4: Fetch all altar server members
-  const rows = await fetchAltarServerMembersWithRole();
-
-  // Step 5: Normalize members and apply filters
-  const normalized = (rows || [])
-    .map((m) => ({
-      idNumber: String(m.idNumber ?? "").trim(),
-      fullName: buildFullName(m),
-      role: m.role || "Non-Flexible",
-      sex: m.sex || "Unknown",
-    }))
-    .filter((m) => {
-      if (!m.idNumber || !m.fullName) return false;
-
-      // If this member is already assigned to this role in this mass, keep them (so you can unassign)
-      const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
-      if (assignedToCurrentRole) return true;
-
-      // 🔐 Eligibility: only allow if altar-server-roles says so
-      if (!allowedSet.has(m.idNumber)) return false;
-
-      // If member already assigned to any mass on this date, skip them
-      if (allAssignedIds.has(m.idNumber)) return false;
-
-      return true;
-    })
-    .map((m) => {
-      const rotationScore = calculateRotationScore(
-        m.idNumber,
-        role,
-        historicalAssignments || [],
-        dateISO
-      );
-      return {
-        ...m,
-        rotationScore,
-      };
-    })
-    .sort((a, b) => {
-      if (a.rotationScore !== b.rotationScore) {
-        return a.rotationScore - b.rotationScore;
-      }
-      return a.fullName.localeCompare(b.fullName);
-    });
-
-  return normalized;
-};*/
-
 export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
   const { perRoleAllowed } = await buildEligibilityMaps();
   const allowedSet = perRoleAllowed.get(role) || new Set();
@@ -751,8 +485,6 @@ export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
 
   return normalized;
 };
-
-
 
 export const slotBaseLabelFor = (roleKey, fallbackLabel = "") => {
   const singular = {
@@ -875,23 +607,6 @@ export const deepResetRoleAssignments = async ({
   return ensureArraySize([], slotsCount);
 };
 
-/*export const saveRoleAssignments = async ({
-  dateISO,
-  massLabel,
-  templateID,
-  roleKey,
-  assigned,
-}) => {
-  const chosen = (assigned || []).filter(Boolean);
-  return replacePlaceholderRoleAssignments({
-    dateISO,
-    massLabel,
-    templateID,
-    roleKey,
-    members: chosen,
-  });
-};*/
-
 export const saveRoleAssignments = async ({
   dateISO,
   massLabel,
@@ -999,13 +714,6 @@ export const buildAssignNavState = ({
   slotsCount: Math.max(1, counts[roleKey] || 1),
 });
 
-/*---------------------------------
-
-AUTOMATED SCHEDULING FUNCTIONS
-
----------------------------------*/
-
-// ===== Progress Overlay (no Swal) =====
 const AssignProgress = (() => {
   let el, nodes;
   let lastPaint = 0;
@@ -1083,857 +791,6 @@ const AssignProgress = (() => {
 
   return { mount, maybePaint, paint, unmount };
 })();
-
-/*export const autoAssignSundaySchedules = async (year, month) => {
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-  const monthText = `${monthNames[month]} - ${year}`;
-
-  // Simple confirm without Swal (you can replace with your own UI)
-  const ok = window.confirm(
-    `Automate scheduling on all Sunday schedules for ${monthText}?`
-  );
-  if (!ok) return;
-
-  // UI state for the overlay
-  const ui = {
-    sundaysProcessed: 0,
-    totalSundays: 0,
-    massesProcessed: 0,
-    totalMasses: 0,
-    membersAssigned: 0,
-    errors: 0,
-  };
-
-  try {
-    AssignProgress.mount(monthText);
-
-    // Get Sundays
-    const sundays = getSundaysInMonth(year, month);
-    ui.totalSundays = sundays.length;
-
-    const sundayMasses = [
-      "1st Mass - 6:00 AM",
-      "2nd Mass - 8:00 AM",
-      "3rd Mass - 5:00 PM",
-    ];
-    ui.totalMasses = sundays.length * sundayMasses.length;
-    AssignProgress.paint(ui);
-
-    if (sundays.length === 0) {
-      AssignProgress.unmount();
-      alert("No Sundays found in the selected month.");
-      return { success: false, message: "No Sundays", stats: {} };
-    }
-
-    // Historical assignments (6 months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-    const { data: historicalAssignments, error: histError } = await supabase
-      .from("altar-server-placeholder")
-      .select("idNumber, role, date, mass")
-      .gte("date", sixMonthsAgoISO)
-      .order("date", { ascending: false });
-    if (histError) {
-      console.error("Error fetching historical assignments:", histError);
-      ui.errors += 1;
-      AssignProgress.maybePaint(ui);
-    }
-
-    const availableMembers = await fetchAltarServerMembersWithRole();
-    const normalizedMembers = normalizeMembers(availableMembers);
-
-    let totalAssignments = 0;
-    const stats = {
-      sundaysProcessed: 0,
-      massesProcessed: 0,
-      membersAssigned: 0,
-      errors: [],
-    };
-
-    // Loop Sundays
-    for (const sunday of sundays) {
-      const dateISO = ymdLocal(sunday);
-      try {
-        const sundayAssignments = new Set();
-
-        // Loop masses
-        for (const massLabel of sundayMasses) {
-          try {
-            // Important: pass onAssign to count each member as it's assigned
-            const massAssignments = await autoAssignSingleMass({
-              dateISO,
-              massLabel,
-              availableMembers: normalizedMembers,
-              historicalAssignments: historicalAssignments || [],
-              sundayAssignments,
-              templateID: null,
-              onAssign: () => {
-                totalAssignments += 1;
-                ui.membersAssigned = totalAssignments;
-                AssignProgress.maybePaint(ui);
-              },
-            });
-
-            // Fallback: if onAssign wasn’t called (e.g., no inserts), add the count
-            if (massAssignments > 0) {
-              totalAssignments += 0; // already added via onAssign above
-            }
-
-            stats.massesProcessed += 1;
-            ui.massesProcessed = stats.massesProcessed;
-
-            // keep same-day tracking in sync
-            const { data: newAssignments } = await supabase
-              .from("altar-server-placeholder")
-              .select("idNumber")
-              .eq("date", dateISO)
-              .eq("mass", massLabel);
-
-            newAssignments?.forEach((a) =>
-              sundayAssignments.add(String(a.idNumber))
-            );
-
-            AssignProgress.maybePaint(ui);
-          } catch (massError) {
-            console.error(
-              `Error assigning ${massLabel} on ${dateISO}:`,
-              massError
-            );
-            stats.errors.push(`${dateISO} ${massLabel}: ${massError.message}`);
-            ui.errors = stats.errors.length;
-
-            // Count the mass as processed so the bar advances
-            stats.massesProcessed += 1;
-            ui.massesProcessed = stats.massesProcessed;
-            AssignProgress.maybePaint(ui);
-          }
-        }
-
-        stats.sundaysProcessed += 1;
-        ui.sundaysProcessed = stats.sundaysProcessed;
-        AssignProgress.maybePaint(ui);
-      } catch (sundayError) {
-        console.error(`Error processing Sunday ${dateISO}:`, sundayError);
-        stats.errors.push(`${dateISO}: ${sundayError.message}`);
-        ui.errors = stats.errors.length;
-        AssignProgress.maybePaint(ui);
-      }
-    }
-
-    stats.membersAssigned = totalAssignments;
-    AssignProgress.unmount();
-
-    const successMessage =
-      `Successfully auto-assigned schedules!\n\n` +
-      `Sundays processed: ${stats.sundaysProcessed}\n` +
-      `Masses processed: ${stats.massesProcessed}\n` +
-      `Total assignments: ${stats.membersAssigned}\n` +
-      (stats.errors.length ? `Errors: ${stats.errors.length}` : ``);
-
-    if (stats.errors.length) {
-      alert(`Partial Success\n\n${successMessage}`);
-    } else {
-      alert(successMessage);
-    }
-
-    return { success: true, message: successMessage, stats };
-  } catch (error) {
-    console.error("Auto-assignment failed:", error);
-    AssignProgress.unmount();
-    alert(`Auto-Assignment Failed:\n${error.message}`);
-    return {
-      success: false,
-      message: `Auto-assignment failed: ${error.message}`,
-      stats: {},
-    };
-  }
-};*/
-
-/*export const autoAssignSundaySchedules = async (year, month) => {
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-
-  const monthText = `${monthNames[month]} - ${year}`;
-
-  const result = await Swal.fire({
-    icon: "question",
-    title: "Automate Scheduling?",
-    text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
-    showCancelButton: true,
-    confirmButtonText: "Yes, automate",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
-  });
-
-  if (!result.isConfirmed) {
-    return;
-  }
-
-  try {
-    // Show loading indicator
-    Swal.fire({
-      title: "Auto-assigning schedules...",
-      text: "This may take a moment",
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
-    });
-
-    // Get all Sundays in the month
-    const sundays = getSundaysInMonth(year, month);
-
-    if (sundays.length === 0) {
-      await Swal.fire(
-        "No Sundays Found",
-        "No Sundays found in the selected month.",
-        "info"
-      );
-      return {
-        success: false,
-        message: "No Sundays found in the selected month",
-        stats: {},
-      };
-    }
-
-    // Get historical assignments for rotation analysis (last 6 months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-
-    const { data: historicalAssignments, error: histError } = await supabase
-      .from("altar-server-placeholder")
-      .select("idNumber, role, date, mass")
-      .gte("date", sixMonthsAgoISO)
-      .order("date", { ascending: false });
-
-    if (histError) {
-      console.error("Error fetching historical assignments:", histError);
-    }
-
-    // Get all available altar server members
-    const availableMembers = await fetchAltarServerMembersWithRole();
-    const normalizedMembers = normalizeMembers(availableMembers);
-
-    let totalAssignments = 0;
-    let stats = {
-      sundaysProcessed: 0,
-      massesProcessed: 0,
-      membersAssigned: 0,
-      errors: [],
-    };
-
-    // Process each Sunday
-    for (const sunday of sundays) {
-      const dateISO = ymdLocal(sunday);
-      const sundayMasses = [
-        "1st Mass - 6:00 AM",
-        "2nd Mass - 8:00 AM",
-        "3rd Mass - 5:00 PM",
-      ];
-
-      try {
-        // Track members assigned on this Sunday to prevent over-assignment
-        const sundayAssignments = new Set();
-
-        // Process each mass for this Sunday
-        for (const massLabel of sundayMasses) {
-          try {
-            const massAssignments = await autoAssignSingleMass({
-              dateISO,
-              massLabel,
-              availableMembers: normalizedMembers,
-              historicalAssignments: historicalAssignments || [],
-              sundayAssignments,
-              templateID: null, // Sunday masses don't use templates
-            });
-
-            totalAssignments += massAssignments;
-            stats.massesProcessed++;
-
-            // Add assigned members to Sunday tracking
-            const { data: newAssignments } = await supabase
-              .from("altar-server-placeholder")
-              .select("idNumber")
-              .eq("date", dateISO)
-              .eq("mass", massLabel);
-
-            newAssignments?.forEach((assignment) => {
-              sundayAssignments.add(String(assignment.idNumber));
-            });
-          } catch (massError) {
-            console.error(
-              `Error assigning ${massLabel} on ${dateISO}:`,
-              massError
-            );
-            stats.errors.push(`${dateISO} ${massLabel}: ${massError.message}`);
-          }
-        }
-
-        stats.sundaysProcessed++;
-      } catch (sundayError) {
-        console.error(`Error processing Sunday ${dateISO}:`, sundayError);
-        stats.errors.push(`${dateISO}: ${sundayError.message}`);
-      }
-    }
-
-    // Update stats
-    stats.membersAssigned = totalAssignments;
-
-    // Close loading and show results
-    await Swal.close();
-
-    const successMessage = `Successfully auto-assigned schedules!\n\nSundays processed: ${stats.sundaysProcessed}\nMasses processed: ${stats.massesProcessed}\nTotal assignments: ${stats.membersAssigned}`;
-
-    if (stats.errors.length > 0) {
-      await Swal.fire({
-        icon: "warning",
-        title: "Partial Success",
-        text: `${successMessage}\n\nSome errors occurred during assignment.`,
-        footer: `Errors: ${stats.errors.length}`,
-      });
-    } else {
-      await Swal.fire({
-        icon: "success",
-        title: "Auto-Assignment Complete!",
-        text: successMessage,
-      });
-    }
-
-    //window.location.reload();
-
-    return {
-      success: true,
-      message: successMessage,
-      stats,
-    };
-  } catch (error) {
-    console.error("Auto-assignment failed:", error);
-    await Swal.close();
-    await Swal.fire({
-      icon: "error",
-      title: "Auto-Assignment Failed",
-      text: `An error occurred: ${error.message}`,
-    });
-
-    return {
-      success: false,
-      message: `Auto-assignment failed: ${error.message}`,
-      stats: {},
-    };
-  }
-};*/
-
-/*const autoAssignSingleMass = async ({
-  dateISO,
-  massLabel,
-  availableMembers,
-  historicalAssignments,
-  sundayAssignments,
-  templateID,
-}) => {
-  // Check existing assignments for this mass
-  const { data: existingAssignments } = await supabase
-    .from("altar-server-placeholder")
-    .select("role, slot, idNumber")
-    .eq("date", dateISO)
-    .eq("mass", massLabel);
-
-  // Track what's already assigned
-  const existingByRole = {};
-  (existingAssignments || []).forEach((assignment) => {
-    if (!existingByRole[assignment.role]) {
-      existingByRole[assignment.role] = [];
-    }
-    existingByRole[assignment.role].push({
-      slot: assignment.slot,
-      idNumber: assignment.idNumber,
-    });
-  });
-
-  // Sunday role requirements
-  const roleRequirements = {
-    thurifer: 1,
-    beller: 2,
-    mainServer: 2,
-    candleBearer: 2,
-    incenseBearer: 1,
-    crossBearer: 1,
-    plate: 10,
-  };
-
-  let totalNewAssignments = 0;
-
-  // Process each role
-  for (const [roleKey, requiredCount] of Object.entries(roleRequirements)) {
-    const existing = existingByRole[roleKey] || [];
-    const needToAssign = requiredCount - existing.length;
-
-    if (needToAssign <= 0) {
-      continue; // Role is already fully assigned
-    }
-
-    try {
-      // Get available members for this role with rotation scoring
-      const candidatesForRole = availableMembers
-        .filter((member) => {
-          // Don't assign if already assigned on this Sunday
-          if (sundayAssignments.has(member.idNumber)) {
-            return false;
-          }
-
-          // Don't assign if already assigned to this mass
-          const alreadyInMass = (existingAssignments || []).some(
-            (assignment) => String(assignment.idNumber) === member.idNumber
-          );
-          if (alreadyInMass) {
-            return false;
-          }
-
-          return true;
-        })
-        .map((member) => {
-          const rotationScore = calculateRotationScore(
-            member.idNumber,
-            roleKey,
-            historicalAssignments,
-            dateISO
-          );
-
-          return {
-            ...member,
-            rotationScore,
-          };
-        })
-        .sort((a, b) => a.rotationScore - b.rotationScore); // Lower score = higher priority
-
-      // Apply gender constraints for specific roles
-      let filteredCandidates = candidatesForRole;
-
-      if (roleKey === "candleBearer" || roleKey === "beller") {
-        // For roles requiring 2 people, ensure gender consistency
-        if (existing.length > 0) {
-          // Find gender of existing member
-          const existingMember = availableMembers.find(
-            (m) => m.idNumber === String(existing[0].idNumber)
-          );
-          if (existingMember?.sex) {
-            filteredCandidates = candidatesForRole.filter(
-              (c) => c.sex === existingMember.sex
-            );
-          }
-        }
-      }
-
-      // Select the best candidates
-      const selectedMembers = filteredCandidates.slice(0, needToAssign);
-
-      if (selectedMembers.length < needToAssign) {
-        console.warn(
-          `Could only find ${selectedMembers.length} members for ${roleKey} (needed ${needToAssign})`
-        );
-      }
-
-      // Assign the selected members
-      if (selectedMembers.length > 0) {
-        const assignments = selectedMembers.map((member, index) => ({
-          date: dateISO,
-          mass: massLabel,
-          templateID: templateID,
-          role: roleKey,
-          slot: existing.length + index + 1,
-          idNumber: member.idNumber,
-        }));
-
-        const { error } = await supabase
-          .from("altar-server-placeholder")
-          .insert(assignments);
-
-        if (error) {
-          throw new Error(`Failed to assign ${roleKey}: ${error.message}`);
-        }
-
-        // Track assignments
-        selectedMembers.forEach((member) => {
-          sundayAssignments.add(member.idNumber);
-        });
-
-        totalNewAssignments += selectedMembers.length;
-      }
-    } catch (roleError) {
-      console.error(`Error assigning role ${roleKey}:`, roleError);
-      throw roleError;
-    }
-  }
-
-  return totalNewAssignments;
-};*/
-
-/*export const autoAssignSundaySchedules = async (year, month) => {
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-  const monthText = `${monthNames[month]} - ${year}`;
-
-  // SweetAlert confirm (replaces window.confirm)
-  const result = await Swal.fire({
-    icon: "question",
-    title: "Automate Scheduling?",
-    text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
-    showCancelButton: true,
-    confirmButtonText: "Yes, automate",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
-  });
-  if (!result.isConfirmed) return;
-
-  // UI state for the overlay
-  const ui = {
-    sundaysProcessed: 0,
-    totalSundays: 0,
-    massesProcessed: 0,
-    totalMasses: 0,
-    membersAssigned: 0,
-    errors: 0,
-  };
-
-  // ---- counters & stable callbacks (avoid no-loop-func) ----
-  const counters = { totalAssignments: 0 };
-  const handleAssign = () => {
-    counters.totalAssignments += 1;
-    ui.membersAssigned = counters.totalAssignments;
-    AssignProgress.maybePaint(ui);
-  };
-
-  try {
-    AssignProgress.mount(monthText);
-
-    // Get Sundays
-    const sundays = getSundaysInMonth(year, month);
-    ui.totalSundays = sundays.length;
-
-    const sundayMasses = [
-      "1st Mass - 6:00 AM",
-      "2nd Mass - 8:00 AM",
-      "3rd Mass - 5:00 PM",
-    ];
-    ui.totalMasses = sundays.length * sundayMasses.length;
-    AssignProgress.paint(ui);
-
-    if (sundays.length === 0) {
-      AssignProgress.unmount();
-      await Swal.fire(
-        "No Sundays Found",
-        "No Sundays found in the selected month.",
-        "info"
-      );
-      return { success: false, message: "No Sundays", stats: {} };
-    }
-
-    // Historical assignments (6 months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-    const { data: historicalAssignments, error: histError } = await supabase
-      .from("altar-server-placeholder")
-      .select("idNumber, role, date, mass")
-      .gte("date", sixMonthsAgoISO)
-      .order("date", { ascending: false });
-    if (histError) {
-      console.error("Error fetching historical assignments:", histError);
-      ui.errors += 1;
-      AssignProgress.maybePaint(ui);
-    }
-
-    const availableMembers = await fetchAltarServerMembersWithRole();
-    const normalizedMembers = normalizeMembers(availableMembers);
-
-    const stats = {
-      sundaysProcessed: 0,
-      massesProcessed: 0,
-      membersAssigned: 0,
-      errors: [],
-    };
-
-    // Loop Sundays
-    for (const sunday of sundays) {
-      const dateISO = ymdLocal(sunday);
-      try {
-        const sundayAssignments = new Set();
-
-        // Loop masses
-        for (const massLabel of sundayMasses) {
-          try {
-            // Pass stable callback (defined outside the loop)
-            const massAssignments = await autoAssignSingleMass({
-              dateISO,
-              massLabel,
-              availableMembers: normalizedMembers,
-              historicalAssignments: historicalAssignments || [],
-              sundayAssignments,
-              templateID: null,
-              onAssign: handleAssign, // ✅ stable reference, no-loop-func safe
-            });
-
-            if (!massAssignments > 0) {
-              // already counted via onAssign callback
-            }
-
-            stats.massesProcessed += 1;
-            ui.massesProcessed = stats.massesProcessed;
-
-            // keep same-day tracking in sync
-            const { data: newAssignments } = await supabase
-              .from("altar-server-placeholder")
-              .select("idNumber")
-              .eq("date", dateISO)
-              .eq("mass", massLabel);
-
-            newAssignments?.forEach((a) =>
-              sundayAssignments.add(String(a.idNumber))
-            );
-
-            AssignProgress.maybePaint(ui);
-          } catch (massError) {
-            console.error(
-              `Error assigning ${massLabel} on ${dateISO}:`,
-              massError
-            );
-            stats.errors.push(`${dateISO} ${massLabel}: ${massError.message}`);
-            ui.errors = stats.errors.length;
-
-            // Count the mass as processed so the bar advances
-            stats.massesProcessed += 1;
-            ui.massesProcessed = stats.massesProcessed;
-            AssignProgress.maybePaint(ui);
-          }
-        }
-
-        stats.sundaysProcessed += 1;
-        ui.sundaysProcessed = stats.sundaysProcessed;
-        AssignProgress.maybePaint(ui);
-      } catch (sundayError) {
-        console.error(`Error processing Sunday ${dateISO}:`, sundayError);
-        stats.errors.push(`${dateISO}: ${sundayError.message}`);
-        ui.errors = stats.errors.length;
-        AssignProgress.maybePaint(ui);
-      }
-    }
-
-    stats.membersAssigned = counters.totalAssignments;
-    AssignProgress.unmount();
-
-    const successMessage =
-      `Successfully auto-assigned schedules!\n\n` +
-      `Sundays processed: ${stats.sundaysProcessed}\n` +
-      `Masses processed: ${stats.massesProcessed}\n` +
-      `Total assignments: ${stats.membersAssigned}\n` +
-      (stats.errors.length ? `Errors: ${stats.errors.length}` : ``);
-
-    // SweetAlert result (replaces alert)
-    if (stats.errors.length) {
-      await Swal.fire({
-        icon: "warning",
-        title: "Partial Success",
-        text: successMessage,
-        footer: `Errors: ${stats.errors.length}`,
-      });
-    } else {
-      await Swal.fire({
-        icon: "success",
-        title: "Auto-Assignment Complete!",
-        text: successMessage,
-      });
-      window.location.reload(); // <-- reload after alert
-    }
-
-    return { success: true, message: successMessage, stats };
-  } catch (error) {
-    console.error("Auto-assignment failed:", error);
-    AssignProgress.unmount();
-    await Swal.fire({
-      icon: "error",
-      title: "Auto-Assignment Failed",
-      text: `An error occurred: ${error.message}`,
-    });
-    return {
-      success: false,
-      message: `Auto-assignment failed: ${error.message}`,
-      stats: {},
-    };
-  }
-};
-
-const autoAssignSingleMass = async ({
-  dateISO,
-  massLabel,
-  availableMembers,
-  historicalAssignments,
-  sundayAssignments,
-  templateID,
-  onAssign, // NEW (optional)
-}) => {
-  const { data: existingAssignments } = await supabase
-    .from("altar-server-placeholder")
-    .select("role, slot, idNumber")
-    .eq("date", dateISO)
-    .eq("mass", massLabel);
-
-  const existingByRole = {};
-  (existingAssignments || []).forEach((assignment) => {
-    if (!existingByRole[assignment.role]) existingByRole[assignment.role] = [];
-    existingByRole[assignment.role].push({
-      slot: assignment.slot,
-      idNumber: assignment.idNumber,
-    });
-  });
-
-  const roleRequirements = {
-    thurifer: 1,
-    beller: 2,
-    mainServer: 2,
-    candleBearer: 2,
-    incenseBearer: 1,
-    crossBearer: 1,
-    plate: 10,
-  };
-
-  let totalNewAssignments = 0;
-
-  for (const [roleKey, requiredCount] of Object.entries(roleRequirements)) {
-    const existing = existingByRole[roleKey] || [];
-    const needToAssign = requiredCount - existing.length;
-    if (needToAssign <= 0) continue;
-
-    try {
-      const candidatesForRole = availableMembers
-        .filter((member) => {
-          if (sundayAssignments.has(member.idNumber)) return false;
-          const alreadyInMass = (existingAssignments || []).some(
-            (a) => String(a.idNumber) === member.idNumber
-          );
-          if (alreadyInMass) return false;
-          return true;
-        })
-        .map((member) => ({
-          ...member,
-          rotationScore: calculateRotationScore(
-            member.idNumber,
-            roleKey,
-            historicalAssignments,
-            dateISO
-          ),
-        }))
-        .sort((a, b) => a.rotationScore - b.rotationScore);
-
-      let filteredCandidates = candidatesForRole;
-
-      if (roleKey === "candleBearer" || roleKey === "beller") {
-        if (existing.length > 0) {
-          const existingMember = availableMembers.find(
-            (m) => m.idNumber === String(existing[0].idNumber)
-          );
-          if (existingMember?.sex) {
-            filteredCandidates = candidatesForRole.filter(
-              (c) => c.sex === existingMember.sex
-            );
-          }
-        }
-      }
-
-      const selectedMembers = filteredCandidates.slice(0, needToAssign);
-      if (selectedMembers.length === 0) continue;
-
-      const assignments = selectedMembers.map((member, index) => ({
-        date: dateISO,
-        mass: massLabel,
-        templateID: templateID,
-        role: roleKey,
-        slot: existing.length + index + 1,
-        idNumber: member.idNumber,
-      }));
-
-      const { error } = await supabase
-        .from("altar-server-placeholder")
-        .insert(assignments);
-
-      if (error)
-        throw new Error(`Failed to assign ${roleKey}: ${error.message}`);
-
-      // Update Sunday tracking + per-member callback
-      selectedMembers.forEach((member) => {
-        sundayAssignments.add(member.idNumber);
-        if (typeof onAssign === "function") onAssign(member.idNumber); // 🔔 increment counter in UI
-      });
-
-      totalNewAssignments += selectedMembers.length;
-    } catch (roleError) {
-      console.error(`Error assigning role ${roleKey}:`, roleError);
-      throw roleError;
-    }
-  }
-
-  return totalNewAssignments;
-};
-
-const getSundaysInMonth = (year, month) => {
-  const sundays = [];
-  const date = new Date(year, month, 1);
-
-  while (date.getMonth() === month) {
-    if (date.getDay() === 0) {
-      // Sunday
-      sundays.push(new Date(date));
-    }
-    date.setDate(date.getDate() + 1);
-  }
-
-  return sundays;
-};
-
-const ymdLocal = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};*/
 
 export const autoAssignSundaySchedules = async (year, month) => {
   const monthNames = [
@@ -2294,6 +1151,11 @@ const ROLE_REQUIREMENTS = {
   plate: 10,
 };
 
+const ROLE_REQUIREMENTS_LectorCommentator = {
+  reading: 2,
+  preface: 1,
+};
+
 export async function isMonthFullyScheduled(year, month) {
   const sundays = getSundaysInMonth(year, month);
   const totalMasses = sundays.length * SUNDAY_MASSES.length;
@@ -2355,3 +1217,894 @@ export async function isMonthFullyScheduled(year, month) {
     completeMasses,
   };
 }
+
+/*----------------------------------
+
+LECTOR COMMENTATOR FUNCTIONS
+
+------------------------------------*/
+
+export const LECTOR_COMMENTATOR_ROLE_COLUMN_MAP = {
+  reading: "reading",
+  preface: "preface",
+};
+
+export async function fetchLectorCommentatorMembers({ dateISO, massLabel }) {
+  const { data, error } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, mass")
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  if (error) {
+    console.error("Error fetching Lector/Commentator members:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export const replaceLectorCommentatorRoleAssignments = async ({
+  dateISO,
+  massLabel,
+  roleKey,
+  members, // [{ idNumber, fullName }]
+}) => {
+  // Using ROLE_COLUMN_MAP to reference the role
+  const role = LECTOR_COMMENTATOR_ROLE_COLUMN_MAP[roleKey];
+
+  // Delete existing assignments for the role
+  const { error: delErr } = await supabase
+    .from("lector-commentator-placeholder")
+    .delete()
+    .eq("date", dateISO)
+    .eq("mass", massLabel)
+    .eq("role", role);
+  if (delErr) throw delErr;
+
+  // If no members are provided, return early
+  if (!members || members.length === 0) return { inserted: 0 };
+
+  // Insert new role assignments for the members
+  const rows = members.map((m, i) => ({
+    date: dateISO,
+    mass: massLabel,
+    role,
+    slot: i + 1,
+    idNumber: m.idNumber,
+  }));
+
+  const { data, error } = await supabase
+    .from("lector-commentator-placeholder")
+    .insert(rows)
+    .select();
+  if (error) throw error;
+  return { inserted: data?.length ?? 0 };
+};
+
+export const getLectorCommentatorAssignments = async (dateISO, massLabel) => {
+  const { data: rows, error } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, slot")
+    .eq("date", dateISO)
+    .eq("mass", massLabel)
+    .order("role", { ascending: true })
+    .order("slot", { ascending: true });
+
+  if (error) throw error;
+
+  if (!rows || rows.length === 0) return {};
+
+  // Fetch member names based on the idNumbers
+  const ids = Array.from(new Set(rows.map((r) => r.idNumber).filter(Boolean)));
+  let nameMap = new Map();
+  if (ids.length > 0) {
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", ids);
+    if (memErr) throw memErr;
+
+    members?.forEach((m) =>
+      nameMap.set(m.idNumber, `${m.firstName} ${m.lastName}`)
+    );
+  }
+
+  const grouped = {};
+  rows.forEach((r) => {
+    if (!grouped[r.role]) grouped[r.role] = [];
+    grouped[r.role].push({
+      idNumber: r.idNumber,
+      fullName: nameMap.get(r.idNumber) || String(r.idNumber),
+      slot: r.slot,
+    });
+  });
+
+  Object.keys(grouped).forEach((k) =>
+    grouped[k].sort((a, b) => (a.slot || 0) - (b.slot || 0))
+  );
+  return grouped;
+};
+
+export const clearLectorCommentatorAssignments = async (dateISO, massLabel) => {
+  try {
+    const result = await Swal.fire({
+      icon: "question",
+      title: "Reset this schedule?",
+      text: "All assigned members for this date & mass will be cleared.",
+      showCancelButton: true,
+      confirmButtonText: "Yes, reset",
+      cancelButtonText: "No",
+      reverseButtons: true,
+    });
+    if (!result.isConfirmed) return false;
+
+    const { error } = await supabase
+      .from("lector-commentator-placeholder")
+      .delete()
+      .eq("date", dateISO)
+      .eq("mass", massLabel);
+
+    if (error) throw error;
+
+    await Swal.fire({
+      icon: "success",
+      title: "Schedule reset",
+      timer: 1100,
+      showConfirmButton: false,
+    });
+    return true;
+  } catch (e) {
+    console.error("clearLectorCommentatorAssignments error:", e);
+    await Swal.fire({
+      icon: "error",
+      title: "Couldn't reset",
+      text: "Please try again.",
+    });
+    return false;
+  }
+};
+
+export async function buildLectorCommentatorEligibilityMaps() {
+  const selectCols = 'idNumber,"reading","preface"'; // Adjust column names to match your table
+
+  const { data, error } = await supabase
+    .from("lector-commentator-roles") // Adjust table name to match your database
+    .select(selectCols);
+
+  if (error) {
+    console.error("buildLectorCommentatorEligibilityMaps error:", error);
+    return { perRoleAllowed: new Map(), perMemberAllowed: new Map() };
+  }
+
+  const perRoleAllowed = new Map();
+  const perMemberAllowed = new Map();
+
+  Object.keys(LECTOR_COMMENTATOR_ROLE_COLUMN_MAP).forEach((k) =>
+    perRoleAllowed.set(k, new Set())
+  );
+
+  for (const row of data || []) {
+    const id = String(row.idNumber).trim();
+    const allowedRoles = new Set();
+
+    for (const [roleKey, col] of Object.entries(
+      LECTOR_COMMENTATOR_ROLE_COLUMN_MAP
+    )) {
+      if (Number(row[col] || 0) === 1) {
+        perRoleAllowed.get(roleKey).add(id);
+        allowedRoles.add(roleKey);
+      }
+    }
+    perMemberAllowed.set(id, allowedRoles);
+  }
+
+  return { perRoleAllowed, perMemberAllowed };
+}
+
+export const fetchLectorCommentatorMembersNormalized = async (
+  dateISO,
+  massLabel,
+  role
+) => {
+  const { perRoleAllowed } = await buildLectorCommentatorEligibilityMaps();
+  const allowedSet = perRoleAllowed.get(role) || new Set();
+
+  // Fetch assigned members for the Lector/Commentator roles
+  const { data: allAssignedMembers, error: allAssignedError } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, mass")
+    .eq("date", dateISO);
+
+  if (allAssignedError) {
+    console.error(
+      "Error fetching assigned Lector/Commentator members:",
+      allAssignedError
+    );
+
+    return [];
+  }
+
+  const allAssignedIds = new Set(
+    (allAssignedMembers || []).map((m) => String(m.idNumber).trim())
+  );
+
+  const assignedByRole = new Map();
+  (allAssignedMembers || []).forEach((m) => {
+    const k = m.role;
+    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
+    assignedByRole.get(k).add(String(m.idNumber).trim());
+  });
+
+  // Fetch historical assignments for Lector/Commentator roles in the last 6 months
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+  const { data: historicalAssignments } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, date, mass")
+    .gte("date", sixMonthsAgoISO)
+    .order("date", { ascending: false });
+
+  console.log("Fetched Historical Assignments: ", historicalAssignments);
+
+  const rows = await fetchLectorCommentatorMembersWithRole();
+
+  const normalized = (rows || [])
+    .map((m) => ({
+      idNumber: String(m.idNumber ?? "").trim(),
+      fullName: buildFullName(m),
+      role: m.role || "Non-Flexible",
+      sex: m.sex || "Unknown",
+    }))
+    .filter((m) => {
+      console.log("Filtering member: ", m);
+      if (!m.idNumber || !m.fullName) return false;
+
+      // Eligibility check
+      if (!allowedSet.has(m.idNumber)) {
+        console.log("Not eligible: ", m.idNumber);
+        return false;
+      }
+
+      // Already assigned to this role
+      if (allAssignedIds.has(m.idNumber)) {
+        console.log("Already assigned: ", m.idNumber);
+        return false;
+      }
+
+      return true;
+    })
+    .map((m) => {
+      const rotationScore = calculateRotationScore(
+        m.idNumber,
+        role,
+        historicalAssignments || [],
+        dateISO
+      );
+
+      // Compute roleCount and daysSinceLastRole
+      const memberHistory = (historicalAssignments || []).filter(
+        (a) => String(a.idNumber).trim() === m.idNumber
+      );
+      const roleCount = memberHistory.filter((a) => a.role === role).length;
+
+      const lastRoleAssignment = memberHistory
+        .filter((a) => a.role === role)
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+      const daysSinceLastRole = lastRoleAssignment
+        ? Math.floor(
+            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
+              (1000 * 60 * 60 * 24)
+          )
+        : Infinity;
+
+      const isPriority =
+        roleCount === 0 ||
+        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
+
+      return {
+        ...m,
+        rotationScore,
+        roleCount,
+        daysSinceLastRole,
+        isPriority,
+      };
+    })
+    .sort((a, b) => {
+      if (a.rotationScore !== b.rotationScore) {
+        return a.rotationScore - b.rotationScore;
+      }
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+  return normalized;
+};
+
+export const preloadAssignedForLectorCommentatorRole = async ({
+  dateISO,
+  massLabel,
+  roleKey,
+  slotsCount,
+}) => {
+  // Get assignments for this specific role
+  const { data: assignments, error } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, slot")
+    .eq("date", dateISO)
+    .eq("mass", massLabel)
+    .eq("role", roleKey)
+    .order("slot", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching assignments:", error);
+    return ensureArraySize([], slotsCount);
+  }
+
+  if (!assignments || assignments.length === 0) {
+    return ensureArraySize([], slotsCount);
+  }
+
+  // Get the member details for all assigned IDs
+  const assignedIds = assignments.map((a) => a.idNumber).filter(Boolean);
+
+  if (assignedIds.length === 0) {
+    return ensureArraySize([], slotsCount);
+  }
+
+  const { data: members, error: memberError } = await supabase
+    .from("members-information")
+    .select("*")
+    .in("idNumber", assignedIds);
+
+  if (memberError) {
+    console.error("Error fetching member details:", memberError);
+    return ensureArraySize([], slotsCount);
+  }
+
+  // Create a map of ID to full name
+  const memberMap = new Map();
+  members?.forEach((m) => {
+    memberMap.set(String(m.idNumber), buildFullName(m));
+  });
+
+  // Build the result array with proper full names
+  const result = assignments.map((assignment) => ({
+    idNumber: String(assignment.idNumber),
+    fullName:
+      memberMap.get(String(assignment.idNumber)) ||
+      `Member ${assignment.idNumber}`,
+    slot: assignment.slot,
+  }));
+
+  return ensureArraySize(result, slotsCount);
+};
+
+export const deepResetLectorCommentatorRoleAssignments = async ({
+  dateISO,
+  massLabel,
+  templateID,
+  roleKey,
+  slotsCount,
+}) => {
+  await replaceLectorCommentatorRoleAssignments({
+    dateISO,
+    massLabel,
+    templateID,
+    roleKey,
+    members: [],
+  });
+  return ensureArraySize([], slotsCount);
+};
+
+export const saveLectorCommentatorRoleAssignments = async ({
+  dateISO,
+  massLabel,
+  templateID,
+  roleKey,
+  assigned,
+}) => {
+  const chosen = (assigned || []).filter(Boolean);
+
+  return replaceLectorCommentatorRoleAssignments({
+    dateISO,
+    massLabel,
+    templateID,
+    roleKey,
+    members: chosen,
+  });
+};
+
+export const getTemplateFlagsLectorCommentator = async (selectedISO) =>
+  getTemplateFlagsForLectorCommentator(selectedISO);
+
+export const roleCountsForLectorCommentator = ({ flags, isSunday }) => {
+  const showAll = isSunday === true;
+  return {
+    reading: showAll ? 2 : Number(flags?.roles?.reading || 0),
+    preface: showAll ? 1 : Number(flags?.roles?.preface || 0),
+  };
+};
+
+export const roleVisibilityForLectorCommentator = ({ flags, isSunday }) => {
+  const showAll = isSunday === true;
+  const roleOn = (count) => Number(count || 0) > 0;
+  return {
+    reading: showAll || roleOn(flags?.roles?.reading),
+    preface: showAll || roleOn(flags?.roles?.preface),
+  };
+};
+
+export const getAssignmentsForCardsLectorCommentator = async (
+  dateISO,
+  massLabel
+) => {
+  const { data: rows, error } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, slot")
+    .eq("date", dateISO)
+    .eq("mass", massLabel)
+    .order("role", { ascending: true })
+    .order("slot", { ascending: true });
+  if (error) throw error;
+  if (!rows || rows.length === 0) return {};
+
+  const ids = Array.from(new Set(rows.map((r) => r.idNumber).filter(Boolean)));
+  let nameMap = new Map();
+
+  if (ids.length > 0) {
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", ids);
+    if (memErr) throw memErr;
+    members?.forEach((m) => nameMap.set(m.idNumber, buildFullName(m)));
+  }
+
+  const grouped = {};
+  rows.forEach((r) => {
+    if (!grouped[r.role]) grouped[r.role] = [];
+    grouped[r.role].push({
+      idNumber: r.idNumber,
+      fullName: nameMap.get(r.idNumber) || String(r.idNumber),
+      slot: r.slot,
+    });
+  });
+
+  Object.keys(grouped).forEach((k) =>
+    grouped[k].sort((a, b) => (a.slot || 0) - (b.slot || 0))
+  );
+  return grouped;
+};
+
+export const clearAssignmentsForLectorCommentator = async (
+  dateISO,
+  massLabel
+) => {
+  try {
+    const result = await Swal.fire({
+      icon: "question",
+      title: "Reset this schedule?",
+      text: "All assigned members for this date & mass will be cleared.",
+      showCancelButton: true,
+      confirmButtonText: "Yes, reset",
+      cancelButtonText: "No",
+      reverseButtons: true,
+    });
+    if (!result.isConfirmed) return false;
+
+    const { error } = await supabase
+      .from("lector-commentator-placeholder")
+      .delete()
+      .eq("date", dateISO)
+      .eq("mass", massLabel);
+    if (error) throw error;
+
+    await Swal.fire({
+      icon: "success",
+      title: "Schedule reset",
+      timer: 1100,
+      showConfirmButton: false,
+    });
+    return true;
+  } catch (e) {
+    console.error("clearAssignmentsFor error:", e);
+    await Swal.fire({
+      icon: "error",
+      title: "Couldn't reset",
+      text: "Please try again.",
+    });
+    return false;
+  }
+};
+
+export const fetchAssignmentsGroupedLectorCommentator = async ({
+  dateISO,
+  massLabel,
+}) => getAssignmentsForCardsLectorCommentator(dateISO, massLabel);
+
+export const resetAllAssignmentsLectorCommentator = async ({
+  dateISO,
+  massLabel,
+}) => clearAssignmentsForLectorCommentator(dateISO, massLabel);
+
+export async function isMonthFullyScheduledLectorCommentator(year, month) {
+  const sundays = getSundaysInMonth(year, month);
+  const totalMasses = sundays.length * SUNDAY_MASSES.length;
+  if (totalMasses === 0)
+    return { isComplete: false, totalMasses: 0, completeMasses: 0 };
+
+  const startISO = ymdLocal(new Date(year, month, 1));
+  const endISO = ymdLocal(new Date(year, month + 1, 0));
+
+  const { data, error } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("date,mass,role")
+    .gte("date", startISO)
+    .lte("date", endISO);
+
+  if (error) {
+    console.error("isMonthFullyScheduled error:", error);
+    return { isComplete: false, totalMasses, completeMasses: 0 };
+  }
+
+  const sundaySet = new Set(sundays.map(ymdLocal));
+  const perMassRoleCount = new Map(); // key: `${date}|${mass}` -> Map(role -> count)
+
+  (data || []).forEach((row) => {
+    const dateISO = String(row.date);
+    const mass = String(row.mass);
+    if (!sundaySet.has(dateISO)) return;
+    if (!SUNDAY_MASSES.includes(mass)) return;
+
+    const key = `${dateISO}|${mass}`;
+    if (!perMassRoleCount.has(key)) perMassRoleCount.set(key, new Map());
+    const roleMap = perMassRoleCount.get(key);
+    roleMap.set(row.role, (roleMap.get(row.role) || 0) + 1);
+  });
+
+  let completeMasses = 0;
+
+  sundays.forEach((s) => {
+    const dateISO = ymdLocal(s);
+    SUNDAY_MASSES.forEach((mass) => {
+      const key = `${dateISO}|${mass}`;
+      const roleMap = perMassRoleCount.get(key) || new Map();
+
+      // A mass is complete if for every required role, count >= required
+      const allRolesMet = Object.entries(
+        ROLE_REQUIREMENTS_LectorCommentator
+      ).every(([role, req]) => {
+        const have = roleMap.get(role) || 0;
+        return have >= req;
+      });
+
+      if (allRolesMet) completeMasses += 1;
+    });
+  });
+
+  return {
+    isComplete: completeMasses === totalMasses,
+    totalMasses,
+    completeMasses,
+  };
+}
+
+export const autoAssignLectorCommentatorSchedules = async (year, month) => {
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const monthText = `${monthNames[month]} - ${year}`;
+
+  const result = await Swal.fire({
+    icon: "question",
+    title: "Automate Scheduling?",
+    text: `Do you want to automate the process of scheduling for Lector Commentator roles in ${monthText}?`,
+    showCancelButton: true,
+    confirmButtonText: "Yes, automate",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+  if (!result.isConfirmed) return;
+
+  const ui = {
+    sundaysProcessed: 0,
+    totalSundays: 0,
+    massesProcessed: 0,
+    totalMasses: 0,
+    membersAssigned: 0,
+    errors: 0,
+  };
+
+  const counters = { totalAssignments: 0 };
+  const handleAssign = () => {
+    counters.totalAssignments += 1;
+    ui.membersAssigned = counters.totalAssignments;
+    AssignProgress.maybePaint(ui);
+  };
+
+  try {
+    AssignProgress.mount(monthText);
+
+    const sundays = getSundaysInMonth(year, month);
+    ui.totalSundays = sundays.length;
+
+    const sundayMasses = [
+      "1st Mass - 6:00 AM",
+      "2nd Mass - 8:00 AM",
+      "3rd Mass - 5:00 PM",
+    ];
+    ui.totalMasses = sundays.length * sundayMasses.length;
+    AssignProgress.paint(ui);
+
+    if (sundays.length === 0) {
+      AssignProgress.unmount();
+      await Swal.fire(
+        "No Sundays Found",
+        "No Sundays found in the selected month.",
+        "info"
+      );
+      return { success: false, message: "No Sundays", stats: {} };
+    }
+
+    // Prefetch eligibility map for lector-commentators
+    const { perRoleAllowed } = await buildLectorCommentatorEligibilityMaps();
+
+    // Historical assignments
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+    const { data: historicalAssignments, error: histError } = await supabase
+      .from("lector-commentator-placeholder")
+      .select("idNumber, role, date, mass")
+      .gte("date", sixMonthsAgoISO)
+      .order("date", { ascending: false });
+    if (histError) {
+      console.error("Error fetching historical assignments:", histError);
+      ui.errors += 1;
+      AssignProgress.maybePaint(ui);
+    }
+
+    const availableMembers = await fetchLectorCommentatorMembersWithRole();
+    const normalizedMembers = normalizeMembers(availableMembers);
+
+    const stats = {
+      sundaysProcessed: 0,
+      massesProcessed: 0,
+      membersAssigned: 0,
+      errors: [],
+    };
+
+    for (const sunday of sundays) {
+      const dateISO = ymdLocal(sunday);
+      try {
+        const sundayAssignments = new Set();
+
+        for (const massLabel of sundayMasses) {
+          try {
+            await autoAssignLectorCommentatorSingleMass({
+              dateISO,
+              massLabel,
+              availableMembers: normalizedMembers,
+              historicalAssignments: historicalAssignments || [],
+              sundayAssignments,
+              perRoleAllowed,
+              onAssign: handleAssign,
+            });
+
+            stats.massesProcessed += 1;
+            ui.massesProcessed = stats.massesProcessed;
+
+            const { data: newAssignments } = await supabase
+              .from("lector-commentator-placeholder")
+              .select("idNumber")
+              .eq("date", dateISO)
+              .eq("mass", massLabel);
+
+            newAssignments?.forEach((a) =>
+              sundayAssignments.add(String(a.idNumber))
+            );
+
+            AssignProgress.maybePaint(ui);
+          } catch (massError) {
+            console.error(
+              `Error assigning ${massLabel} on ${dateISO}:`,
+              massError
+            );
+            stats.errors.push(`${dateISO} ${massLabel}: ${massError.message}`);
+            ui.errors = stats.errors.length;
+
+            stats.massesProcessed += 1;
+            ui.massesProcessed = stats.massesProcessed;
+            AssignProgress.maybePaint(ui);
+          }
+        }
+
+        stats.sundaysProcessed += 1;
+        ui.sundaysProcessed = stats.sundaysProcessed;
+        AssignProgress.maybePaint(ui);
+      } catch (sundayError) {
+        console.error(`Error processing Sunday ${dateISO}:`, sundayError);
+        stats.errors.push(`${dateISO}: ${sundayError.message}`);
+        ui.errors = stats.errors.length;
+        AssignProgress.maybePaint(ui);
+      }
+    }
+
+    stats.membersAssigned = counters.totalAssignments;
+    AssignProgress.unmount();
+
+    const successMessage =
+      `Successfully auto-assigned schedules!\n\n` +
+      `Sundays processed: ${stats.sundaysProcessed}\n` +
+      `Masses processed: ${stats.massesProcessed}\n` +
+      `Total assignments: ${stats.membersAssigned}\n` +
+      (stats.errors.length ? `Errors: ${stats.errors.length}` : ``);
+
+    if (stats.errors.length) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Partial Success",
+        text: successMessage,
+        footer: `Errors: ${stats.errors.length}`,
+      });
+    } else {
+      await Swal.fire({
+        icon: "success",
+        title: "Auto-Assignment Complete!",
+        text: successMessage,
+      });
+      window.location.reload();
+    }
+
+    return { success: true, message: successMessage, stats };
+  } catch (error) {
+    console.error("Auto-assignment failed:", error);
+    AssignProgress.unmount();
+    await Swal.fire({
+      icon: "error",
+      title: "Auto-Assignment Failed",
+      text: `An error occurred: ${error.message}`,
+    });
+    return {
+      success: false,
+      message: `Auto-assignment failed: ${error.message}`,
+      stats: {},
+    };
+  }
+};
+
+const autoAssignLectorCommentatorSingleMass = async ({
+  dateISO,
+  massLabel,
+  availableMembers,
+  historicalAssignments,
+  sundayAssignments,
+  perRoleAllowed,
+  onAssign,
+}) => {
+  const roleRequirements = {
+    reading: 2, // Two members for Readings
+    preface: 1, // One member for Preface
+  };
+
+  let totalNewAssignments = 0;
+
+  // Fetch existing assignments for this mass
+  const { data: existingAssignments, error: existingError } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("role, slot, idNumber")
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  if (existingError) {
+    console.error("Error fetching existing assignments:", existingError);
+    throw existingError;
+  }
+
+  // Convert existing assignments into a role-based structure
+  const existingByRole = {};
+  (existingAssignments || []).forEach((assignment) => {
+    const k = assignment.role;
+    if (!existingByRole[k]) existingByRole[k] = [];
+    existingByRole[k].push({
+      slot: assignment.slot,
+      idNumber: assignment.idNumber,
+    });
+  });
+
+  // Create a set of all members already assigned to this specific mass
+  const membersInThisMass = new Set();
+  (existingAssignments || []).forEach((assignment) => {
+    membersInThisMass.add(String(assignment.idNumber).trim());
+  });
+
+  // Process each role and try to assign members
+  for (const [roleKey, requiredCount] of Object.entries(roleRequirements)) {
+    // Calculate how many are already assigned to this role
+    const alreadyAssigned = existingByRole[roleKey]?.length || 0;
+    const needToAssign = requiredCount - alreadyAssigned;
+
+    if (needToAssign <= 0) continue;
+
+    try {
+      const allowedSet = perRoleAllowed.get(roleKey) || new Set();
+
+      const candidatesForRole = availableMembers
+        .filter((member) => {
+          const id = String(member.idNumber).trim();
+
+          // Eligibility from lector-commentator-roles
+          if (!allowedSet.has(id)) return false;
+
+          // Not already assigned this Sunday
+          if (sundayAssignments.has(id)) return false;
+
+          // FIXED: Not already assigned to ANY role in this mass (not just the same role)
+          if (membersInThisMass.has(id)) return false;
+
+          return true;
+        })
+        .map((member) => ({
+          ...member,
+          rotationScore: calculateRotationScore(
+            member.idNumber,
+            roleKey,
+            historicalAssignments || [],
+            dateISO
+          ),
+        }))
+        .sort((a, b) => a.rotationScore - b.rotationScore);
+
+      const selectedMembers = candidatesForRole.slice(0, needToAssign);
+      if (selectedMembers.length === 0) continue;
+
+      // Calculate the starting slot number based on existing assignments
+      const startingSlot = alreadyAssigned + 1;
+
+      const assignments = selectedMembers.map((member, index) => ({
+        date: dateISO,
+        mass: massLabel,
+        role: roleKey,
+        slot: startingSlot + index,
+        idNumber: String(member.idNumber).trim(),
+      }));
+
+      const { data: inserted, error } = await supabase
+        .from("lector-commentator-placeholder")
+        .insert(assignments)
+        .select("idNumber");
+
+      if (error)
+        throw new Error(`Failed to assign ${roleKey}: ${error.message}`);
+
+      (inserted || []).forEach((row) => {
+        const id = String(row.idNumber).trim();
+        sundayAssignments.add(id);
+        membersInThisMass.add(id); // Add to the mass-specific set isMonthFullyScheduled
+        if (typeof onAssign === "function") onAssign(id);
+      });
+
+      totalNewAssignments += selectedMembers.length;
+    } catch (roleError) {
+      console.error(`Error assigning role ${roleKey}:`, roleError);
+      throw roleError;
+    }
+  }
+
+  return totalNewAssignments;
+};

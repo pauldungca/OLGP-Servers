@@ -7,6 +7,10 @@ import {
   getTemplateFlags,
   roleCountsFor,
   roleVisibilityFor,
+  fetchAssignmentsGroupedLectorCommentator,
+  getTemplateFlagsLectorCommentator,
+  roleCountsForLectorCommentator,
+  roleVisibilityForLectorCommentator,
 } from "./assignMember";
 
 async function massStatusFor({ dateISO, massLabel, flags, isSunday }) {
@@ -479,3 +483,320 @@ export const getTemplateTimeForDate = async (dateISO) => {
     return null;
   }
 };
+
+const buildFullName = (member) => {
+  const first = member.firstName || member.firstname || member.first_name || "";
+  const middle =
+    member.middleName || member.middlename || member.middle_name || "";
+  const last = member.lastName || member.lastname || member.last_name || "";
+
+  return `${first} ${middle ? middle + " " : ""}${last}`.trim();
+};
+
+export const fetchLectorCommentatorTemplateDates = async () => {
+  const { data: uses, error: useErr } = await supabase
+    .from("use-template-table")
+    .select("id,date,time,templateID")
+    .order("date", { ascending: true });
+
+  if (useErr) {
+    console.error("Supabase (use-template-table) error:", useErr);
+    return [];
+  }
+
+  const templateIDs = Array.from(
+    new Set((uses || []).map((u) => u.templateID).filter((v) => v != null))
+  );
+  if (templateIDs.length === 0) return [];
+
+  const { data: needed, error: tmplErr } = await supabase
+    .from("template-lector-commentator")
+    .select("templateID,isNeeded")
+    .in("templateID", templateIDs)
+    .eq("isNeeded", 1);
+
+  if (tmplErr) {
+    console.error("Supabase (template-altar-server) error:", tmplErr);
+    return [];
+  }
+
+  const allowed = new Set((needed || []).map((t) => t.templateID));
+
+  return (uses || [])
+    .filter(
+      (r) =>
+        typeof r.date === "string" &&
+        r.date.length >= 10 &&
+        allowed.has(r.templateID)
+    )
+    .map((r) => {
+      const d = parseLocalDate(r.date); // you already have this helper
+      return {
+        id: r.id,
+        templateID: r.templateID,
+        dateStr: r.date, // "YYYY-MM-DD" local
+        dateObj: d, // Date object
+        time: r.time || null, // keep time for SelectMass
+      };
+    });
+};
+
+export const fetchLectorCommentatorAssignmentsGrouped = async (
+  dateISO,
+  massLabel
+) => {
+  const { data: rows, error } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, slot")
+    .eq("date", dateISO)
+    .eq("mass", massLabel)
+    .order("role", { ascending: true })
+    .order("slot", { ascending: true });
+  if (error) throw error;
+  if (!rows || rows.length === 0) return {};
+
+  const ids = Array.from(new Set(rows.map((r) => r.idNumber).filter(Boolean)));
+  let nameMap = new Map();
+
+  if (ids.length > 0) {
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", ids);
+    if (memErr) throw memErr;
+    members?.forEach((m) => nameMap.set(m.idNumber, buildFullName(m)));
+  }
+
+  const grouped = {};
+  rows.forEach((r) => {
+    const mass = r.mass || "Mass";
+    const role =
+      r.role === "reading"
+        ? "reading"
+        : r.role === "intercession"
+        ? "intercession"
+        : r.role;
+    const name = nameMap.get(String(r.idNumber)) || "";
+    grouped[mass] ||= {};
+    (grouped[mass][role] ||= []).push(name);
+  });
+
+  Object.keys(grouped).forEach((k) =>
+    grouped[k].sort((a, b) => (a.slot || 0) - (b.slot || 0))
+  );
+  return grouped;
+};
+
+// Check if roles are needed for Lector Commentator
+export const checkLectorCommentatorRolesNeeded = async (templateID) => {
+  try {
+    const { data, error } = await supabase
+      .from("template-lector-commentator")
+      .select("reading, intercession")
+      .eq("templateID", templateID)
+      .single();
+
+    if (error || !data) {
+      console.error("Error fetching template roles:", error);
+      return { reading: 0, intercession: 0 };
+    }
+
+    return {
+      reading: data.reading ? 1 : 0,
+      intercession: data.intercession ? 1 : 0,
+    };
+  } catch (error) {
+    console.error("Error fetching Lector Commentator roles:", error);
+    return { reading: 0, intercession: 0 };
+  }
+};
+
+export const getTemplateFlagsForLectorCommentator = async (
+  isoDate,
+  templateID
+) => {
+  try {
+    let tid = templateID ?? null;
+
+    if (!tid && isoDate) {
+      const { data: useRows, error: useErr } = await supabase
+        .from("use-template-table")
+        .select("templateID")
+        .eq("date", isoDate)
+        .limit(1);
+      if (useErr) throw useErr;
+      tid = useRows?.[0]?.templateID ?? null;
+    }
+
+    if (!tid) return null;
+
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-lector-commentator") // Change table name to 'template-lector-commentator'
+      .select(
+        "templateID,isNeeded,reading,preface" // Assuming these columns are available for Lector/Commentator
+      )
+      .eq("templateID", tid)
+      .order("id", { ascending: false })
+      .limit(1);
+
+    if (tmplErr) throw tmplErr;
+
+    const row = tmplRows?.[0];
+    if (!row) return { templateID: tid, roles: {} };
+
+    return {
+      templateID: row.templateID,
+      isNeeded: row.isNeeded ?? null,
+      roles: {
+        reading: Number(row.reading ?? 0), // Adjust roles based on your actual columns
+        preface: Number(row.preface ?? 0),
+      },
+    };
+  } catch (err) {
+    console.error("getTemplateFlagsForLectorCommentator error:", err);
+    return null;
+  }
+};
+
+export const fetchLectorCommentatorTemplateMassesForDate = async (isoDate) => {
+  try {
+    // get all uses for that day
+    const { data: uses, error: useErr } = await supabase
+      .from("use-template-table")
+      .select("templateID,time")
+      .eq("date", isoDate)
+      .order("time", { ascending: true });
+
+    if (useErr || !uses?.length) return [];
+
+    // filter by templates that are needed
+    const ids = Array.from(
+      new Set(uses.map((u) => u.templateID).filter(Boolean))
+    );
+
+    if (!ids.length) return [];
+
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-altar-server")
+      .select("templateID,isNeeded")
+      .in("templateID", ids)
+      .eq("isNeeded", 1);
+
+    if (tmplErr) return [];
+
+    const allowed = new Set((tmplRows || []).map((t) => t.templateID));
+
+    // keep only needed ones
+    return uses
+      .filter((u) => allowed.has(u.templateID))
+      .map((u) => ({
+        templateID: u.templateID,
+        time: u.time || "",
+      }));
+  } catch {
+    return [];
+  }
+};
+
+export async function computeLectorCommentatorStatusForDate({
+  dateISO,
+  isSunday,
+}) {
+  // 1) Build the full list of masses on this date
+  const labels = [];
+
+  // Sunday masses (use Sunday rules)
+  if (isSunday) {
+    labels.push({ display: "1st Mass - 6:00 AM", isSunday: true });
+    labels.push({ display: "2nd Mass - 8:00 AM", isSunday: true });
+    labels.push({ display: "3rd Mass - 5:00 PM", isSunday: true });
+  }
+
+  // Template masses for this date (may be 0..N)fetchLectorCommentatorTemplateDates
+  const uses = await fetchLectorCommentatorTemplateMassesForDate(dateISO); // [{templateID, time}]
+  // We’ll collect alongside the flags they need
+  const tmplWithFlags = await Promise.all(
+    (uses || []).map(async (u) => ({
+      storageLabel: `Mass - ${u.time}`, // DB label
+      flags: await getTemplateFlagsLectorCommentator(dateISO, u.templateID),
+    }))
+  );
+
+  // 2) Evaluate each mass
+  const massStatuses = [];
+
+  // Sunday cards
+  for (const m of labels) {
+    massStatuses.push(
+      await massLectorCommentatorStatusFor({
+        dateISO,
+        massLabel: m.display,
+        flags: null,
+        isSunday: true,
+      })
+    );
+  }
+
+  // Template cards
+  for (const m of tmplWithFlags) {
+    massStatuses.push(
+      await massLectorCommentatorStatusFor({
+        dateISO,
+        massLabel: m.storageLabel,
+        flags: m.flags, // template-specific visibility/counts
+        isSunday: false,
+      })
+    );
+  }
+
+  // 3) Collapse to a single date status
+  if (massStatuses.length === 0) return "empty"; // nothing that day
+
+  const allEmpty = massStatuses.every((s) => s === "empty");
+  if (allEmpty) return "empty";
+
+  const allComplete = massStatuses.every((s) => s === "complete");
+  if (allComplete) return "complete";
+
+  return "incomplete";
+}
+
+async function massLectorCommentatorStatusFor({
+  dateISO,
+  massLabel,
+  flags,
+  isSunday,
+}) {
+  const grouped = await fetchAssignmentsGroupedLectorCommentator({
+    dateISO,
+    massLabel,
+  });
+
+  // choose rules
+  const counts = roleCountsForLectorCommentator({
+    flags: flags ?? null,
+    isSunday,
+  });
+  const visible = roleVisibilityForLectorCommentator({
+    flags: flags ?? null,
+    isSunday,
+  });
+
+  const totalAssigned = Object.values(grouped || {}).reduce(
+    (s, arr) => s + (Array.isArray(arr) ? arr.length : 0),
+    0
+  );
+  if (totalAssigned === 0) return "empty";
+
+  let allComplete = true;
+  for (const roleKey of Object.keys(visible || {})) {
+    if (!visible[roleKey]) continue; // hidden role
+    const need = Number(counts[roleKey] || 0);
+    if (need <= 0) continue; // role not required
+    const have = Array.isArray(grouped?.[roleKey])
+      ? grouped[roleKey].length
+      : 0;
+    if (have < need) allComplete = false;
+  }
+  return allComplete ? "complete" : "incomplete";
+}

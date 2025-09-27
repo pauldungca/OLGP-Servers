@@ -72,7 +72,7 @@ export default function MakeSchedule() {
           {isAltarServer && (
             <ButtonCard
               department="Altar Server"
-              parish="Pass the admin controls to a member from the Altar Server Department."
+              parish="Manage the schedules in the Altar Server Department."
               toPage="/selectScheduleAltarServer"
               icon={icons.altarServerIcon}
             />
@@ -81,7 +81,7 @@ export default function MakeSchedule() {
           {isEucharisticMinister && (
             <ButtonCard
               department="Eucharistic Minister"
-              parish="Pass the admin controls to a member from the Eucharistic Minister Department."
+              parish="Manage the schedules in the Eucharistic Minister Department."
               toPage="/selectScheduleEucharisticMinister"
               icon={icons.eucharisticMinisterIcon}
             />
@@ -90,7 +90,7 @@ export default function MakeSchedule() {
           {isChoir && (
             <ButtonCard
               department="Choir"
-              parish="Pass the admin controls to a member from the Choir Department."
+              parish="Manage the schedules in the Choir Department."
               toPage="/selectScheduleChoir"
               icon={icons.choirIcon}
             />
@@ -99,7 +99,7 @@ export default function MakeSchedule() {
           {isLectorCommentator && (
             <ButtonCard
               department="Lector Commentator"
-              parish="Pass the admin controls to a member from the Lector Commentator Department."
+              parish="Manage the schedules in the Lector Commentator Department."
               toPage="/selectScheduleLectorCommentator"
               icon={icons.lectorCommentatorIcon}
             />

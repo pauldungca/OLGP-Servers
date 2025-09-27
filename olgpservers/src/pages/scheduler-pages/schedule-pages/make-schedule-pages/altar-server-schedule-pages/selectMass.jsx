@@ -14,7 +14,7 @@ import {
 
 import {
   isSundayFor,
-  getTemplateFlags, // must accept (dateISO, templateID)
+  getTemplateFlags, 
   roleCountsFor,
   roleVisibilityFor,
   fetchAssignmentsGrouped,

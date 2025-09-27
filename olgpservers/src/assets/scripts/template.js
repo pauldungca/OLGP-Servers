@@ -79,7 +79,7 @@ export const createTemplate = async ({
     };
     const EUCHARISTIC_DEFAULTS = { minister: 6 }; // ← 6 (not 4)
     const CHOIR_DEFAULTS = { choir: 1 }; // ← 1
-    const LECTOR_DEFAULTS = { reading: 2, intercession: 1 };
+    const LECTOR_DEFAULTS = { reading: 2, preface: 1 };
 
     // --- Insert header (template-information) ---
     const templateID = await getUniqueTemplateId();
@@ -193,7 +193,7 @@ export const createTemplate = async ({
               templateID,
               isNeeded: 1,
               reading: Number(counts.lector?.Readings || 0),
-              intercession: Number(counts.lector?.Intercession || 0),
+              preface: Number(counts.lector?.Preface || 0),
             };
           }
           return {
@@ -202,12 +202,12 @@ export const createTemplate = async ({
             reading: useDefaultIf("lector", "Readings")
               ? LECTOR_DEFAULTS.reading
               : 0,
-            intercession: useDefaultIf("lector", "Intercession")
-              ? LECTOR_DEFAULTS.intercession
+            preface: useDefaultIf("lector", "Preface")
+              ? LECTOR_DEFAULTS.preface
               : 0,
           };
         })()
-      : { templateID, isNeeded: 0, reading: 0, intercession: 0 };
+      : { templateID, isNeeded: 0, reading: 0, preface: 0 };
 
     // --- Insert details (parallel) ---
     const inserts = await Promise.all([
@@ -361,7 +361,7 @@ export const updateTemplate = async ({
   };
   const EUCHARISTIC_DEFAULTS = { minister: 6 };
   const CHOIR_DEFAULTS = { choir: 1 };
-  const LECTOR_DEFAULTS = { reading: 2, intercession: 1 };
+  const LECTOR_DEFAULTS = { reading: 2, preface: 1 };
 
   // Build payloads
   const altarPayload = isSelected("altar")
@@ -446,7 +446,7 @@ export const updateTemplate = async ({
             templateID,
             isNeeded: 1,
             reading: Number(counts.lector?.Readings || 0),
-            intercession: Number(counts.lector?.Intercession || 0),
+            preface: Number(counts.lector?.Preface || 0),
           };
         }
         return {
@@ -455,8 +455,8 @@ export const updateTemplate = async ({
           reading: useDefaultIf("lector", "Readings")
             ? LECTOR_DEFAULTS.reading
             : 0,
-          intercession: useDefaultIf("lector", "Intercession")
-            ? LECTOR_DEFAULTS.intercession
+          preface: useDefaultIf("lector", "Preface")
+            ? LECTOR_DEFAULTS.preface
             : 0,
         };
       })()
@@ -553,7 +553,7 @@ export const getTemplateDetails = async (templateID) => {
 
   const lectorQ = supabase
     .from("template-lector-commentator")
-    .select("templateID, isNeeded, reading, intercession")
+    .select("templateID, isNeeded, reading, preface")
     .eq("templateID", templateID)
     .maybeSingle();
 

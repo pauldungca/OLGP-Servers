@@ -28,7 +28,7 @@ const ALTAR_DEFAULTS = {
 
 const EUCHARISTIC_DEFAULTS = { Minister: 6 };
 const CHOIR_DEFAULTS = { Choir: 1 }; // Standard choir is 1 (per your refined behavior)
-const LECTOR_DEFAULTS = { Readings: 2, Intercession: 1 };
+const LECTOR_DEFAULTS = { Readings: 2, Preface: 1 };
 
 export default function Createtemplate() {
   const navigate = useNavigate();
@@ -104,7 +104,7 @@ export default function Createtemplate() {
 
   const lectorRoles = [
     { label: "Readings", default: LECTOR_DEFAULTS.Readings },
-    { label: "Intercession", default: LECTOR_DEFAULTS.Intercession },
+    { label: "Preface", default: LECTOR_DEFAULTS.Preface },
   ];
 
   // Standard-mode helpers to set all roles true + default counts

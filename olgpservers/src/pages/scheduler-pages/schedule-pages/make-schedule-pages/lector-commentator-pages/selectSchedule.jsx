@@ -4,21 +4,24 @@ import { Link, useNavigate } from "react-router-dom";
 import icon from "../../../../../helper/icon";
 import image from "../../../../../helper/images";
 import Footer from "../../../../../components/footer";
+
 import {
   getSundays,
   prevMonth,
   nextMonth,
   formatHeader,
   formatScheduleDate,
-  fetchLectorCommentatorTemplateMassesForDate, // Correct function name here
   filterByMonthYear,
   mergeSchedules,
-  computeStatusForDate,
+  computeLectorCommentatorStatusForDate,
+  viewFor,
   getLoadingMessage,
+  fetchLectorCommentatorTemplateDates,
 } from "../../../../../assets/scripts/fetchSchedule";
+
 import {
-  autoAssignSundaySchedules,
-  isMonthFullyScheduled,
+  autoAssignLectorCommentatorSchedules,
+  isMonthFullyScheduledLectorCommentator,
 } from "../../../../../assets/scripts/assignMember";
 
 import "../../../../../assets/styles/schedule.css";
@@ -37,7 +40,10 @@ export default function SelectSchedule() {
   const [autoDisabled, setAutoDisabled] = React.useState(false);
 
   const refreshMonthStatus = React.useCallback(async () => {
-    const { isComplete } = await isMonthFullyScheduled(year, month);
+    const { isComplete } = await isMonthFullyScheduledLectorCommentator(
+      year,
+      month
+    );
     setAutoDisabled(isComplete);
   }, [year, month]);
 
@@ -63,7 +69,7 @@ export default function SelectSchedule() {
     (async () => {
       setLoading(true);
       try {
-        const rows = await fetchLectorCommentatorTemplateMassesForDate(); // Corrected function name here
+        const rows = await fetchLectorCommentatorTemplateDates();
         if (!cancelled) setTemplateDates(rows || []);
       } catch (err) {
         console.error("Error fetching template dates:", err);
@@ -131,7 +137,7 @@ export default function SelectSchedule() {
 
     setAutoAssigning(true);
     try {
-      const result = await autoAssignSundaySchedules(year, month);
+      const result = await autoAssignLectorCommentatorSchedules(year, month);
 
       if (result.success) {
         // Refresh the schedule status after successful auto-assignment
@@ -176,7 +182,7 @@ export default function SelectSchedule() {
           const dateISO = item.dateStr;
 
           try {
-            const status = await computeStatusForDate({
+            const status = await computeLectorCommentatorStatusForDate({
               dateISO,
               isSunday: !!item.hasSunday,
               templateID: item.template?.templateID ?? null,
@@ -216,42 +222,6 @@ export default function SelectSchedule() {
       cancelled = true;
     };
   }, [scheduleItems]);
-
-  const viewFor = (status, image) => {
-    let img = image.emptyScheduleImage;
-    let text = "This Schedule is Empty";
-    let border = "border-blue";
-    let dividerClass = "blue";
-    let textClass = "blue-text";
-
-    switch (status) {
-      case "empty":
-        img = image.emptyScheduleImage;
-        text = "This Schedule is Empty";
-        border = "border-blue";
-        dividerClass = "blue";
-        textClass = "blue-text";
-        break;
-      case "incomplete":
-        img = image.incompleteScheduleImage;
-        text = "This Schedule is Incomplete";
-        border = "border-orange";
-        dividerClass = "orange";
-        textClass = "orange-text";
-        break;
-      case "complete":
-        img = image.completeScheduleImage; // Assuming you have a complete schedule image
-        text = "This Schedule is Complete";
-        border = "border-green";
-        dividerClass = "green";
-        textClass = "green-text";
-        break;
-      default:
-        break;
-    }
-
-    return { img, text, border, dividerClass, textClass };
-  };
 
   const isLoading =
     loading || loadingStatus || !initialStatusLoadComplete || navigating;

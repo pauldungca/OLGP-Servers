@@ -1571,3 +1571,656 @@ function getSchedulePrintStylesLectorCommentator() {
   }
   `;
 }
+
+/* ============================
+   CHOIR (groups-only) EXPORTS
+   ============================ */
+
+async function fetchGroupedChoir(dateISO) {
+  try {
+    console.log("Fetching choir data for date:", dateISO);
+
+    // Your table only has: id, date, mass, templateID, group
+    const { data: rows, error } = await supabase
+      .from("choir-placeholder")
+      .select("mass, group") // Remove groupId since it doesn't exist
+      .eq("date", dateISO);
+
+    if (error) {
+      console.error("Database error fetching choir data:", error);
+      throw error;
+    }
+
+    console.log("Raw choir data:", rows);
+
+    if (!rows?.length) {
+      console.log("No choir data found for date");
+      return {};
+    }
+
+    // Build the grouped structure using only the group name
+    const grouped = {};
+    for (const r of rows) {
+      const mass = r.mass || "Mass";
+      const groupName = r.group || "Unknown Group";
+
+      grouped[mass] ||= { assignedGroups: [] };
+      if (groupName && groupName.trim()) {
+        grouped[mass].assignedGroups.push(groupName.trim());
+      }
+    }
+
+    // Remove duplicates if any
+    Object.keys(grouped).forEach((mass) => {
+      grouped[mass].assignedGroups = [...new Set(grouped[mass].assignedGroups)];
+    });
+
+    console.log("Processed grouped data:", grouped);
+    return grouped;
+  } catch (error) {
+    console.error("Error in fetchGroupedChoir:", error);
+    throw error;
+  }
+}
+
+/** ---------- PDF drawing for a single Choir mass ---------- */
+function renderMassSectionChoir(
+  pdf,
+  { massLabel, groups, sectionTop, sectionHeight, compact = false }
+) {
+  let y = sectionTop;
+
+  // Add dotted separator for all sections except the first one
+  if (sectionTop > 200) {
+    // If not the first section (approximate header height)
+    pdf.setDrawColor(185);
+    pdf.setLineWidth(0.6);
+    pdf.setLineDashPattern([3, 3], 0);
+    pdf.line(MARGIN, y, PAGE_W - MARGIN, y);
+    pdf.setLineDashPattern([], 0);
+    y += 25; // Space after dotted line
+  } else {
+    // For the first mass, add some top padding
+    y += 30; // Add padding from header for first mass
+  }
+
+  // Mass title
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(15);
+  pdf.text(massLabel, MARGIN, y);
+  y += 35; // Space after title
+
+  // Assigned group label and value
+  const label = groups.length > 1 ? "Assigned Groups:" : "Assigned Group:";
+  const labelW = 150;
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(15.5);
+  pdf.text(label, MARGIN, y);
+
+  const textX = MARGIN + labelW;
+  const value = groups.join(" | ");
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(15.5);
+  if (value) pdf.text(value, textX, y);
+
+  // Underline
+  const width = pdf.getTextWidth(value || "");
+  const endX = Math.min(textX + width + 1, PAGE_W - MARGIN);
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setLineWidth(0.9);
+  pdf.line(textX, y + 5, endX, y + 5);
+
+  return y + 50; // Return position for next section
+}
+
+/** ---------- PRINT (HTML) builders for Choir ---------- */
+function renderMassSectionHTMLChoir(massLabel, groups) {
+  const joined = Array.isArray(groups)
+    ? groups.filter(Boolean).join(" | ")
+    : "";
+  const label =
+    (groups?.length || 0) > 1 ? "Assigned Groups:" : "Assigned Group:";
+
+  return `
+    <div class="mass-section">
+      <div class="dotted-line"></div>
+      <div class="mass-title">${massLabel}</div>
+      <div class="roles-container">
+        <div class="role-row">
+          <span class="role-label">${label}</span>
+          <span class="role-value">${joined}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSchedulePageHTMLChoir({
+  grouped,
+  masses,
+  department,
+  dateISO,
+  centerLabel = "",
+}) {
+  const logoHtml = `<img src="${image.OLGPlogo}" class="logo" alt="OLGP Logo">`;
+  const header = `
+    <div class="header">
+      <div class="logo-title-section">
+        <div class="logo-container">${logoHtml}</div>
+        <div class="title-container">
+          <h1 class="main-title">Our Lady of Guadalupe Parish</h1>
+          <h2 class="subtitle">${department}</h2>
+        </div>
+      </div>
+      <div class="center-heading">
+        <h3 class="schedule-title">Schedule for ${new Date(
+          dateISO
+        ).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}</h3>
+        ${centerLabel ? `<h4 class="mass-type">${centerLabel}</h4>` : ""}
+      </div>
+    </div>
+  `;
+
+  const sections = masses
+    .map((m) => renderMassSectionHTMLChoir(m, grouped[m]?.assignedGroups || []))
+    .join("");
+
+  const footer = `
+    <div class="footer">
+      <span class="footer-date">Generated: ${new Date().toLocaleDateString()}</span>
+    </div>
+  `;
+
+  return `
+    <div class="page">
+      ${header}
+      <div class="content">${sections}</div>
+      ${footer}
+    </div>
+  `;
+}
+
+function getSchedulePrintStylesChoir() {
+  return `
+  @page { size: 8.5in 11in; margin: 0; }
+  html, body { margin:0; padding:0; width:816px; height:1056px; background:#fff; font-family: Helvetica, Arial, sans-serif; }
+  * { box-sizing: border-box; }
+  .page { width:816px; height:1056px; padding:28px; position:relative; background:#fff; }
+  .header { margin-bottom: 40px; } /* Increased from 20px */
+  .logo-title-section { display:flex; align-items:flex-start; }
+  .logo-container { width:52px; height:52px; margin-right:14px; }
+  .logo { width:52px; height:52px; display:block; }
+  .title-container { flex:1; margin-top:6px; }
+  .main-title { font-weight:700; font-size:26px; line-height:1.1; margin:0; }
+  .subtitle { font-weight:400; font-size:14.5px; margin-top:8px; margin-bottom:0; }
+  .center-heading { text-align:center; margin-top:22px; }
+  .schedule-title { font-weight:700; font-size:18px; margin:0; }
+  .mass-type { font-weight:400; font-size:16px; margin:6px 0 0 0; }
+  .content { margin-top:40px; } /* Increased from 30px */
+  .mass-section { margin-top:60px; } /* Increased from 18px for much more space */
+  .mass-section:first-child { margin-top:0; }
+  .dotted-line { border-top:0.6px dashed #b9b9b9; margin-bottom:30px; } /* Increased from 14px */
+  .mass-title { font-weight:700; font-size:15px; margin-bottom:40px; } /* Increased from 16px */
+  .roles-container {}
+  .role-row { display:flex; align-items:baseline; gap:8px; margin-bottom:20px; } /* Increased from 12px */
+  .role-label { width:150px; flex:0 0 150px; font-weight:700; font-size:15.5px; }
+  .role-value {
+    font-size:15.5px; display:inline-block; white-space:nowrap;
+    border-bottom:0.9px solid #000; padding-bottom:5px; min-height:1.2em;
+  }
+  .footer { position:absolute; bottom:28px; left:28px; right:28px; font-size:10.5px; }
+  @media print {
+    html, body { width:816px; height:1056px; }
+    .page { page-break-inside: avoid; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  .page:not(:first-child) { page-break-before: always; }
+  `;
+}
+
+/** ---------------------- PDF EXPORT (CHOIR) ---------------------- */
+export async function exportChoirSchedulesPDF({
+  dateISO,
+  isSunday = true,
+  department = "Choir",
+  templateID,
+} = {}) {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Missing date", "Please select a date first.", "error");
+      return;
+    }
+
+    const grouped = await fetchGroupedChoir(dateISO);
+    const allMasses = Object.keys(grouped);
+    if (!allMasses.length) {
+      await Swal.fire("No data", "No assignments found for that date.", "info");
+      return;
+    }
+
+    const { sunday, template } = splitMasses(allMasses);
+    const pdf = new jsPDF("p", "pt", [PAGE_W, PAGE_H]);
+
+    // Helper to render exactly 3 masses per page
+    const renderMassPage = async (masses, centerLabel) => {
+      const label = centerLabel ?? undefined;
+      const top = await drawHeader(pdf, department, dateISO, isSunday, label);
+      const bottom = PAGE_H - MARGIN - FOOTER_H;
+      const totalH = bottom - top;
+
+      // Calculate spacing for exactly 3 masses, but start first mass lower
+      const availableHeight = totalH - 30; // Reserve 30px padding from header
+      const sectionH = availableHeight / 3;
+
+      masses.forEach((mass, i) => {
+        // Start first mass with padding from header
+        const sectionTop = top + 30 + i * sectionH;
+        const groups = grouped[mass]?.assignedGroups || [];
+
+        renderMassSectionChoir(pdf, {
+          massLabel: mass,
+          groups,
+          sectionTop,
+          sectionHeight: sectionH,
+          compact: false,
+        });
+      });
+
+      drawFooter(pdf);
+    };
+
+    let pageCount = 0;
+
+    // Process Sunday masses - 3 per page
+    if (sunday.length) {
+      const sundayPages = chunk(sunday, 3);
+      for (let i = 0; i < sundayPages.length; i++) {
+        if (pageCount > 0) pdf.addPage([PAGE_W, PAGE_H]);
+        await renderMassPage(sundayPages[i], "Sunday Mass");
+        pageCount++;
+      }
+    }
+
+    // Process Template masses - 3 per page
+    if (template.length) {
+      let type = "Mass"; // Default fallback
+
+      // Only try to get template mass type if we have a valid templateID
+      if (templateID && templateID !== null && templateID !== undefined) {
+        try {
+          const fetchedType = await getTemplateMassType(templateID);
+          if (fetchedType && fetchedType !== "null") {
+            type = fetchedType;
+          }
+        } catch (error) {
+          console.error("Error fetching template mass type:", error);
+        }
+      }
+
+      const centerLabel = type;
+      const templatePages = chunk(template, 3);
+
+      for (let i = 0; i < templatePages.length; i++) {
+        if (pageCount > 0) pdf.addPage([PAGE_W, PAGE_H]);
+        await renderMassPage(templatePages[i], centerLabel);
+        pageCount++;
+      }
+    }
+
+    pdf.save(`choir-schedule-${dateISO}.pdf`);
+  } catch (e) {
+    console.error("PDF export (Choir) failed:", e);
+    await Swal.fire("Error", "Failed to export schedule PDF.", "error");
+  }
+}
+
+// Replace your exportChoirSchedulesPNG function with this version
+export async function exportChoirSchedulesPNG({
+  dateISO,
+  isSunday = true,
+  department = "Choir",
+  templateID,
+} = {}) {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Missing date", "Please select a date first.", "error");
+      return;
+    }
+
+    const grouped = await fetchGroupedChoir(dateISO);
+    const allMasses = Object.keys(grouped);
+    if (!allMasses.length) {
+      await Swal.fire("No data", "No assignments found for that date.", "info");
+      return;
+    }
+
+    const { sunday, template } = splitMasses(allMasses);
+
+    // Canvas-based "fake PDF" for PNG generation
+    const makeCanvasCtx = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = PAGE_W;
+      canvas.height = PAGE_H;
+      const ctx = canvas.getContext("2d");
+      let currentFontSize = 12;
+      let currentFontWeight = "normal";
+      ctx.font = `${currentFontWeight} ${currentFontSize}px Arial`;
+      const fakePDF = {
+        addImage: (src, _t, x, y, w, h) =>
+          new Promise((res, rej) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = src;
+            img.onload = () => {
+              ctx.drawImage(img, x, y, w, h);
+              res();
+            };
+            img.onerror = rej;
+          }),
+        setFont: (_f, weight) => {
+          currentFontWeight = weight === "bold" ? "bold" : "normal";
+          ctx.font = `${currentFontWeight} ${currentFontSize}px Arial`;
+        },
+        setFontSize: (size) => {
+          currentFontSize = size;
+          ctx.font = `${currentFontWeight} ${currentFontSize}px Arial`;
+        },
+        setDrawColor: (r, g, b) => {
+          ctx.strokeStyle = `rgb(${r},${g},${b})`;
+        },
+        setLineWidth: (w) => {
+          ctx.lineWidth = w;
+        },
+        setLineDashPattern: (p) => {
+          ctx.setLineDash(p);
+        },
+        line: (x1, y1, x2, y2) => {
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        },
+        text: (t, x, y, opt = {}) => {
+          ctx.textAlign = opt.align === "center" ? "center" : "start";
+          ctx.fillStyle = "#000";
+          ctx.fillText(t, x, y);
+        },
+        getTextWidth: (t) => ctx.measureText(t || "").width,
+        _canvas: canvas,
+        _ctx: ctx,
+      };
+      return fakePDF;
+    };
+
+    const renderPageToPNG = async (masses, centerLabel) => {
+      const fakePDF = makeCanvasCtx();
+      const { _canvas: canvas, _ctx: ctx } = fakePDF;
+
+      // White background
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const top = await drawHeader(
+        fakePDF,
+        department,
+        dateISO,
+        isSunday,
+        centerLabel
+      );
+      const bottom = PAGE_H - MARGIN - FOOTER_H;
+      const totalH = bottom - top;
+
+      // Calculate spacing with padding for first mass
+      const availableHeight = totalH - 30; // Reserve 30px padding from header
+      const sectionH = availableHeight / 3;
+
+      masses.forEach((mass, i) => {
+        // Start first mass with padding from header
+        const sectionTop = top + 30 + i * sectionH;
+        const groups = grouped[mass]?.assignedGroups || [];
+
+        // Draw dotted separator (except for first mass)
+        if (i > 0) {
+          fakePDF.setDrawColor(185);
+          fakePDF.setLineWidth(0.6);
+          fakePDF.setLineDashPattern([3, 3], 0);
+          fakePDF.line(MARGIN, sectionTop, PAGE_W - MARGIN, sectionTop);
+          fakePDF.setLineDashPattern([], 0);
+        }
+
+        // Mass title - no extra padding needed since sectionTop already includes it
+        const yTitle = sectionTop + (i > 0 ? 25 : 0);
+        fakePDF.setFont("helvetica", "bold");
+        fakePDF.setFontSize(15);
+        fakePDF.text(mass, MARGIN, yTitle);
+
+        // Assigned group
+        const yVal = yTitle + 35;
+        const label =
+          groups.length > 1 ? "Assigned Groups:" : "Assigned Group:";
+        const labelW = 150;
+
+        fakePDF.setFont("helvetica", "bold");
+        fakePDF.setFontSize(15.5);
+        fakePDF.text(label, MARGIN, yVal);
+
+        const textX = MARGIN + labelW;
+        const value = groups.join(" | ");
+
+        fakePDF.setFont("helvetica", "normal");
+        fakePDF.setFontSize(15.5);
+        if (value) fakePDF.text(value, textX, yVal);
+
+        // Underline
+        const width = fakePDF.getTextWidth(value || "");
+        const endX = Math.min(textX + width + 1, PAGE_W - MARGIN);
+        fakePDF.setDrawColor(0, 0, 0);
+        fakePDF.setLineWidth(0.9);
+        fakePDF.line(textX, yVal + 5, endX, yVal + 5);
+      });
+
+      drawFooter(fakePDF);
+      return canvas.toDataURL("image/png");
+    };
+
+    const zip = new JSZip();
+
+    // Sunday pages - 3 masses per page
+    if (sunday.length) {
+      const pages = chunk(sunday, 3);
+      for (let i = 0; i < pages.length; i++) {
+        const img = await renderPageToPNG(pages[i], "Sunday Mass");
+        zip.file(
+          `choir-schedule-${dateISO}-sunday-${i + 1}.png`,
+          img.split(",")[1],
+          { base64: true }
+        );
+      }
+    }
+
+    // Template pages - 3 masses per page
+    if (template.length) {
+      let type = "Mass";
+      if (templateID && templateID !== null && templateID !== undefined) {
+        try {
+          const fetchedType = await getTemplateMassType(templateID);
+          if (fetchedType && fetchedType !== "null") {
+            type = fetchedType;
+          }
+        } catch (error) {
+          console.error("Error fetching template mass type:", error);
+        }
+      }
+
+      const centerLabel = type;
+      const pages = chunk(template, 3);
+      for (let i = 0; i < pages.length; i++) {
+        const img = await renderPageToPNG(pages[i], centerLabel);
+        zip.file(
+          `choir-schedule-${dateISO}-template-${i + 1}.png`,
+          img.split(",")[1],
+          { base64: true }
+        );
+      }
+    }
+
+    const content = await zip.generateAsync({ type: "blob" });
+    saveAs(content, `choir-schedule-${dateISO}.zip`);
+  } catch (e) {
+    console.error("PNG export (Choir) failed:", e);
+    await Swal.fire("Error", "Failed to export schedule PNG.", "error");
+  }
+}
+
+// Replace your printChoirSchedules function with this version
+export async function printChoirSchedules({
+  dateISO,
+  isSunday = true,
+  department = "Choir",
+  templateID,
+} = {}) {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Error", "Please select a date first.", "error");
+      return;
+    }
+
+    const grouped = await fetchGroupedChoir(dateISO);
+    const allMasses = Object.keys(grouped);
+    if (!allMasses.length) {
+      await Swal.fire("Info", "No assignments found for that date.", "info");
+      return;
+    }
+
+    const { sunday, template } = splitMasses(allMasses);
+    const pages = [];
+
+    // Sunday pages - 3 masses per page
+    if (sunday.length) {
+      const sundayPages = chunk(sunday, 3);
+      for (const group of sundayPages) {
+        pages.push(
+          renderSchedulePageHTMLChoir({
+            grouped,
+            masses: group,
+            department,
+            dateISO,
+            centerLabel: "Sunday Mass",
+          })
+        );
+      }
+    }
+
+    // Template pages - 3 masses per page
+    if (template.length) {
+      let type = "Mass";
+      if (templateID && templateID !== null && templateID !== undefined) {
+        try {
+          const fetchedType = await getTemplateMassType(templateID);
+          if (fetchedType && fetchedType !== "null") {
+            type = fetchedType;
+          }
+        } catch (error) {
+          console.error("Error fetching template mass type:", error);
+        }
+      }
+
+      const centerLabel = type;
+      const templatePages = chunk(template, 3);
+      for (const group of templatePages) {
+        pages.push(
+          renderSchedulePageHTMLChoir({
+            grouped,
+            masses: group,
+            department,
+            dateISO,
+            centerLabel,
+          })
+        );
+      }
+    }
+
+    const html = pages.join("");
+
+    const w = window.open("", "_blank", "width=816,height=1056");
+    if (!w) {
+      await Swal.fire(
+        "Popup Blocked",
+        "Please allow popups to print.",
+        "error"
+      );
+      return;
+    }
+    w.document.open();
+    w.document.write(`
+      <html>
+        <head>
+          <title>Schedule (${dateISO})</title>
+          <style>${getSchedulePrintStylesChoir()}</style>
+        </head>
+        <body>${html}</body>
+      </html>
+    `);
+    w.document.close();
+    w.onload = () => {
+      w.focus();
+      w.print();
+      w.close();
+    };
+  } catch (err) {
+    console.error("Print (Choir) failed:", err);
+    await Swal.fire(
+      "Error",
+      "Unexpected error occurred while printing.",
+      "error"
+    );
+  }
+}
+
+// Updated CSS for print with better spacing for 3 masses per page
+/*function getSchedulePrintStylesChoirUpdated() {
+  return `
+  @page { size: 8.5in 11in; margin: 0; }
+  html, body { margin:0; padding:0; width:816px; height:1056px; background:#fff; font-family: Helvetica, Arial, sans-serif; }
+  * { box-sizing: border-box; }
+  .page { width:816px; height:1056px; padding:28px; position:relative; background:#fff; page-break-inside: avoid; }
+  .header { margin-bottom: 40px; }
+  .logo-title-section { display:flex; align-items:flex-start; }
+  .logo-container { width:52px; height:52px; margin-right:14px; }
+  .logo { width:52px; height:52px; display:block; }
+  .title-container { flex:1; margin-top:6px; }
+  .main-title { font-weight:700; font-size:26px; line-height:1.1; margin:0; }
+  .subtitle { font-weight:400; font-size:14.5px; margin-top:8px; margin-bottom:0; }
+  .center-heading { text-align:center; margin-top:22px; }
+  .schedule-title { font-weight:700; font-size:18px; margin:0; }
+  .mass-type { font-weight:400; font-size:16px; margin:6px 0 0 0; }
+  .content { margin-top:40px; height: calc(100% - 160px); display: flex; flex-direction: column; justify-content: space-evenly; }
+  .mass-section { margin-bottom: 60px; }
+  .mass-section:first-child { margin-top:0; }
+  .mass-section:not(:first-child) .dotted-line { border-top:0.6px dashed #b9b9b9; margin-bottom:25px; }
+  .mass-section:first-child .dotted-line { display: none; }
+  .mass-title { font-weight:700; font-size:15px; margin-bottom:35px; margin-top: 0; }
+  .roles-container {}
+  .role-row { display:flex; align-items:baseline; gap:8px; margin-bottom:20px; }
+  .role-label { width:150px; flex:0 0 150px; font-weight:700; font-size:15.5px; }
+  .role-value {
+    font-size:15.5px; display:inline-block; white-space:nowrap;
+    border-bottom:0.9px solid #000; padding-bottom:5px; min-height:1.2em;
+  }
+  .footer { position:absolute; bottom:28px; left:28px; right:28px; font-size:10.5px; }
+  @media print {
+    html, body { width:816px; height:1056px; }
+    .page { page-break-inside: avoid; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .dotted-line { border-top:0.6px dashed #b9b9b9 !important; }
+    .role-value { border-bottom:0.9px solid #000 !important; }
+  }
+  .page:not(:first-child) { page-break-before: always; }
+  `;
+}*/

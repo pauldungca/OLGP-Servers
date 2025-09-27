@@ -493,6 +493,8 @@ const buildFullName = (member) => {
   return `${first} ${middle ? middle + " " : ""}${last}`.trim();
 };
 
+/* LECTOR COMMENTATOR */
+
 export const fetchLectorCommentatorTemplateDates = async () => {
   const { data: uses, error: useErr } = await supabase
     .from("use-template-table")
@@ -587,7 +589,6 @@ export const fetchLectorCommentatorAssignmentsGrouped = async (
   return grouped;
 };
 
-// Check if roles are needed for Lector Commentator
 export const checkLectorCommentatorRolesNeeded = async (templateID) => {
   try {
     const { data, error } = await supabase
@@ -677,7 +678,7 @@ export const fetchLectorCommentatorTemplateMassesForDate = async (isoDate) => {
     if (!ids.length) return [];
 
     const { data: tmplRows, error: tmplErr } = await supabase
-      .from("template-altar-server")
+      .from("template-lector-commentator")
       .select("templateID,isNeeded")
       .in("templateID", ids)
       .eq("isNeeded", 1);
@@ -800,3 +801,339 @@ async function massLectorCommentatorStatusFor({
   }
   return allComplete ? "complete" : "incomplete";
 }
+
+/*=========================
+ Choir Functions
+ *========================= */
+
+export const fetchChoirTemplateDates = async () => {
+  const { data: uses, error: useErr } = await supabase
+    .from("use-template-table")
+    .select("id, date, time, templateID")
+    .order("date", { ascending: true });
+
+  if (useErr) {
+    console.error("Error fetching choir template dates:", useErr);
+    return [];
+  }
+
+  const templateIDs = Array.from(
+    new Set((uses || []).map((u) => u.templateID).filter((v) => v != null))
+  );
+  if (templateIDs.length === 0) return [];
+
+  const { data: needed, error: tmplErr } = await supabase
+    .from("template-choir")
+    .select("templateID, isNeeded")
+    .in("templateID", templateIDs)
+    .eq("isNeeded", 1);
+
+  if (tmplErr) {
+    console.error("Error fetching choir templates:", tmplErr);
+    return [];
+  }
+
+  const allowed = new Set((needed || []).map((t) => t.templateID));
+
+  return (uses || [])
+    .filter(
+      (r) =>
+        typeof r.date === "string" &&
+        r.date.length >= 10 &&
+        allowed.has(r.templateID)
+    )
+    .map((r) => {
+      const d = parseLocalDate(r.date); // Helper function for date parsing
+      return {
+        id: r.id,
+        templateID: r.templateID,
+        dateStr: r.date, // "YYYY-MM-DD" local
+        dateObj: d, // Date object
+        time: r.time || null, // Keep time for SelectMass
+      };
+    });
+};
+
+export const fetchChoirGroupAssignmentsGrouped = async (dateISO, massLabel) => {
+  const { data: rows, error } = await supabase
+    .from("choir-placeholder")
+    .select("group, groupId")
+    .eq("date", dateISO)
+    .eq("mass", massLabel)
+    .order("group", { ascending: true });
+
+  if (error) throw error;
+  if (!rows || rows.length === 0) return {};
+
+  // Fetch group details based on groupId
+  const groupIds = Array.from(
+    new Set(rows.map((r) => r.groupId).filter(Boolean))
+  );
+  let groupMap = new Map();
+  if (groupIds.length > 0) {
+    const { data: groups, error: grpErr } = await supabase
+      .from("choir-groups")
+      .select("id, group-name")
+      .in("id", groupIds);
+    if (grpErr) throw grpErr;
+
+    groups?.forEach((g) => groupMap.set(g.id, g["group-name"]));
+  }
+
+  const grouped = {};
+  rows.forEach((r) => {
+    const mass = r.mass || "Mass";
+    const group = r.group || "Unknown Group";
+    const groupName = groupMap.get(r.groupId) || group;
+    grouped[mass] ||= {};
+    (grouped[mass][groupName] ||= []).push(groupName);
+  });
+
+  Object.keys(grouped).forEach((k) =>
+    grouped[k].sort((a, b) => (a.slot || 0) - (b.slot || 0))
+  );
+  return grouped;
+};
+
+export const checkChoirGroupNeeded = async (templateID) => {
+  try {
+    const { data, error } = await supabase
+      .from("template-choir")
+      .select("group")
+      .eq("templateID", templateID)
+      .single();
+
+    if (error || !data) {
+      console.error("Error fetching choir group data:", error);
+      return { group: 0 };
+    }
+
+    return {
+      group: data.group ? 1 : 0,
+    };
+  } catch (error) {
+    console.error("Error fetching choir group requirements:", error);
+    return { group: 0 };
+  }
+};
+
+export const fetchChoirTemplateMassesForDate = async (isoDate) => {
+  try {
+    // get all uses for that day
+    const { data: uses, error: useErr } = await supabase
+      .from("use-template-table")
+      .select("templateID,time")
+      .eq("date", isoDate)
+      .order("time", { ascending: true });
+
+    if (useErr || !uses?.length) return [];
+
+    // filter by templates that are needed
+    const ids = Array.from(
+      new Set(uses.map((u) => u.templateID).filter(Boolean))
+    );
+
+    if (!ids.length) return [];
+
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-choir")
+      .select("templateID,isNeeded")
+      .in("templateID", ids)
+      .eq("isNeeded", 1);
+
+    if (tmplErr) return [];
+
+    const allowed = new Set((tmplRows || []).map((t) => t.templateID));
+
+    // keep only needed ones
+    return uses
+      .filter((u) => allowed.has(u.templateID))
+      .map((u) => ({
+        templateID: u.templateID,
+        time: u.time || "",
+      }));
+  } catch {
+    return [];
+  }
+};
+
+export const getTemplateFlagsForChoir = async (selectedISO, templateID) => {
+  try {
+    let tid = templateID ?? null;
+
+    // If templateID is not provided, fetch from the use-template-table for the given date
+    if (!tid && selectedISO) {
+      const { data: useRows, error: useErr } = await supabase
+        .from("use-template-table")
+        .select("templateID")
+        .eq("date", selectedISO)
+        .limit(1);
+
+      if (useErr) throw useErr;
+      tid = useRows?.[0]?.templateID ?? null;
+    }
+
+    if (!tid) return null;
+
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-choir")
+      .select("templateID, isNeeded, group")
+      .eq("templateID", tid)
+      .order("id", { ascending: false })
+      .limit(1);
+
+    if (tmplErr) throw tmplErr;
+
+    const row = tmplRows?.[0];
+    if (!row) return { templateID: tid, groups: {} };
+
+    return {
+      templateID: row.templateID,
+      isNeeded: row.isNeeded ?? null,
+      groups: {
+        choirGroup: Number(row.group ?? 0),
+      },
+    };
+  } catch (err) {
+    console.error("getTemplateFlagsForChoir error:", err);
+    return null;
+  }
+};
+
+export const computeChoirGroupStatusForDate = async ({
+  dateISO,
+  isSunday,
+  templateID,
+  templateTime,
+}) => {
+  console.log("Computing choir status for:", {
+    dateISO,
+    isSunday,
+    templateID,
+    templateTime,
+  });
+
+  // 1) Build the full list of masses on this date
+  const massesToCheck = [];
+
+  // Sunday masses (use Sunday rules)
+  if (isSunday) {
+    massesToCheck.push("1st Mass - 6:00 AM");
+    massesToCheck.push("2nd Mass - 8:00 AM");
+    massesToCheck.push("3rd Mass - 5:00 PM");
+  }
+
+  // Template masses for this date
+  const templateMasses = await fetchChoirTemplateMassesForDate(dateISO);
+  console.log("Template masses found:", templateMasses);
+
+  templateMasses.forEach((tmpl) => {
+    massesToCheck.push(`Mass - ${tmpl.time}`);
+  });
+
+  console.log("All masses to check:", massesToCheck);
+
+  if (massesToCheck.length === 0) {
+    console.log("No masses found, returning empty");
+    return "empty";
+  }
+
+  // 2) Check each mass individually
+  const massStatuses = [];
+
+  for (const massLabel of massesToCheck) {
+    try {
+      const status = await massChoirStatusFor({
+        dateISO,
+        massLabel,
+        isSunday: massLabel.includes("Mass - ") ? false : true, // Template vs Sunday
+      });
+      console.log(`Mass "${massLabel}" status:`, status);
+      massStatuses.push(status);
+    } catch (error) {
+      console.error(`Error checking mass ${massLabel}:`, error);
+      massStatuses.push("empty");
+    }
+  }
+
+  console.log("All mass statuses:", massStatuses);
+
+  // 3) Aggregate statuses into overall date status
+  const hasAnyAssignments = massStatuses.some((status) => status !== "empty");
+  if (!hasAnyAssignments) {
+    console.log("No assignments found, returning empty");
+    return "empty";
+  }
+
+  const allComplete = massStatuses.every((status) => status === "complete");
+  const result = allComplete ? "complete" : "incomplete";
+  console.log("Final date status:", result);
+  return result;
+};
+
+async function massChoirStatusFor({ dateISO, massLabel, isSunday }) {
+  console.log("Checking choir assignments for:", {
+    dateISO,
+    massLabel,
+    isSunday,
+  });
+
+  try {
+    // Use the correct function to get choir group assignments
+    const { data: assignments, error } = await supabase
+      .from("choir-placeholder")
+      .select("group")
+      .eq("date", dateISO)
+      .eq("mass", massLabel);
+
+    if (error) {
+      console.error("Database error:", error);
+      return "empty";
+    }
+
+    console.log("Raw choir assignments:", assignments);
+
+    if (!assignments || assignments.length === 0) {
+      console.log("No choir assignments found");
+      return "empty";
+    }
+
+    // For choir, if there's at least one group assigned, consider it complete
+    const validGroups = assignments.filter((a) => a.group && a.group.trim());
+    console.log("Valid group assignments:", validGroups);
+
+    return validGroups.length > 0 ? "complete" : "empty";
+  } catch (error) {
+    console.error("Error in massChoirStatusFor:", error);
+    return "empty";
+  }
+}
+
+export const getChoirGroupAssignments = async (dateISO, massLabel) => {
+  try {
+    const { data, error } = await supabase
+      .from("choir-placeholder") // Using the correct table
+      .select("group, groupId") // Adjust columns as per your table schema
+      .eq("date", dateISO) // Filter by date
+      .eq("mass", massLabel); // Filter by mass label
+
+    if (error) {
+      console.error("Error fetching choir group assignments:", error);
+      return {};
+    }
+
+    if (!data || data.length === 0) return {};
+
+    // Group assignments by the group name
+    const grouped = {};
+    data.forEach((row) => {
+      if (!grouped[row.group]) grouped[row.group] = [];
+      grouped[row.group].push(row.groupId);
+    });
+
+    return grouped;
+  } catch (err) {
+    console.error("Error fetching Choir group assignments:", err);
+    return {};
+  }
+};

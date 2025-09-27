@@ -22,7 +22,7 @@ import {
 
 import {
   getTemplateMassType,
-  fetchTemplateMassesForDate, // returns [{templateID, time}]
+  fetchTemplateMassesForDate, 
 } from "../../../../../assets/scripts/fetchSchedule";
 
 import "../../../../../assets/styles/schedule.css";

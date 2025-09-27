@@ -13,10 +13,10 @@ import {
   formatScheduleDate,
   filterByMonthYear,
   mergeSchedules,
-  computeLectorCommentatorStatusForDate,
   viewFor,
   getLoadingMessage,
   fetchLectorCommentatorTemplateDates,
+  computeLectorCommentatorStatusForDate,
 } from "../../../../../assets/scripts/fetchSchedule";
 
 import {

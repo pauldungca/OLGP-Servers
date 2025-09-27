@@ -22,7 +22,7 @@ import {
 
 import {
   getTemplateMassType,
-  fetchTemplateMassesForDate, // Updated to fetch Lector Commentator masses
+  fetchLectorCommentatorTemplateMassesForDate,
 } from "../../../../../assets/scripts/fetchSchedule";
 
 import "../../../../../assets/styles/schedule.css";
@@ -63,7 +63,9 @@ export default function SelectMassLectorCommentator() {
       }
       setLoadingTemplates(true);
       try {
-        const uses = await fetchTemplateMassesForDate(selectedISO); // [{templateID,time}]
+        const uses = await fetchLectorCommentatorTemplateMassesForDate(
+          selectedISO
+        ); // [{templateID,time}]
         if (!cancel) setTemplateUses(uses || []);
 
         // fetch each mass-type once

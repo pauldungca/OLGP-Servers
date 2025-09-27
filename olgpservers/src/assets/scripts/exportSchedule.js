@@ -827,3 +827,320 @@ function splitMasses(masses) {
   template.sort((a, b) => (a || "").localeCompare(b || ""));
   return { sunday, template };
 }
+
+export async function exportLectorCommentatorSchedulesPDF({
+  dateISO,
+  isSunday = true,
+  department = "Lector Commentator",
+  templateID,
+} = {}) {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Missing date", "Please select a date first.", "error");
+      return;
+    }
+
+    const grouped = await fetchGrouped(dateISO); // Fetch the assigned members
+    const allMasses = Object.keys(grouped); // Get the list of masses for the date
+    if (!allMasses.length) {
+      await Swal.fire("No data", "No assignments found for that date.", "info");
+      return;
+    }
+
+    const { sunday, template } = splitMasses(allMasses); // Split the masses into Sunday and template
+    const pdf = new jsPDF("p", "pt", [PAGE_W, PAGE_H]);
+
+    // Helper to render one page with a set of masses
+    const renderMassPage = async (masses, centerLabel) => {
+      const label = centerLabel ?? undefined;
+
+      const top = await drawHeader(pdf, department, dateISO, isSunday, label);
+      const bottom = PAGE_H - MARGIN - FOOTER_H;
+      const totalH = bottom - top;
+
+      const single = masses.length === 1;
+      const sectionH = single ? 320 : totalH / masses.length;
+
+      masses.forEach((mass, i) => {
+        const sectionTop = single ? top : top + i * sectionH;
+        drawMassSection(pdf, {
+          massLabel: mass,
+          roles: grouped[mass] || {},
+          sectionTop,
+          sectionHeight: sectionH,
+          compact: single,
+        });
+      });
+
+      drawFooter(pdf);
+    };
+
+    // Sunday pages
+    if (sunday.length) {
+      const pages = chunk(sunday, 3);
+      for (let i = 0; i < pages.length; i++) {
+        if (i > 0) pdf.addPage([PAGE_W, PAGE_H]);
+        await renderMassPage(pages[i], "Sunday Mass");
+      }
+    }
+
+    // Template pages
+    if (template.length) {
+      const type = await getTemplateMassType(templateID);
+      const centerLabel = type;
+      const pages = chunk(template, 3);
+      for (let i = 0; i < pages.length; i++) {
+        if (i > 0 || sunday.length > 0) {
+          pdf.addPage([PAGE_W, PAGE_H]);
+        }
+        await renderMassPage(pages[i], centerLabel);
+      }
+    }
+    pdf.save(`lector-commentator-schedule-${dateISO}.pdf`);
+  } catch (e) {
+    console.error("PDF export failed:", e);
+    await Swal.fire("Error", "Failed to export schedule PDF.", "error");
+  }
+}
+
+export async function exportLectorCommentatorSchedulesPNG({
+  dateISO,
+  isSunday = true,
+  department = "Lector Commentator",
+  templateID,
+} = {}) {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Missing date", "Please select a date first.", "error");
+      return;
+    }
+
+    const grouped = await fetchGrouped(dateISO); // Fetch the assigned members
+    const allMasses = Object.keys(grouped); // Get the list of masses for the date
+    if (!allMasses.length) {
+      await Swal.fire("No data", "No assignments found for that date.", "info");
+      return;
+    }
+
+    const { sunday, template } = splitMasses(allMasses); // Split the masses into Sunday and template
+
+    // Small canvas "PDF" shim (same as your current code)
+    const makeCanvasCtx = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = PAGE_W;
+      canvas.height = PAGE_H;
+      const ctx = canvas.getContext("2d");
+      let currentFontSize = 12;
+      let currentFontWeight = "normal";
+      ctx.font = `${currentFontWeight} ${currentFontSize}px Arial`;
+      const fakePDF = {
+        addImage: (src, _t, x, y, w, h) =>
+          new Promise((res, rej) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = src;
+            img.onload = () => {
+              ctx.drawImage(img, x, y, w, h);
+              res();
+            };
+            img.onerror = rej;
+          }),
+        setFont: (_f, weight) => {
+          currentFontWeight = weight === "bold" ? "bold" : "normal";
+          ctx.font = `${currentFontWeight} ${currentFontSize}px Arial`;
+        },
+        setFontSize: (size) => {
+          currentFontSize = size;
+          ctx.font = `${currentFontWeight} ${currentFontSize}px Arial`;
+        },
+        setDrawColor: (r, g, b) => {
+          ctx.strokeStyle = `rgb(${r},${g},${b})`;
+        },
+        setLineWidth: (w) => {
+          ctx.lineWidth = w;
+        },
+        setLineDashPattern: (p) => {
+          ctx.setLineDash(p);
+        },
+        line: (x1, y1, x2, y2) => {
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        },
+        text: (t, x, y, opt = {}) => {
+          ctx.textAlign = opt.align === "center" ? "center" : "start";
+          ctx.fillStyle = "#000";
+          ctx.fillText(t, x, y);
+        },
+        getTextWidth: (t) => ctx.measureText(t || "").width,
+        _canvas: canvas,
+        _ctx: ctx,
+      };
+      return fakePDF;
+    };
+
+    const renderPageToPNG = async (masses, centerLabel) => {
+      const fakePDF = makeCanvasCtx();
+      const { _canvas: canvas, _ctx: ctx } = fakePDF;
+
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const top = await drawHeader(
+        fakePDF,
+        department,
+        dateISO,
+        isSunday,
+        centerLabel
+      );
+      const bottom = PAGE_H - MARGIN - FOOTER_H;
+      const totalH = bottom - top;
+
+      const single = masses.length === 1;
+      const sectionH = single ? 320 : totalH / masses.length;
+
+      masses.forEach((mass, i) => {
+        const sectionTop = single ? top : top + i * sectionH;
+        drawMassSection(fakePDF, {
+          massLabel: mass,
+          roles: grouped[mass] || {},
+          sectionTop,
+          sectionHeight: sectionH,
+          compact: single,
+        });
+      });
+
+      drawFooter(fakePDF);
+      return canvas.toDataURL("image/png");
+    };
+
+    const zip = new JSZip();
+
+    // Sunday pages
+    if (sunday.length) {
+      const pages = chunk(sunday, 3);
+      for (let i = 0; i < pages.length; i++) {
+        const img = await renderPageToPNG(pages[i], "Sunday Mass");
+        zip.file(
+          `lector-commentator-schedule-${dateISO}-sunday-${i + 1}.png`,
+          img.split(",")[1],
+          { base64: true }
+        );
+      }
+    }
+
+    // Template pages
+    if (template.length) {
+      const type = await getTemplateMassType(templateID);
+      const centerLabel = type;
+      const pages = chunk(template, 3);
+      for (let i = 0; i < pages.length; i++) {
+        const img = await renderPageToPNG(pages[i], centerLabel);
+        zip.file(
+          `lector-commentator-schedule-${dateISO}-template-${i + 1}.png`,
+          img.split(",")[1],
+          { base64: true }
+        );
+      }
+    }
+
+    const content = await zip.generateAsync({ type: "blob" });
+    saveAs(content, `lector-commentator-schedule-${dateISO}.zip`);
+  } catch (e) {
+    console.error("PNG export failed:", e);
+    await Swal.fire("Error", "Failed to export schedule PNG.", "error");
+  }
+}
+
+export async function printLectorCommentatorSchedules({
+  dateISO,
+  isSunday = true,
+  department = "Lector Commentator",
+  templateID,
+} = {}) {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Error", "Please select a date first.", "error");
+      return;
+    }
+
+    const grouped = await fetchGrouped(dateISO); // Fetch the assigned members
+    const allMasses = Object.keys(grouped); // Get the list of masses for the date
+    if (!allMasses.length) {
+      await Swal.fire("Info", "No assignments found for that date.", "info");
+      return;
+    }
+
+    const { sunday, template } = splitMasses(allMasses);
+
+    const pages = [];
+
+    // Sunday pages
+    if (sunday.length) {
+      for (const group of chunk(sunday, 3)) {
+        pages.push(
+          await renderSchedulePageHTML({
+            grouped,
+            masses: group,
+            department,
+            dateISO,
+            centerLabel: "Sunday Mass",
+          })
+        );
+      }
+    }
+
+    // Template pages
+    if (template.length) {
+      const type = await getTemplateMassType(templateID);
+      const centerLabel = type;
+      for (const group of chunk(template, 3)) {
+        pages.push(
+          await renderSchedulePageHTML({
+            grouped,
+            masses: group,
+            department,
+            dateISO,
+            centerLabel,
+          })
+        );
+      }
+    }
+
+    const html = pages.join("");
+
+    const w = window.open("", "_blank", "width=816,height=1056");
+    if (!w) {
+      await Swal.fire(
+        "Popup Blocked",
+        "Please allow popups to print.",
+        "error"
+      );
+      return;
+    }
+    w.document.open();
+    w.document.write(`
+      <html>
+        <head>
+          <title>Schedule (${dateISO})</title>
+          <style>${getSchedulePrintStyles()}</style>
+        </head>
+        <body>${html}</body>
+      </html>
+    `);
+    w.document.close();
+    w.onload = () => {
+      w.focus();
+      w.print();
+      w.close();
+    };
+  } catch (err) {
+    console.error("Print failed:", err);
+    await Swal.fire(
+      "Error",
+      "Unexpected error occurred while printing.",
+      "error"
+    );
+  }
+}

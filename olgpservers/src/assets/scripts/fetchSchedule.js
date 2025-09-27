@@ -479,3 +479,167 @@ export const getTemplateTimeForDate = async (dateISO) => {
     return null;
   }
 };
+
+const buildFullName = (member) => {
+  const first = member.firstName || member.firstname || member.first_name || "";
+  const middle =
+    member.middleName || member.middlename || member.middle_name || "";
+  const last = member.lastName || member.lastname || member.last_name || "";
+
+  return `${first} ${middle ? middle + " " : ""}${last}`.trim();
+};
+
+// Fetch Template Masses for Lector Commentator
+export const fetchLectorCommentatorTemplateMassesForDate = async (isoDate) => {
+  try {
+    const { data: uses, error: useErr } = await supabase
+      .from("use-template-table")
+      .select("templateID, time")
+      .eq("date", isoDate)
+      .order("time", { ascending: true });
+
+    if (useErr || !uses?.length) return [];
+
+    const ids = Array.from(
+      new Set(uses.map((u) => u.templateID).filter(Boolean))
+    );
+
+    if (!ids.length) return [];
+
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-lector-commentator")
+      .select("templateID, isNeeded")
+      .in("templateID", ids)
+      .eq("isNeeded", 1);
+
+    if (tmplErr) return [];
+
+    const allowed = new Set((tmplRows || []).map((t) => t.templateID));
+
+    return uses
+      .filter((u) => allowed.has(u.templateID))
+      .map((u) => ({
+        templateID: u.templateID,
+        time: u.time || "",
+      }));
+  } catch {
+    return [];
+  }
+};
+
+export const fetchLectorCommentatorAssignmentsGrouped = async (
+  dateISO,
+  massLabel
+) => {
+  const { data: rows, error } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, slot")
+    .eq("date", dateISO)
+    .eq("mass", massLabel)
+    .order("role", { ascending: true })
+    .order("slot", { ascending: true });
+  if (error) throw error;
+  if (!rows || rows.length === 0) return {};
+
+  const ids = Array.from(new Set(rows.map((r) => r.idNumber).filter(Boolean)));
+  let nameMap = new Map();
+
+  if (ids.length > 0) {
+    const { data: members, error: memErr } = await supabase
+      .from("members-information")
+      .select("*")
+      .in("idNumber", ids);
+    if (memErr) throw memErr;
+    members?.forEach((m) => nameMap.set(m.idNumber, buildFullName(m)));
+  }
+
+  const grouped = {};
+  rows.forEach((r) => {
+    const mass = r.mass || "Mass";
+    const role =
+      r.role === "reading"
+        ? "reading"
+        : r.role === "intercession"
+        ? "intercession"
+        : r.role;
+    const name = nameMap.get(String(r.idNumber)) || "";
+    grouped[mass] ||= {};
+    (grouped[mass][role] ||= []).push(name);
+  });
+
+  Object.keys(grouped).forEach((k) =>
+    grouped[k].sort((a, b) => (a.slot || 0) - (b.slot || 0))
+  );
+  return grouped;
+};
+
+// Check if roles are needed for Lector Commentator
+export const checkLectorCommentatorRolesNeeded = async (templateID) => {
+  try {
+    const { data, error } = await supabase
+      .from("template-lector-commentator")
+      .select("reading, intercession")
+      .eq("templateID", templateID)
+      .single();
+
+    if (error || !data) {
+      console.error("Error fetching template roles:", error);
+      return { reading: 0, intercession: 0 };
+    }
+
+    return {
+      reading: data.reading ? 1 : 0,
+      intercession: data.intercession ? 1 : 0,
+    };
+  } catch (error) {
+    console.error("Error fetching Lector Commentator roles:", error);
+    return { reading: 0, intercession: 0 };
+  }
+};
+
+export const getTemplateFlagsForLectorCommentator = async (
+  isoDate,
+  templateID
+) => {
+  try {
+    let tid = templateID ?? null;
+
+    if (!tid && isoDate) {
+      const { data: useRows, error: useErr } = await supabase
+        .from("use-template-table")
+        .select("templateID")
+        .eq("date", isoDate)
+        .limit(1);
+      if (useErr) throw useErr;
+      tid = useRows?.[0]?.templateID ?? null;
+    }
+
+    if (!tid) return null;
+
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-lector-commentator") // Change table name to 'template-lector-commentator'
+      .select(
+        "templateID,isNeeded,reading,preface" // Assuming these columns are available for Lector/Commentator
+      )
+      .eq("templateID", tid)
+      .order("id", { ascending: false })
+      .limit(1);
+
+    if (tmplErr) throw tmplErr;
+
+    const row = tmplRows?.[0];
+    if (!row) return { templateID: tid, roles: {} };
+
+    return {
+      templateID: row.templateID,
+      isNeeded: row.isNeeded ?? null,
+      roles: {
+        reading: Number(row.reading ?? 0), // Adjust roles based on your actual columns
+        preface: Number(row.preface ?? 0),
+      },
+    };
+  } catch (err) {
+    console.error("getTemplateFlagsForLectorCommentator error:", err);
+    return null;
+  }
+};

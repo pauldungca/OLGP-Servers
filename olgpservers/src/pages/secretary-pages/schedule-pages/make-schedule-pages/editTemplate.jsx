@@ -29,7 +29,7 @@ const ALTAR_DEFAULTS = {
 
 const EUCHARISTIC_DEFAULTS = { Minister: 6 };
 const CHOIR_DEFAULTS = { Choir: 8 };
-const LECTOR_DEFAULTS = { Readings: 2, Intercession: 1 };
+const LECTOR_DEFAULTS = { Readings: 2, Preface: 1 };
 
 /** Map DB columns -> UI role labels for Altar */
 const altarFromDbToLabel = (row) => ({
@@ -165,16 +165,16 @@ export default function EditTemplate() {
         if (lector && Number(lector.isNeeded) === 1) {
           nextSelected.push("lector");
           const reading = Number(lector.reading || 0);
-          const intercession = Number(lector.intercession || 0);
+          const preface = Number(lector.preface || 0);
 
-          setLectorCounts({ Readings: reading, Intercession: intercession });
+          setLectorCounts({ Readings: reading, Preface: preface });
 
           if (reading > 0) nextRoles.lector["Readings"] = true;
-          if (intercession > 0) nextRoles.lector["Intercession"] = true;
+          if (preface > 0) nextRoles.lector["Preface"] = true;
 
           const matchesDefaults =
             reading === LECTOR_DEFAULTS.Readings &&
-            intercession === LECTOR_DEFAULTS.Intercession;
+            preface === LECTOR_DEFAULTS.Preface;
 
           nextMode.lector = matchesDefaults ? "standard" : "custom";
         }
@@ -559,7 +559,7 @@ export default function EditTemplate() {
                     ...prev,
                     lector: {
                       Readings: true,
-                      Intercession: true,
+                      Preface: true,
                     },
                   }));
                   setLectorCounts({ ...LECTOR_DEFAULTS }); // reset to defaults
@@ -583,7 +583,7 @@ export default function EditTemplate() {
             <div className="row g-3">
               {[
                 { label: "Readings", def: LECTOR_DEFAULTS.Readings },
-                { label: "Intercession", def: LECTOR_DEFAULTS.Intercession },
+                { label: "Preface", def: LECTOR_DEFAULTS.Preface },
               ].map((role, idx) => {
                 const enabled = !!enabledRoles.lector?.[role.label];
                 return (

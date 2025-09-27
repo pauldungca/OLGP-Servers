@@ -7,7 +7,7 @@ import Swal from "sweetalert2";
 
 import {
   isSundayFor,
-  getTemplateFlags, // <- only call this for template masses
+  getTemplateFlags, 
   roleCountsFor,
   roleVisibilityFor,
   fetchAssignmentsGrouped,

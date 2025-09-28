@@ -1137,3 +1137,381 @@ export const getChoirGroupAssignments = async (dateISO, massLabel) => {
     return {};
   }
 };
+
+/* =========================
+ * EUCHARISTIC MINISTER (for SelectSchedule + SelectMass)
+ * ========================= */
+
+const SUNDAY_MINISTER_COUNT = 4;
+
+/* ---------- Template/Mass lookups ---------- */
+
+// For month view: dates that have EM templates marked isNeeded=1
+export const fetchEucharisticMinisterTemplateDates = async () => {
+  const { data: uses, error: useErr } = await supabase
+    .from("use-template-table")
+    .select("id,date,time,templateID")
+    .order("date", { ascending: true });
+
+  if (useErr) {
+    console.error("EM use-template-table error:", useErr);
+    return [];
+  }
+
+  const templateIDs = Array.from(
+    new Set((uses || []).map((u) => u.templateID).filter((v) => v != null))
+  );
+  if (templateIDs.length === 0) return [];
+
+  const { data: needed, error: tmplErr } = await supabase
+    .from("template-eucharistic-minister")
+    .select("templateID,isNeeded")
+    .in("templateID", templateIDs)
+    .eq("isNeeded", 1);
+
+  if (tmplErr) {
+    console.error("EM template filter error:", tmplErr);
+    return [];
+  }
+
+  const allowed = new Set((needed || []).map((t) => t.templateID));
+
+  return (uses || [])
+    .filter(
+      (r) =>
+        typeof r.date === "string" &&
+        r.date.length >= 10 &&
+        allowed.has(r.templateID)
+    )
+    .map((r) => ({
+      id: r.id,
+      templateID: r.templateID,
+      dateStr: r.date,
+      dateObj: parseLocalDate(r.date),
+      time: r.time || null,
+    }));
+};
+
+// For a given date: list of EM template masses (only isNeeded=1)
+export const fetchEucharisticMinisterTemplateMassesForDate = async (
+  isoDate
+) => {
+  try {
+    const { data: uses, error: useErr } = await supabase
+      .from("use-template-table")
+      .select("templateID,time")
+      .eq("date", isoDate)
+      .order("time", { ascending: true });
+
+    if (useErr || !uses?.length) return [];
+
+    const ids = Array.from(
+      new Set(uses.map((u) => u.templateID).filter(Boolean))
+    );
+    if (!ids.length) return [];
+
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-eucharistic-minister")
+      .select("templateID,isNeeded")
+      .in("templateID", ids)
+      .eq("isNeeded", 1);
+
+    if (tmplErr) return [];
+
+    const allowed = new Set((tmplRows || []).map((t) => t.templateID));
+    return uses
+      .filter((u) => allowed.has(u.templateID))
+      .map((u) => ({
+        templateID: u.templateID,
+        time: u.time || "",
+      }));
+  } catch (e) {
+    console.error("fetchEucharisticMinisterTemplateMassesForDate error:", e);
+    return [];
+  }
+};
+
+// Flags for EM: number of ministers needed (from "minister-count")
+export const getTemplateFlagsForEucharisticMinister = async (
+  isoDate,
+  templateID
+) => {
+  try {
+    let tid = templateID ?? null;
+
+    if (!tid && isoDate) {
+      const { data: useRow, error: useErr } = await supabase
+        .from("use-template-table")
+        .select("templateID")
+        .eq("date", isoDate)
+        .limit(1)
+        .maybeSingle();
+      if (useErr) throw useErr;
+      tid = useRow?.templateID ?? null;
+    }
+
+    if (!tid) return null;
+
+    const { data: row, error: tmplErr } = await supabase
+      .from("template-eucharistic-minister")
+      .select('templateID,isNeeded,"minister-count"')
+      .eq("templateID", tid)
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (tmplErr) throw tmplErr;
+    if (!row) return { templateID: tid, roles: {} };
+
+    return {
+      templateID: row.templateID,
+      isNeeded: row.isNeeded ?? null,
+      roles: { minister: Number(row["minister-count"] ?? 0) },
+    };
+  } catch (err) {
+    console.error("getTemplateFlagsForEucharisticMinister error:", err);
+    return null;
+  }
+};
+
+// Optional center label for template masses in SelectMass
+export const getTemplateMassTypeEM = async (templateID) => {
+  if (!templateID) return null;
+  try {
+    const { data, error } = await supabase
+      .from("template-information")
+      .select('"mass-type"')
+      .eq("templateID", templateID)
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.["mass-type"] || null;
+  } catch (e) {
+    console.error("getTemplateMassTypeEM error:", e);
+    return null;
+  }
+};
+
+/* ---------- Group (header) + Assigned counts ---------- */
+
+// Read the assigned group for a mass (from the header table)
+export const getEMAssignedGroup = async (dateISO, massLabel) => {
+  const { data, error } = await supabase
+    .from("eucharistic-minister-group-placeholder")
+    .select("group")
+    .eq("date", dateISO)
+    .eq("mass", massLabel)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("getEMAssignedGroup error:", error);
+    return null;
+  }
+  return data?.group ?? null;
+};
+
+// Count how many ministers are assigned for (date, mass)
+export const countEMAssigned = async (dateISO, massLabel) => {
+  const { data, error } = await supabase
+    .from("eucharistic-minister-placeholder")
+    .select("idNumber,slot")
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+  if (error) {
+    console.error("countEMAssigned error:", error);
+    return 0;
+  }
+  return (data || []).filter((r) => r.idNumber && Number(r.slot) > 0).length;
+};
+
+/* ---------- Rules (needed/visible) ---------- */
+
+export const roleCountsForEucharisticMinister = ({ flags, isSunday }) => {
+  if (flags && flags.roles && typeof flags.roles.minister === "number") {
+    return { minister: flags.roles.minister };
+  }
+  // Sunday default if no template flags
+  return { minister: SUNDAY_MINISTER_COUNT };
+};
+
+export const roleVisibilityForEucharisticMinister = ({ flags, isSunday }) => {
+  const counts = roleCountsForEucharisticMinister({ flags, isSunday });
+  return { minister: (counts.minister || 0) > 0 };
+};
+
+/* ---------- Status (per-mass + per-date) ---------- */
+
+// Exported so SelectMass can compute each card's status if you want
+export const massStatusEucharisticMinister = async ({
+  dateISO,
+  massLabel,
+  flags, // null for Sunday; template flags for template mass
+  isSunday, // boolean
+}) => {
+  const assigned = await countEMAssigned(dateISO, massLabel);
+  const counts = roleCountsForEucharisticMinister({
+    flags: flags ?? null,
+    isSunday,
+  });
+  const visible = roleVisibilityForEucharisticMinister({
+    flags: flags ?? null,
+    isSunday,
+  });
+
+  if (!visible.minister || (counts.minister || 0) <= 0) {
+    // role hidden/not needed: treat as complete
+    return "complete";
+  }
+  if (assigned === 0) return "empty";
+  return assigned >= (counts.minister || 0) ? "complete" : "incomplete";
+};
+
+// For SelectSchedule: collapse all masses on the date to a single status
+export const computeEucharisticMinisterStatusForDate = async ({
+  dateISO,
+  isSunday,
+}) => {
+  // 1) Build masses for this date
+  const labels = [];
+  if (isSunday) {
+    labels.push({ label: "1st Mass - 6:00 AM", isSunday: true });
+    labels.push({ label: "2nd Mass - 8:00 AM", isSunday: true });
+    labels.push({ label: "3rd Mass - 5:00 PM", isSunday: true });
+  }
+
+  const uses = await fetchEucharisticMinisterTemplateMassesForDate(dateISO);
+  const tmplWithFlags = await Promise.all(
+    (uses || []).map(async (u) => ({
+      label: `Mass - ${u.time}`,
+      flags: await getTemplateFlagsForEucharisticMinister(
+        dateISO,
+        u.templateID
+      ),
+    }))
+  );
+
+  // 2) Per-mass statuses
+  const results = [];
+
+  // Sunday
+  for (const s of labels) {
+    results.push(
+      await massStatusEucharisticMinister({
+        dateISO,
+        massLabel: s.label,
+        flags: null,
+        isSunday: true,
+      })
+    );
+  }
+
+  // Template masses
+  for (const t of tmplWithFlags) {
+    results.push(
+      await massStatusEucharisticMinister({
+        dateISO,
+        massLabel: t.label,
+        flags: t.flags,
+        isSunday: false,
+      })
+    );
+  }
+
+  // 3) Collapse to date status
+  if (results.length === 0) return "empty";
+  if (results.every((s) => s === "empty")) return "empty";
+  if (results.every((s) => s === "complete")) return "complete";
+  return "incomplete";
+};
+
+/** ---------------------------
+ * EUCHARISTIC MINISTER: status helpers
+ * --------------------------- */
+
+/**
+ * Returns "empty" | "incomplete" | "complete" for a single (date, mass).
+ *  - empty:      no group & no members
+ *  - incomplete: group exists but 0 members
+ *  - complete:   >= 1 member
+ */
+export async function getEMAssignmentStatus(dateISO, massLabel) {
+  try {
+    // Check group
+    const { data: groupRow, error: groupErr } = await supabase
+      .from("eucharistic-minister-group-placeholder")
+      .select("group")
+      .eq("date", dateISO)
+      .eq("mass", massLabel)
+      .maybeSingle();
+
+    if (groupErr && groupErr.code !== "PGRST116") {
+      console.error("getEMAssignmentStatus groupErr:", groupErr);
+    }
+    const hasGroup = !!groupRow;
+
+    // Check at least one member
+    const { data: memberRows, error: memErr } = await supabase
+      .from("eucharistic-minister-placeholder")
+      .select("idNumber", { count: "exact", head: true })
+      .eq("date", dateISO)
+      .eq("mass", massLabel);
+
+    if (memErr) {
+      console.error("getEMAssignmentStatus memErr:", memErr);
+    }
+    // For head:true, data is null; use count from response
+    const hasMembers =
+      (memberRows?.length ?? 0) > 0 ||
+      (memberRows === null && typeof memErr === "undefined");
+    // NOTE: Some Supabase clients return count via response.count; if your setup does:
+    // const hasMembers = (count ?? 0) > 0;
+
+    if (!hasGroup) return "empty";
+    // group exists
+    return hasMembers ? "complete" : "incomplete";
+  } catch (e) {
+    console.error("getEMAssignmentStatus failed:", e);
+    // Fail-safe: don't mark green accidentally
+    return "empty";
+  }
+}
+
+export async function getEMStatusesForDate(dateISO, massLabels = []) {
+  try {
+    // Fetch rows for the date once
+    const [
+      { data: groupRows, error: gErr },
+      { data: memberRows, error: mErr },
+    ] = await Promise.all([
+      supabase
+        .from("eucharistic-minister-group-placeholder")
+        .select("mass, group")
+        .eq("date", dateISO),
+      supabase
+        .from("eucharistic-minister-placeholder")
+        .select("mass, idNumber")
+        .eq("date", dateISO),
+    ]);
+
+    if (gErr) console.error("getEMStatusesForDate group error:", gErr);
+    if (mErr) console.error("getEMStatusesForDate member error:", mErr);
+
+    const groupSet = new Set((groupRows || []).map((r) => String(r.mass)));
+    const memberSet = new Set((memberRows || []).map((r) => String(r.mass)));
+
+    const out = new Map();
+    for (const label of massLabels) {
+      const hasGroup = groupSet.has(String(label));
+      const hasMembers = memberSet.has(String(label));
+      if (!hasGroup) out.set(label, "empty");
+      else out.set(label, hasMembers ? "complete" : "incomplete");
+    }
+    return out;
+  } catch (e) {
+    console.error("getEMStatusesForDate failed:", e);
+    const out = new Map();
+    for (const label of massLabels) out.set(label, "empty");
+    return out;
+  }
+}

@@ -14,7 +14,7 @@ import {
 
 import {
   isSundayFor,
-  getTemplateFlags, 
+  getTemplateFlags,
   roleCountsFor,
   roleVisibilityFor,
   fetchAssignmentsGrouped,
@@ -22,7 +22,7 @@ import {
 
 import {
   getTemplateMassType,
-  fetchTemplateMassesForDate, 
+  fetchTemplateMassesForDate,
 } from "../../../../../assets/scripts/fetchSchedule";
 
 import "../../../../../assets/styles/schedule.css";
@@ -363,56 +363,51 @@ export default function SelectMass() {
                 );
               })}
             </div>
-
-            <div
-              className="action-buttons"
-              style={
-                !allMassesComplete
-                  ? { pointerEvents: "none", opacity: 0.6 }
-                  : undefined
-              }
-            >
-              <ScheduleDropdownButton
-                onExportPDF={() =>
-                  exportAltarServerSchedulesPDF({
-                    dateISO: selectedISO,
-                    isSunday,
-                    department,
-                  })
-                }
-                onExportPNG={() =>
-                  exportAltarServerSchedulesPNG({
-                    dateISO: selectedISO,
-                    isSunday,
-                    department,
-                  })
-                }
-              />
-              <button
-                className="btn btn-blue flex items-center gap-2"
-                style={
-                  !allMassesComplete
-                    ? { pointerEvents: "none", opacity: 0.9 }
-                    : undefined
-                }
-                onClick={() =>
-                  printAltarServerSchedules({
-                    dateISO: selectedISO,
-                    isSunday,
-                    department,
-                  })
-                }
-              >
-                <img
-                  src={icon.printIcon}
-                  alt="Print Icon"
-                  className="icon-btn"
-                />{" "}
-                Print Schedules
-              </button>
-            </div>
           </>
         )}
+      </div>
+      <div
+        className="action-buttons"
+        style={
+          !allMassesComplete
+            ? { pointerEvents: "none", opacity: 0.6 }
+            : undefined
+        }
+      >
+        <ScheduleDropdownButton
+          onExportPDF={() =>
+            exportAltarServerSchedulesPDF({
+              dateISO: selectedISO,
+              isSunday,
+              department,
+            })
+          }
+          onExportPNG={() =>
+            exportAltarServerSchedulesPNG({
+              dateISO: selectedISO,
+              isSunday,
+              department,
+            })
+          }
+        />
+        <button
+          className="btn btn-blue flex items-center gap-2"
+          style={
+            !allMassesComplete
+              ? { pointerEvents: "none", opacity: 0.9 }
+              : undefined
+          }
+          onClick={() =>
+            printAltarServerSchedules({
+              dateISO: selectedISO,
+              isSunday,
+              department,
+            })
+          }
+        >
+          <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />{" "}
+          Print Schedules
+        </button>
       </div>
 
       <Footer />

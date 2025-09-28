@@ -283,7 +283,7 @@ export default function SelectMassLectorCommentator() {
     <div className="schedule-page-container">
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>MAKE SCHEDULE - Lector Commentator</h3>
+          <h3>MAKE SCHEDULE - LECTOR COMMENTATOR</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -365,56 +365,51 @@ export default function SelectMassLectorCommentator() {
                 );
               })}
             </div>
-
-            <div
-              className="action-buttons"
-              style={
-                !allMassesComplete
-                  ? { pointerEvents: "none", opacity: 0.6 }
-                  : undefined
-              }
-            >
-              <ScheduleDropdownButton
-                onExportPDF={() =>
-                  exportLectorCommentatorSchedulesPDF({
-                    dateISO: selectedISO,
-                    isSunday,
-                    department,
-                  })
-                }
-                onExportPNG={() =>
-                  exportLectorCommentatorSchedulesPNG({
-                    dateISO: selectedISO,
-                    isSunday,
-                    department,
-                  })
-                }
-              />
-              <button
-                className="btn btn-blue flex items-center gap-2"
-                style={
-                  !allMassesComplete
-                    ? { pointerEvents: "none", opacity: 0.9 }
-                    : undefined
-                }
-                onClick={() =>
-                  printLectorCommentatorSchedules({
-                    dateISO: selectedISO,
-                    isSunday,
-                    department,
-                  })
-                }
-              >
-                <img
-                  src={icon.printIcon}
-                  alt="Print Icon"
-                  className="icon-btn"
-                />{" "}
-                Print Schedules
-              </button>
-            </div>
           </>
         )}
+      </div>
+      <div
+        className="action-buttons"
+        style={
+          !allMassesComplete
+            ? { pointerEvents: "none", opacity: 0.6 }
+            : undefined
+        }
+      >
+        <ScheduleDropdownButton
+          onExportPDF={() =>
+            exportLectorCommentatorSchedulesPDF({
+              dateISO: selectedISO,
+              isSunday,
+              department,
+            })
+          }
+          onExportPNG={() =>
+            exportLectorCommentatorSchedulesPNG({
+              dateISO: selectedISO,
+              isSunday,
+              department,
+            })
+          }
+        />
+        <button
+          className="btn btn-blue flex items-center gap-2"
+          style={
+            !allMassesComplete
+              ? { pointerEvents: "none", opacity: 0.9 }
+              : undefined
+          }
+          onClick={() =>
+            printLectorCommentatorSchedules({
+              dateISO: selectedISO,
+              isSunday,
+              department,
+            })
+          }
+        >
+          <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />{" "}
+          Print Schedules
+        </button>
       </div>
 
       <Footer />

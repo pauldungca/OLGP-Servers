@@ -158,15 +158,6 @@ export const addMember = async (
     return false;
   }
 
-  if (!selectedRole || selectedRole === "Select Role") {
-    await Swal.fire({
-      icon: "warning",
-      title: "Role Required",
-      text: "Please select a role before adding a member.",
-    });
-    return false;
-  }
-
   const result = await Swal.fire({
     icon: "question",
     title: "Are you sure to add this member?",

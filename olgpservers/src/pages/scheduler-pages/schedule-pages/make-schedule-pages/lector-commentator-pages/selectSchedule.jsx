@@ -230,7 +230,7 @@ export default function SelectSchedule() {
     <div className="schedule-page-container" key={viewKey}>
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>MAKE SCHEDULE - Lector Commentator</h3>
+          <h3>MAKE SCHEDULE - LECTOR COMMENTATOR</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[

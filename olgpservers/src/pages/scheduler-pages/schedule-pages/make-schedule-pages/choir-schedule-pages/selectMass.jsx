@@ -248,7 +248,7 @@ export default function SelectMassChoir() {
     <div className="schedule-page-container">
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>MAKE SCHEDULE - Choir</h3>
+          <h3>MAKE SCHEDULE - CHOIR</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -327,56 +327,52 @@ export default function SelectMassChoir() {
                 );
               })}
             </div>
-
-            <div
-              className="action-buttons"
-              style={
-                !allMassesComplete
-                  ? { pointerEvents: "none", opacity: 0.6 }
-                  : undefined
-              }
-            >
-              <ScheduleDropdownButton
-                onExportPDF={() =>
-                  exportChoirSchedulesPDF({
-                    dateISO: selectedISO,
-                    isSunday,
-                    department,
-                  })
-                }
-                onExportPNG={() =>
-                  exportChoirSchedulesPNG({
-                    dateISO: selectedISO,
-                    isSunday,
-                    department,
-                  })
-                }
-              />
-              <button
-                className="btn btn-blue flex items-center gap-2"
-                style={
-                  !allMassesComplete
-                    ? { pointerEvents: "none", opacity: 0.9 }
-                    : undefined
-                }
-                onClick={() =>
-                  printChoirSchedules({
-                    dateISO: selectedISO,
-                    isSunday,
-                    department,
-                  })
-                }
-              >
-                <img
-                  src={icon.printIcon}
-                  alt="Print Icon"
-                  className="icon-btn"
-                />{" "}
-                Print Schedules
-              </button>
-            </div>
           </>
         )}
+      </div>
+
+      <div
+        className="action-buttons"
+        style={
+          !allMassesComplete
+            ? { pointerEvents: "none", opacity: 0.6 }
+            : undefined
+        }
+      >
+        <ScheduleDropdownButton
+          onExportPDF={() =>
+            exportChoirSchedulesPDF({
+              dateISO: selectedISO,
+              isSunday,
+              department,
+            })
+          }
+          onExportPNG={() =>
+            exportChoirSchedulesPNG({
+              dateISO: selectedISO,
+              isSunday,
+              department,
+            })
+          }
+        />
+        <button
+          className="btn btn-blue flex items-center gap-2"
+          style={
+            !allMassesComplete
+              ? { pointerEvents: "none", opacity: 0.9 }
+              : undefined
+          }
+          onClick={() =>
+            printChoirSchedules({
+              dateISO: selectedISO,
+              isSunday,
+              department,
+            })
+          }
+        >
+          <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />{" "}
+          Print Schedules
+        </button>
       </div>
 
       <Footer />

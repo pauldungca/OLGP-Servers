@@ -619,7 +619,7 @@ export const saveRoleAssignments = async ({
 }) => {
   const chosen = (assigned || []).filter(Boolean);
 
-  // 🔐 Eligibility check
+  // ðŸ” Eligibility check
   const { perRoleAllowed } = await buildEligibilityMaps();
   const allowedSet = perRoleAllowed.get(roleKey) || new Set();
   const invalid = chosen.filter(
@@ -729,7 +729,7 @@ const AssignProgress = (() => {
       <div style="
         width:min(520px, 92vw); border-radius:10px; padding:18px 20px 22px;
         background:#fff; color:#222; box-shadow:0 10px 30px rgba(0,0,0,.25)">
-        <div style="font-size:22px; font-weight:700; margin-bottom:8px">Auto-assigning schedules…</div>
+        <div style="font-size:22px; font-weight:700; margin-bottom:8px">Auto-assigning schedulesâ€¦</div>
         <div style="margin-bottom:10px"><strong>Month:</strong> ${monthText}</div>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px 16px; font-size:14px; line-height:1.35">
           <div><strong>Sundays:</strong> <span id="ap-sun">0</span>/<span id="ap-sunTotal">0</span></div>
@@ -2354,7 +2354,7 @@ const AssignProgressChoir = (() => {
       <div style="
         width:min(520px, 92vw); border-radius:10px; padding:18px 20px 22px;
         background:#fff; color:#222; box-shadow:0 10px 30px rgba(0,0,0,.25)">
-        <div style="font-size:22px; font-weight:700; margin-bottom:8px">Auto-assigning schedules…</div>
+        <div style="font-size:22px; font-weight:700; margin-bottom:8px">Auto-assigning schedulesâ€¦</div>
         <div style="margin-bottom:10px"><strong>Month:</strong> ${
           monthText ?? ""
         }</div>
@@ -2800,7 +2800,7 @@ const hasCompletedFullRotationSinceLastTargetMass = (
       // Enforce 1/day
       dailyAssignedGroups.add(selectedGroup.name);
 
-      // 🔴 CRITICAL LINE: teach the scheduler what we just did
+      // ðŸ”´ CRITICAL LINE: teach the scheduler what we just did
       historicalAssignments.unshift({
         group: selectedGroup.name,
         mass: massLabel,
@@ -2980,3 +2980,812 @@ const tryAssignWithRelaxedRotation = async ({
   }
   return false;
 };
+
+/*----------------------------------
+
+EUCHARISTIC MINISTER FUNCTIONS
+
+------------------------------------*/
+
+export const resetEucharisticMinisterGroupAndMembers = async (
+  dateISO,
+  massLabel
+) => {
+  try {
+    const delGroupPromise = supabase
+      .from("eucharistic-minister-group-placeholder")
+      .delete()
+      .eq("date", dateISO)
+      .eq("mass", massLabel);
+
+    const delMembersPromise = supabase
+      .from("eucharistic-minister-placeholder")
+      .delete()
+      .eq("date", dateISO)
+      .eq("mass", massLabel);
+
+    const [{ error: groupErr }, { error: memberErr }] = await Promise.all([
+      delGroupPromise,
+      delMembersPromise,
+    ]);
+
+    if (groupErr) throw groupErr;
+    if (memberErr) throw memberErr;
+
+    return true; // success (even if 0 rows affected)
+  } catch (err) {
+    console.error(
+      "Error resetting Eucharistic Minister group & members:",
+      err?.message || err
+    );
+    return false;
+  }
+};
+
+export const saveEucharisticMinisterGroup = async ({
+  dateISO,
+  massLabel,
+  templateID = null,
+  group,
+}) => {
+  try {
+    const { error } = await supabase
+      .from("eucharistic-minister-group-placeholder")
+      .upsert([
+        {
+          date: dateISO,
+          mass: massLabel,
+          templateID,
+          group,
+        },
+      ]);
+
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error("Error saving EM group:", err);
+    return false;
+  }
+};
+
+export const fetchExistingEucharisticMinisterGroup = async (
+  selectedISO,
+  selectedMassDisplay
+) => {
+  if (!selectedISO || !selectedMassDisplay) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("eucharistic-minister-group-placeholder")
+      .select("group")
+      .eq("date", selectedISO)
+      .eq("mass", selectedMassDisplay)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      // PGRST116 = no rows found
+      console.error("Error fetching existing group:", error);
+      return null;
+    }
+
+    return data?.group || null;
+  } catch (err) {
+    console.error("Failed to fetch existing group assignment:", err);
+    return null;
+  }
+};
+
+export const saveEucharisticMinisterAssignments = async (
+  dateISO,
+  massLabel,
+  templateID,
+  assigned
+) => {
+  try {
+    // Clear old assignments first
+    await supabase
+      .from("eucharistic-minister-placeholder")
+      .delete()
+      .eq("date", dateISO)
+      .eq("mass", massLabel);
+
+    // Prepare new rows - only include non-empty assignments
+    const rows = Object.entries(assigned)
+      .filter(([_, member]) => member && member.id) // Filter out empty slots
+      .map(([key, member], idx) => ({
+        date: dateISO,
+        mass: massLabel,
+        templateID: templateID || null,
+        slot: idx + 1,
+        idNumber: member.id, // Store the member ID, not the name
+      }));
+
+    if (rows.length > 0) {
+      const { error } = await supabase
+        .from("eucharistic-minister-placeholder")
+        .insert(rows);
+
+      if (error) throw error;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Error saving EM assignments:", err.message);
+    return false;
+  }
+};
+
+export const resetEucharisticMinisterAssignments = async (
+  dateISO,
+  massLabel
+) => {
+  try {
+    // Delete all assignments for this specific date and mass
+    const { error } = await supabase
+      .from("eucharistic-minister-placeholder")
+      .delete()
+      .eq("date", dateISO)
+      .eq("mass", massLabel);
+
+    if (error) {
+      console.error("Error resetting EM assignments:", error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Failed to reset EM assignments:", err);
+    return false;
+  }
+};
+
+/*export const fetchEucharisticMinisterGroupMembers = async (groupName) => {
+  if (!groupName) {
+    return [];
+  }
+
+  try {
+    // First, get all member IDs from the specified group
+    const { data: groupMembers, error: groupError } = await supabase
+      .from("eucharistic-minister-group")
+      .select("idNumber")
+      .eq("group-name", groupName);
+
+    if (groupError) {
+      console.error("Error fetching group members:", groupError);
+      return [];
+    }
+
+    if (!groupMembers || groupMembers.length === 0) {
+      return [];
+    }
+
+    // Extract the ID numbers
+    const memberIds = groupMembers.map((member) => member.idNumber);
+
+    // Now fetch the member information for these IDs
+    const { data: memberInfo, error: memberError } = await supabase
+      .from("members-information")
+      .select("idNumber, firstName, middleName, lastName")
+      .in("idNumber", memberIds);
+
+    if (memberError) {
+      console.error("Error fetching member information:", memberError);
+      return [];
+    }
+
+    // Format the member data
+    const formattedMembers = (memberInfo || []).map((member) => ({
+      id: member.idNumber,
+      name: [member.firstName, member.middleName, member.lastName]
+        .filter((name) => name && name.trim()) // Remove empty/null names
+        .join(" ")
+        .trim(),
+    }));
+
+    return formattedMembers;
+  } catch (err) {
+    console.error("Failed to fetch group members:", err);
+    return [];
+  }
+};
+
+export const fetchEucharisticMinisterAssignments = async (
+  dateISO,
+  massLabel
+) => {
+  try {
+    // 1) Get saved slots (idNumber per slot)
+    const { data: assignments, error: assignError } = await supabase
+      .from("eucharistic-minister-placeholder")
+      .select("slot, idNumber")
+      .eq("date", dateISO)
+      .eq("mass", massLabel)
+      .order("slot", { ascending: true });
+
+    if (assignError) throw assignError;
+    if (!assignments || assignments.length === 0) return [];
+
+    // 2) Unique IDs (normalize types to avoid .in() mismatches)
+    const memberIds = [...new Set(assignments.map((a) => a.idNumber))].filter(
+      (v) => v !== null && v !== undefined
+    );
+
+    // 3) Fetch names for those IDs
+    const { data: memberInfo, error: memberError } = await supabase
+      .from("members-information")
+      .select("idNumber, firstName, middleName, lastName")
+      .in(
+        "idNumber",
+        memberIds.map((v) => (typeof v === "string" ? v : String(v))) // cast to string for safety
+      );
+
+    if (memberError) throw memberError;
+
+    // 4) Build a fast lookup (try both string and number keys)
+    const nameMap = new Map();
+    (memberInfo || []).forEach((m) => {
+      const fullName = [m.firstName, m.middleName, m.lastName]
+        .filter((n) => n && String(n).trim())
+        .join(" ")
+        .trim();
+      nameMap.set(String(m.idNumber), fullName);
+      nameMap.set(Number(m.idNumber), fullName);
+    });
+
+    // 5) Return slot â†’ {id, name} (name filled if found)
+    return assignments.map((a) => ({
+      slot: a.slot,
+      id: a.idNumber,
+      name: nameMap.get(a.idNumber) || nameMap.get(String(a.idNumber)) || "",
+    }));
+  } catch (err) {
+    console.error("Error fetching EM assignments:", err?.message || err);
+    return [];
+  }
+};*/
+
+// A) Group members â†’ return id as STRING
+export const fetchEucharisticMinisterGroupMembers = async (groupName) => {
+  if (!groupName) return [];
+  try {
+    const { data: groupMembers, error: groupError } = await supabase
+      .from("eucharistic-minister-group")
+      .select("idNumber")
+      .eq("group-name", groupName);
+    if (groupError) return [];
+
+    const memberIds = (groupMembers || [])
+      .map((m) => String(m.idNumber))
+      .filter(Boolean);
+
+    if (memberIds.length === 0) return [];
+
+    const { data: memberInfo, error: memberError } = await supabase
+      .from("members-information")
+      .select("idNumber, firstName, middleName, lastName")
+      .in("idNumber", memberIds);
+    if (memberError) return [];
+
+    return (memberInfo || []).map((m) => ({
+      id: String(m.idNumber),
+      name: [m.firstName, m.middleName, m.lastName]
+        .filter((x) => x && String(x).trim())
+        .join(" ")
+        .trim(),
+    }));
+  } catch (e) {
+    return [];
+  }
+};
+
+// B) Saved assignments â†’ return id as STRING
+export const fetchEucharisticMinisterAssignments = async (
+  dateISO,
+  massLabel
+) => {
+  try {
+    const { data: assignments, error: assignError } = await supabase
+      .from("eucharistic-minister-placeholder")
+      .select("slot, idNumber")
+      .eq("date", dateISO)
+      .eq("mass", massLabel)
+      .order("slot", { ascending: true });
+    if (assignError || !assignments?.length) return [];
+
+    const memberIds = [...new Set(assignments.map((a) => String(a.idNumber)))];
+
+    const { data: memberInfo, error: memberError } = await supabase
+      .from("members-information")
+      .select("idNumber, firstName, middleName, lastName")
+      .in("idNumber", memberIds);
+    if (memberError) return [];
+
+    const nameMap = new Map(
+      (memberInfo || []).map((m) => [
+        String(m.idNumber),
+        [m.firstName, m.middleName, m.lastName]
+          .filter((x) => x && String(x).trim())
+          .join(" ")
+          .trim(),
+      ])
+    );
+
+    return assignments.map((a) => ({
+      slot: a.slot,
+      id: String(a.idNumber),
+      name: nameMap.get(String(a.idNumber)) || "",
+    }));
+  } catch {
+    return [];
+  }
+};
+
+/** ---------------------------
+ * EUCHARISTIC MINISTER: Group eligibility
+ * --------------------------- */
+
+/** Extract 1|2|3 from mass labels like "1st Mass - 6:00 AM". Returns null if not 1/2/3. */
+function getSundayOrdinalFromLabel(massLabel = "") {
+  const m = String(massLabel).match(/^(\d+)(?:st|nd|rd|th)\s+Mass\b/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return [1, 2, 3].includes(n) ? n : null;
+}
+
+/** Normalize */
+const _norm = (s) => String(s || "").trim();
+
+/** Pull DISTINCT group names from your master table "eucharistic-minister-group" (col: "group-name"). */
+export async function fetchEMGroupNamesDistinct() {
+  try {
+    const { data, error } = await supabase
+      .from("eucharistic-minister-group")
+      .select('"group-name"');
+
+    if (error) {
+      console.error("fetchEMGroupNamesDistinct error:", error);
+      return [];
+    }
+
+    const set = new Set();
+    (data || []).forEach((row) => {
+      const g = _norm(row?.["group-name"]);
+      if (g) set.add(g);
+    });
+    return Array.from(set);
+  } catch (e) {
+    console.error("fetchEMGroupNamesDistinct failed:", e);
+    return [];
+  }
+}
+
+/**
+ * Get the eligible EM groups for a given date + mass, enforcing both rules.
+ *
+ * Tables used:
+ *  - eucharistic-minister-group           (source of distinct group names via "group-name")
+ *  - eucharistic-minister-group-placeholder (stores: date, mass, group)
+ *
+ * @param {Object} p
+ * @param {string} p.dateISO    "YYYY-MM-DD"
+ * @param {string} p.massLabel  e.g. "1st Mass - 6:00 AM"
+ * @param {string[]} [p.allGroups] Optional pre-fetched group names to avoid extra query
+ * @returns {Promise<string[]>}   Eligible group names for the dropdown
+ */
+export async function fetchEligibleEucharisticMinisterGroups({
+  dateISO,
+  massLabel,
+  allGroups,
+}) {
+  const targetDate = _norm(dateISO);
+  const targetMass = _norm(massLabel);
+  const targetOrd = getSundayOrdinalFromLabel(targetMass); // 1|2|3 or null
+
+  // Load available group names (distinct)
+  const groups = (
+    allGroups && allGroups.length
+      ? allGroups
+      : await fetchEMGroupNamesDistinct()
+  )
+    .map(_norm)
+    .filter(Boolean);
+
+  if (groups.length === 0) return [];
+
+  // Get all EM group assignments up to and including the target date
+  // (from the GROUP placeholder, not the member placeholder)
+  const { data: rowsAll, error } = await supabase
+    .from("eucharistic-minister-group-placeholder")
+    .select("date, mass, group")
+    .lte("date", targetDate)
+    .order("date", { ascending: true });
+
+  if (error) {
+    console.error("fetchEligibleEucharisticMinisterGroups error:", error);
+    // Fail-safe: show all groups so UI isn't blocked
+    return groups;
+  }
+
+  const rows = rowsAll || [];
+  const rowsSameDay = rows.filter((r) => String(r.date) === targetDate);
+  const rowsBefore = rows.filter((r) => String(r.date) < targetDate);
+
+  // Rule 1: Same date → hide groups already used in ANY mass on that date
+  const usedSameDay = new Set(
+    rowsSameDay.map((r) => _norm(r.group)).filter(Boolean)
+  );
+
+  // Build per-group history (only BEFORE target date) with ordinals
+  const historyByGroup = new Map();
+  for (const r of rowsBefore) {
+    const g = _norm(r.group);
+    if (!g) continue;
+    if (!historyByGroup.has(g)) historyByGroup.set(g, []);
+    historyByGroup.get(g).push({
+      date: String(r.date),
+      mass: _norm(r.mass),
+      ord: getSundayOrdinalFromLabel(r.mass), // 1|2|3 or null
+    });
+  }
+
+  // Rule 2: can’t appear again in the SAME ordinal until it has served the other two ordinals
+  function passesRotation(groupName) {
+    if (targetOrd == null) return true; // rotation applies only to 1st/2nd/3rd Sunday masses
+
+    const hist = historyByGroup.get(groupName) || [];
+    // Find last time the group served this SAME ordinal
+    let lastSameOrdIdx = -1;
+    for (let i = hist.length - 1; i >= 0; i--) {
+      if (hist[i].ord === targetOrd) {
+        lastSameOrdIdx = i;
+        break;
+      }
+    }
+    // Never did this ordinal before → allowed
+    if (lastSameOrdIdx === -1) return true;
+
+    // After that appearance, must have served BOTH other ordinals at least once
+    const needed = new Set([1, 2, 3].filter((o) => o !== targetOrd));
+    for (let i = lastSameOrdIdx + 1; i < hist.length; i++) {
+      const o = hist[i].ord;
+      if (needed.has(o)) needed.delete(o);
+      if (needed.size === 0) break;
+    }
+    return needed.size === 0;
+  }
+
+  // Final: not used on same date, and passes rotation
+  return groups.filter((g) => !usedSameDay.has(g) && passesRotation(g));
+}
+
+// ======== EUCHARISTIC MINISTER: AUTO-ASSIGN (Groups + Members) ========
+
+// ---- tiny helpers (safe to re-declare if not present elsewhere)
+
+function sundayOrdinalInMonth(date) {
+  // date: Date in local time
+  const y = date.getFullYear();
+  const m = date.getMonth();
+  let count = 0;
+  for (let d = new Date(y, m, 1); d <= date; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() === 0) count++;
+  }
+  return count; // 1-based
+}
+
+// ---- rotation matrix (3-week cycle)
+const ROTATION = [
+  // ordinal 1 (mod 3 === 1): [Mass1, Mass2, Mass3]
+  ["Group 1", "Group 2", "Group 3"],
+
+  // ordinal 2 (mod 3 === 2)
+  ["Group 2", "Group 3", "Group 1"],
+
+  // ordinal 3 (mod 3 === 0)
+  ["Group 3", "Group 1", "Group 2"],
+];
+
+function groupFor(ordinal1, massIndex0) {
+  // cycle every 3 Sundays
+  const idx = (ordinal1 - 1) % 3;
+  return ROTATION[idx][massIndex0];
+}
+
+// ---- CORE: auto-assign one Sunday mass (group + 6 members)
+async function autoAssignEMForMass({
+  dateISO,
+  massLabel,
+  groupName, // "Group 1/2/3"
+  onAssign, // optional progress callback
+}) {
+  // 1) Set/overwrite the group for this date+mass
+  await supabase
+    .from("eucharistic-minister-group-placeholder")
+    .delete()
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  await supabase
+    .from("eucharistic-minister-group-placeholder")
+    .insert([
+      { date: dateISO, mass: massLabel, templateID: null, group: groupName },
+    ]);
+
+  // 2) Fetch group members
+  const members = await fetchEucharisticMinisterGroupMembers(groupName);
+  if (!members.length) return;
+
+  // 3) Avoid double-booking on same date
+  const { data: sameDayAssignments } = await supabase
+    .from("eucharistic-minister-placeholder")
+    .select("idNumber")
+    .eq("date", dateISO);
+  const takenToday = new Set(
+    (sameDayAssignments || []).map((r) => String(r.idNumber))
+  );
+
+  // 4) Build fairness metrics from recent history (last 6 months)
+  const since = new Date(dateISO);
+  since.setMonth(since.getMonth() - 6);
+  const sinceISO = ymdLocal(since);
+
+  const { data: history } = await supabase
+    .from("eucharistic-minister-placeholder")
+    .select("idNumber, date")
+    .gte("date", sinceISO)
+    .order("date", { ascending: true });
+
+  const countPer = new Map();
+  const lastDatePer = new Map();
+  (history || []).forEach((h) => {
+    const id = String(h.idNumber);
+    countPer.set(id, (countPer.get(id) || 0) + 1);
+    lastDatePer.set(id, h.date);
+  });
+
+  // 5) Rank candidates: least assigned first; if tie → oldest last assignment first; then name
+  const ranked = members
+    .filter((m) => !takenToday.has(String(m.id)))
+    .map((m) => {
+      const id = String(m.id);
+      const cnt = countPer.get(id) || 0;
+      const last = lastDatePer.get(id) || null;
+      return {
+        ...m,
+        _count: cnt,
+        _last: last ? new Date(last) : new Date(0),
+      };
+    })
+    .sort((a, b) => {
+      if (a._count !== b._count) return a._count - b._count;
+      if (a._last.getTime() !== b._last.getTime()) return a._last - b._last; // older first
+      return (a.name || "").localeCompare(b.name || "");
+    });
+
+  const pick = ranked.slice(0, 6); // default 6 ministers
+
+  // 6) Write assignments (slots 1..6)
+  await supabase
+    .from("eucharistic-minister-placeholder")
+    .delete()
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  if (pick.length) {
+    const rows = pick.map((m, i) => ({
+      date: dateISO,
+      mass: massLabel,
+      templateID: null,
+      slot: i + 1,
+      idNumber: String(m.id),
+    }));
+    await supabase.from("eucharistic-minister-placeholder").insert(rows);
+  }
+
+  if (onAssign) onAssign(pick.length);
+}
+
+// ---- splash overlay UI (lightweight)
+const EMProgress = (() => {
+  let el, nodes;
+  const html = (monthText) => `
+    <div id="em-overlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+      <div style="width:min(520px,92vw);border-radius:10px;padding:18px 20px 22px;background:#fff;color:#222;box-shadow:0 10px 30px rgba(0,0,0,.25)">
+        <div style="font-size:22px;font-weight:700;margin-bottom:8px">Auto-assigning EM schedules…</div>
+        <div style="margin-bottom:10px"><strong>Month:</strong> ${monthText}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:14px;line-height:1.35">
+          <div><strong>Sundays:</strong> <span id="em-sun">0</span>/<span id="em-sunT">0</span></div>
+          <div><strong>Masses:</strong> <span id="em-mass">0</span>/<span id="em-massT">0</span></div>
+          <div><strong>Members Assigned:</strong> <span id="em-assign">0</span></div>
+          <div><strong>Errors:</strong> <span id="em-err">0</span></div>
+        </div>
+        <div style="margin-top:10px;height:10px;background:#e9ecef;border-radius:6px;overflow:hidden;">
+          <div id="em-bar" style="height:100%;width:0%;background:#4e79ff;transition:width .15s ease"></div>
+        </div>
+        <div id="em-pct" style="font-size:12px;margin-top:6px;opacity:.8">0% complete</div>
+      </div>
+    </div>
+  `;
+  const mount = (m) => {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = html(m);
+    el = wrap.firstElementChild;
+    document.body.appendChild(el);
+    nodes = {
+      sun: el.querySelector("#em-sun"),
+      sunT: el.querySelector("#em-sunT"),
+      mass: el.querySelector("#em-mass"),
+      massT: el.querySelector("#em-massT"),
+      assign: el.querySelector("#em-assign"),
+      err: el.querySelector("#em-err"),
+      bar: el.querySelector("#em-bar"),
+      pct: el.querySelector("#em-pct"),
+    };
+  };
+  const paint = ({ sDone, sTotal, mDone, mTotal, assigned, errors }) => {
+    nodes.sun.textContent = String(sDone);
+    nodes.sunT.textContent = String(sTotal);
+    nodes.mass.textContent = String(mDone);
+    nodes.massT.textContent = String(mTotal);
+    nodes.assign.textContent = String(assigned);
+    nodes.err.textContent = String(errors);
+    const pct = mTotal ? Math.round((mDone / mTotal) * 100) : 0;
+    nodes.bar.style.width = pct + "%";
+    nodes.pct.textContent = `${pct}% complete`;
+  };
+  const unmount = () => {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+    el = null;
+    nodes = null;
+  };
+  return { mount, paint, unmount };
+})();
+
+// ---- PUBLIC: run auto-assign for the month (Sundays only)
+export async function autoAssignEucharisticMinisterSchedules(year, month) {
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const monthText = `${monthNames[month]} - ${year}`;
+
+  const ok = await Swal.fire({
+    icon: "question",
+    title: "Automate Sunday Schedules?",
+    text: `This fills all Sunday masses for ${monthText} with rotated groups and fair member rotation.`,
+    showCancelButton: true,
+    confirmButtonText: "Yes, automate",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+  if (!ok.isConfirmed) return { success: false };
+
+  const sundays = getSundaysInMonth(year, month);
+  const sTotal = sundays.length;
+  const mTotal = sTotal * SUNDAY_MASSES.length;
+
+  EMProgress.mount(monthText);
+  let sDone = 0,
+    mDone = 0,
+    assigned = 0,
+    errors = 0;
+
+  const onAssign = (n) => {
+    assigned += Number(n || 0);
+    EMProgress.paint({ sDone, sTotal, mDone, mTotal, assigned, errors });
+  };
+
+  try {
+    for (const s of sundays) {
+      const dateISO = ymdLocal(s);
+      const ord = sundayOrdinalInMonth(s);
+      for (let i = 0; i < SUNDAY_MASSES.length; i++) {
+        const massLabel = SUNDAY_MASSES[i];
+        const g = groupFor(ord, i);
+        try {
+          await autoAssignEMForMass({
+            dateISO,
+            massLabel,
+            groupName: g,
+            onAssign,
+          });
+        } catch (e) {
+          console.error(`EM auto-assign failed ${dateISO} ${massLabel}`, e);
+          errors += 1;
+        } finally {
+          mDone += 1;
+          EMProgress.paint({ sDone, sTotal, mDone, mTotal, assigned, errors });
+        }
+      }
+      sDone += 1;
+      EMProgress.paint({ sDone, sTotal, mDone, mTotal, assigned, errors });
+    }
+    EMProgress.unmount();
+
+    const msg =
+      `Finished auto-assigning EM schedules.\n\n` +
+      `Sundays: ${sDone}/${sTotal}\n` +
+      `Masses: ${mDone}/${mTotal}\n` +
+      `Members assigned: ${assigned}\n` +
+      (errors ? `Errors: ${errors}` : `Errors: 0`);
+
+    await Swal.fire({
+      icon: errors ? "warning" : "success",
+      title: errors ? "Partial Success" : "Auto-Assignment Complete",
+      text: msg,
+    });
+
+    // optional: refresh
+    try {
+      window.location.reload();
+    } catch {}
+    return {
+      success: true,
+      stats: { sDone, sTotal, mDone, mTotal, assigned, errors },
+    };
+  } catch (e) {
+    console.error("autoAssignEucharisticMinisterSchedules fatal:", e);
+    EMProgress.unmount();
+    await Swal.fire("Error", e.message || "Auto-assignment failed.", "error");
+    return { success: false, error: e?.message || "Unknown error" };
+  }
+}
+
+// ---- MONTH COMPLETENESS CHECK for Eucharistic Minister
+export async function isMonthFullyScheduledEucharisticMinister(year, month) {
+  // helper to format YYYY-MM-DD
+  const ymdLocal = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  // get all Sundays of this month
+  const sundays = [];
+  const d = new Date(year, month, 1);
+  while (d.getMonth() === month) {
+    if (d.getDay() === 0) sundays.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+
+  if (!sundays.length) return true;
+
+  // Check each Sunday’s 3 masses
+  const SUNDAY_MASSES = [
+    "1st Mass - 6:00 AM",
+    "2nd Mass - 8:00 AM",
+    "3rd Mass - 5:00 PM",
+  ];
+
+  for (const s of sundays) {
+    const dateISO = ymdLocal(s);
+    for (const massLabel of SUNDAY_MASSES) {
+      const { data, error } = await supabase
+        .from("eucharistic-minister-placeholder")
+        .select("idNumber")
+        .eq("date", dateISO)
+        .eq("mass", massLabel);
+
+      if (error) return false;
+      if ((data || []).length !== 6) {
+        // needs exactly 6 ministers
+        return false;
+      }
+    }
+  }
+  return true;
+}

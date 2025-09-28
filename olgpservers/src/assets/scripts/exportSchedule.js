@@ -2183,14 +2183,284 @@ export async function printChoirSchedules({
   }
 }
 
-// Updated CSS for print with better spacing for 3 masses per page
-/*function getSchedulePrintStylesChoirUpdated() {
+/* =========================
+   EUCHARISTIC MINISTER — DATA
+   ========================= */
+
+async function fetchGroupedEucharisticMinister(dateISO) {
+  // 1) Fetch assigned group per mass
+  const { data: groupRows, error: groupErr } = await supabase
+    .from("eucharistic-minister-group-placeholder")
+    .select("mass, group")
+    .eq("date", dateISO);
+
+  if (groupErr) throw groupErr;
+
+  // 2) Fetch member idNumbers per mass
+  const { data: memRows, error: memErr } = await supabase
+    .from("eucharistic-minister-placeholder")
+    .select("mass, idNumber")
+    .eq("date", dateISO);
+
+  if (memErr) throw memErr;
+
+  // 3) Resolve member names
+  const ids = [
+    ...new Set((memRows || []).map((r) => r.idNumber).filter(Boolean)),
+  ];
+  let idToName = {};
+  if (ids.length) {
+    const { data: members, error: nameErr } = await supabase
+      .from("members-information")
+      .select("idNumber, firstName, middleName, lastName")
+      .in("idNumber", ids);
+    if (nameErr) throw nameErr;
+
+    const fullName = (m) => {
+      const mi = m?.middleName
+        ? ` ${String(m.middleName).charAt(0).toUpperCase()}.`
+        : "";
+      return `${m?.firstName || ""}${mi} ${m?.lastName || ""}`.trim();
+    };
+    idToName = (members || []).reduce((a, m) => {
+      a[String(m.idNumber)] = fullName(m);
+      return a;
+    }, {});
+  }
+
+  // 4) Build grouped per mass
+  const grouped = {};
+
+  // groups
+  for (const r of groupRows || []) {
+    const mass = r.mass || "Mass";
+    grouped[mass] ||= { group: "", ministers: [] };
+    grouped[mass].group = (r.group || "").trim();
+  }
+
+  // ministers
+  for (const r of memRows || []) {
+    const mass = r.mass || "Mass";
+    const name = idToName[String(r.idNumber)] || "";
+    if (!name) continue;
+    grouped[mass] ||= { group: "", ministers: [] };
+    grouped[mass].ministers.push(name);
+  }
+
+  // ensure deterministic order
+  Object.keys(grouped).forEach((m) => {
+    grouped[m].ministers = (grouped[m].ministers || [])
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  });
+
+  return grouped;
+}
+
+/* =========================
+   EUCHARISTIC MINISTER — RENDER (PDF/Canvas)
+   ========================= */
+
+function underlineToTextGeneric(pdf, text, x, y, maxRight = PAGE_W - MARGIN) {
+  const width = pdf.getTextWidth(text || "");
+  const endX = Math.min(x + width + 1, maxRight);
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setLineWidth(0.9);
+  pdf.line(x, y + 5, endX, y + 5);
+}
+
+// chunk helper for Ministers rows (5 per line)
+function chunk5(arr = []) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += 3) out.push(arr.slice(i, i + 3));
+  return out;
+}
+
+/**
+ * Draw a single EM mass section.
+ * Shows:
+ *  - Mass Title
+ *  - Assigned Group: <group>
+ *  - Ministers - Name1, Name2, Name3, Name4, Name5
+ *                Name6, ...
+ */
+function drawMassSectionEucharisticMinister(
+  pdf,
+  {
+    massLabel,
+    groupName,
+    ministers,
+    sectionTop,
+    sectionHeight,
+    compact = false,
+  }
+) {
+  let y = sectionTop;
+
+  // dotted separator
+  pdf.setDrawColor(185);
+  pdf.setLineWidth(0.6);
+  pdf.setLineDashPattern([3, 3], 0);
+  pdf.line(MARGIN, y, PAGE_W - MARGIN, y);
+  pdf.setLineDashPattern([], 0);
+
+  // title
+  y += MASS_LINE_TO_TITLE_GAP;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(15);
+  pdf.text(massLabel, MARGIN, y);
+
+  // spacing before lines
+  y += TITLE_TO_ROLES_GAP;
+
+  const labelW = 150;
+  const xLabel = MARGIN;
+  const xText = MARGIN + labelW;
+
+  // Assigned Group
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(FONT_LABEL);
+  pdf.text("Assigned Group:", xLabel, y);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(FONT_VALUE);
+  const groupVal = groupName || "";
+  if (groupVal) pdf.text(groupVal, xText, y);
+  underlineToTextGeneric(pdf, groupVal, xText, y);
+  y += compact ? 28 : 32;
+
+  // Ministers (5 per row, comma-separated)
+  const rows = chunk5(
+    Array.isArray(ministers) ? ministers.filter(Boolean) : []
+  );
+  if (rows.length === 0) {
+    // still draw an empty underline
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(FONT_LABEL);
+    pdf.text("Ministers -", xLabel, y);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(FONT_VALUE);
+    underlineToTextGeneric(pdf, "", xText, y);
+    y += compact ? 26 : 30;
+  } else {
+    rows.forEach((names, idx) => {
+      const label = idx === 0 ? "Ministers -" : ""; // dash as requested
+      const value = names.join(", ");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(FONT_LABEL);
+      if (label) pdf.text(label, xLabel, y);
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(FONT_VALUE);
+      if (value) pdf.text(value, xText, y);
+      underlineToTextGeneric(pdf, value, xText, y);
+
+      y += compact ? 26 : 30;
+    });
+  }
+
+  // bottom separator
+  const sepY = y + (compact ? 14 : 10);
+  pdf.setDrawColor(185);
+  pdf.setLineWidth(0.6);
+  pdf.setLineDashPattern([3, 3], 0);
+  pdf.line(MARGIN, sepY, PAGE_W - MARGIN, sepY);
+  pdf.setLineDashPattern([], 0);
+
+  return sepY + 6;
+}
+
+/* =========================
+   EUCHARISTIC MINISTER — PRINT (HTML)
+   ========================= */
+
+function renderMassSectionHTMLEucharisticMinister(
+  massLabel,
+  groupName,
+  ministers = []
+) {
+  const rows = chunk5(
+    Array.isArray(ministers) ? ministers.filter(Boolean) : []
+  );
+  const firstRow = rows.shift() || [];
+  const restRows = rows;
+
+  const line = (label, value) => `
+    <div class="role-row">
+      <span class="role-label">${label}</span>
+      <span class="role-value">${value || ""}</span>
+    </div>`;
+
+  const lines = [
+    line("Assigned Group:", groupName || ""),
+    line("Ministers -", (firstRow || []).join(", ")),
+    ...restRows.map((r) => line("", r.join(", "))),
+  ].join("");
+
+  return `
+    <div class="mass-section">
+      <div class="dotted-line"></div>
+      <div class="mass-title">${massLabel}</div>
+      <div class="roles-container">
+        ${lines}
+      </div>
+    </div>
+  `;
+}
+
+function renderSchedulePageHTMLEucharisticMinister({
+  grouped,
+  masses,
+  department,
+  dateISO,
+  centerLabel = "",
+}) {
+  const logoHtml = `<img src="${image.OLGPlogo}" class="logo" alt="OLGP Logo">`;
+
+  const header = `
+    <div class="header">
+      <div class="logo-title-section">
+        <div class="logo-container">${logoHtml}</div>
+        <div class="title-container">
+          <h1 class="main-title">Our Lady of Guadalupe Parish</h1>
+          <h2 class="subtitle">${department}</h2>
+        </div>
+      </div>
+      <div class="center-heading">
+        <h3 class="schedule-title">Schedule for ${prettyDate(dateISO)}</h3>
+        ${centerLabel ? `<h4 class="mass-type">${centerLabel}</h4>` : ""}
+      </div>
+    </div>
+  `;
+
+  const sections = masses
+    .map((m) => {
+      const g = grouped[m] || { group: "", ministers: [] };
+      return renderMassSectionHTMLEucharisticMinister(m, g.group, g.ministers);
+    })
+    .join("");
+
+  const footer = `
+    <div class="footer">
+      <span class="footer-date">Generated: ${new Date().toLocaleDateString()}</span>
+    </div>
+  `;
+
+  return `
+    <div class="page">
+      ${header}
+      <div class="content">${sections}</div>
+      ${footer}
+    </div>
+  `;
+}
+
+function getSchedulePrintStylesEucharisticMinister() {
   return `
   @page { size: 8.5in 11in; margin: 0; }
   html, body { margin:0; padding:0; width:816px; height:1056px; background:#fff; font-family: Helvetica, Arial, sans-serif; }
   * { box-sizing: border-box; }
-  .page { width:816px; height:1056px; padding:28px; position:relative; background:#fff; page-break-inside: avoid; }
-  .header { margin-bottom: 40px; }
+  .page { width:816px; height:1056px; padding:28px; position:relative; background:#fff; }
+  .header { margin-bottom: 20px; }
   .logo-title-section { display:flex; align-items:flex-start; }
   .logo-container { width:52px; height:52px; margin-right:14px; }
   .logo { width:52px; height:52px; display:block; }
@@ -2200,20 +2470,29 @@ export async function printChoirSchedules({
   .center-heading { text-align:center; margin-top:22px; }
   .schedule-title { font-weight:700; font-size:18px; margin:0; }
   .mass-type { font-weight:400; font-size:16px; margin:6px 0 0 0; }
-  .content { margin-top:40px; height: calc(100% - 160px); display: flex; flex-direction: column; justify-content: space-evenly; }
-  .mass-section { margin-bottom: 60px; }
-  .mass-section:first-child { margin-top:0; }
-  .mass-section:not(:first-child) .dotted-line { border-top:0.6px dashed #b9b9b9; margin-bottom:25px; }
-  .mass-section:first-child .dotted-line { display: none; }
-  .mass-title { font-weight:700; font-size:15px; margin-bottom:35px; margin-top: 0; }
-  .roles-container {}
-  .role-row { display:flex; align-items:baseline; gap:8px; margin-bottom:20px; }
-  .role-label { width:150px; flex:0 0 150px; font-weight:700; font-size:15.5px; }
+
+  .content { margin-top: 30px; }
+  .mass-section { margin-top: 18px; }
+  .mass-section:first-child { margin-top: 0; }
+  .dotted-line { border-top: 0.6px dashed #b9b9b9; margin-bottom: 14px; }
+  .mass-title { font-weight:700; font-size:15px; margin-bottom: 16px; }
+
+  .roles-container { margin-left: 0; }
+  .role-row { display:flex; align-items:baseline; gap:8px; margin-bottom: 14px; } /* more spacing */
+  .role-label { width:130px; flex:0 0 130px; font-weight:700; font-size:14.5px; } /* narrower label */
+
   .role-value {
-    font-size:15.5px; display:inline-block; white-space:nowrap;
-    border-bottom:0.9px solid #000; padding-bottom:5px; min-height:1.2em;
+    font-size:14px; /* slightly smaller */
+    display:inline-block;
+    white-space:nowrap;
+    border-bottom:0.9px solid #000;
+    padding-bottom:4px;
+    min-height:1.2em;
   }
+  .role-value:empty::after { content:" "; white-space:pre; }
+
   .footer { position:absolute; bottom:28px; left:28px; right:28px; font-size:10.5px; }
+
   @media print {
     html, body { width:816px; height:1056px; }
     .page { page-break-inside: avoid; }
@@ -2223,4 +2502,320 @@ export async function printChoirSchedules({
   }
   .page:not(:first-child) { page-break-before: always; }
   `;
-}*/
+}
+
+/* =========================
+   EUCHARISTIC MINISTER — EXPORTS
+   ========================= */
+
+export async function exportEucharisticMinisterSchedulesPDF({
+  dateISO,
+  isSunday = true,
+  department = "Eucharistic Minister",
+  templateID,
+} = {}) {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Missing date", "Please select a date first.", "error");
+      return;
+    }
+
+    const grouped = await fetchGroupedEucharisticMinister(dateISO);
+    const allMasses = Object.keys(grouped);
+    if (!allMasses.length) {
+      await Swal.fire("No data", "No assignments found for that date.", "info");
+      return;
+    }
+
+    const { sunday, template } = splitMasses(allMasses);
+    const pdf = new jsPDF("p", "pt", [PAGE_W, PAGE_H]);
+
+    const renderMassPage = async (masses, centerLabel) => {
+      const label = centerLabel ?? undefined;
+      const top = await drawHeader(pdf, department, dateISO, isSunday, label);
+      const bottom = PAGE_H - MARGIN - FOOTER_H;
+      const totalH = bottom - top;
+
+      const single = masses.length === 1;
+      const sectionH = single ? 320 : totalH / masses.length;
+
+      masses.forEach((mass, i) => {
+        const sectionTop = single ? top : top + i * sectionH;
+        const g = grouped[mass] || { group: "", ministers: [] };
+        drawMassSectionEucharisticMinister(pdf, {
+          massLabel: mass,
+          groupName: g.group,
+          ministers: g.ministers,
+          sectionTop,
+          sectionHeight: sectionH,
+          compact: single,
+        });
+      });
+
+      drawFooter(pdf);
+    };
+
+    // Sunday pages
+    if (sunday.length) {
+      const pages = chunk(sunday, 3);
+      for (let i = 0; i < pages.length; i++) {
+        if (i > 0) pdf.addPage([PAGE_W, PAGE_H]);
+        await renderMassPage(pages[i], "Sunday Mass");
+      }
+    }
+
+    // Template pages
+    if (template.length) {
+      const type = await getTemplateMassType(templateID);
+      const centerLabel = type;
+      const pages = chunk(template, 3);
+      for (let i = 0; i < pages.length; i++) {
+        if (i > 0 || sunday.length > 0) pdf.addPage([PAGE_W, PAGE_H]);
+        await renderMassPage(pages[i], centerLabel);
+      }
+    }
+
+    pdf.save(`eucharistic-minister-schedule-${dateISO}.pdf`);
+  } catch (e) {
+    console.error("PDF export (EM) failed:", e);
+    await Swal.fire("Error", "Failed to export schedule PDF.", "error");
+  }
+}
+
+export async function exportEucharisticMinisterSchedulesPNG({
+  dateISO,
+  isSunday = true,
+  department = "Eucharistic Minister",
+  templateID,
+} = {}) {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Missing date", "Please select a date first.", "error");
+      return;
+    }
+
+    const grouped = await fetchGroupedEucharisticMinister(dateISO);
+    const allMasses = Object.keys(grouped);
+    if (!allMasses.length) {
+      await Swal.fire("No data", "No assignments found for that date.", "info");
+      return;
+    }
+
+    const { sunday, template } = splitMasses(allMasses);
+
+    // canvas shim (same interface as jsPDF calls we use)
+    const makeCanvasCtx = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = PAGE_W;
+      canvas.height = PAGE_H;
+      const ctx = canvas.getContext("2d");
+      let currentFontSize = 12;
+      let currentWeight = "normal";
+      ctx.font = `${currentWeight} ${currentFontSize}px Arial`;
+      return {
+        addImage: (src, _t, x, y, w, h) =>
+          new Promise((res, rej) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = src;
+            img.onload = () => {
+              ctx.drawImage(img, x, y, w, h);
+              res();
+            };
+            img.onerror = rej;
+          }),
+        setFont: (_f, weight) => {
+          currentWeight = weight === "bold" ? "bold" : "normal";
+          ctx.font = `${currentWeight} ${currentFontSize}px Arial`;
+        },
+        setFontSize: (size) => {
+          currentFontSize = size;
+          ctx.font = `${currentWeight} ${currentFontSize}px Arial`;
+        },
+        setDrawColor: (r, g, b) => {
+          ctx.strokeStyle = `rgb(${r},${g},${b})`;
+        },
+        setLineWidth: (w) => {
+          ctx.lineWidth = w;
+        },
+        setLineDashPattern: (p) => {
+          ctx.setLineDash(p);
+        },
+        line: (x1, y1, x2, y2) => {
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        },
+        text: (t, x, y, opt = {}) => {
+          ctx.textAlign = opt.align === "center" ? "center" : "start";
+          ctx.fillStyle = "#000";
+          ctx.fillText(t, x, y);
+        },
+        getTextWidth: (t) => ctx.measureText(t || "").width,
+        _canvas: canvas,
+        _ctx: ctx,
+      };
+    };
+
+    const renderPageToPNG = async (masses, centerLabel) => {
+      const fakePDF = makeCanvasCtx();
+      const { _canvas: canvas, _ctx: ctx } = fakePDF;
+
+      // white bg
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const top = await drawHeader(
+        fakePDF,
+        department,
+        dateISO,
+        isSunday,
+        centerLabel
+      );
+      const bottom = PAGE_H - MARGIN - FOOTER_H;
+      const totalH = bottom - top;
+
+      const single = masses.length === 1;
+      const sectionH = single ? 320 : totalH / masses.length;
+
+      masses.forEach((mass, i) => {
+        const sectionTop = single ? top : top + i * sectionH;
+        const g = grouped[mass] || { group: "", ministers: [] };
+        drawMassSectionEucharisticMinister(fakePDF, {
+          massLabel: mass,
+          groupName: g.group,
+          ministers: g.ministers,
+          sectionTop,
+          sectionHeight: sectionH,
+          compact: single,
+        });
+      });
+
+      drawFooter(fakePDF);
+      return canvas.toDataURL("image/png");
+    };
+
+    const zip = new JSZip();
+
+    if (sunday.length) {
+      const pages = chunk(sunday, 3);
+      for (let i = 0; i < pages.length; i++) {
+        const img = await renderPageToPNG(pages[i], "Sunday Mass");
+        zip.file(
+          `eucharistic-minister-schedule-${dateISO}-sunday-${i + 1}.png`,
+          img.split(",")[1],
+          { base64: true }
+        );
+      }
+    }
+
+    if (template.length) {
+      const type = await getTemplateMassType(templateID);
+      const centerLabel = type;
+      const pages = chunk(template, 3);
+      for (let i = 0; i < pages.length; i++) {
+        const img = await renderPageToPNG(pages[i], centerLabel);
+        zip.file(
+          `eucharistic-minister-schedule-${dateISO}-template-${i + 1}.png`,
+          img.split(",")[1],
+          { base64: true }
+        );
+      }
+    }
+
+    const content = await zip.generateAsync({ type: "blob" });
+    saveAs(content, `eucharistic-minister-schedule-${dateISO}.zip`);
+  } catch (e) {
+    console.error("PNG export (EM) failed:", e);
+    await Swal.fire("Error", "Failed to export schedule PNG.", "error");
+  }
+}
+
+export async function printEucharisticMinisterSchedules({
+  dateISO,
+  isSunday = true,
+  department = "Eucharistic Minister",
+  templateID,
+} = {}) {
+  try {
+    if (!dateISO) {
+      await Swal.fire("Error", "Please select a date first.", "error");
+      return;
+    }
+
+    const grouped = await fetchGroupedEucharisticMinister(dateISO);
+    const allMasses = Object.keys(grouped);
+    if (!allMasses.length) {
+      await Swal.fire("Info", "No assignments found for that date.", "info");
+      return;
+    }
+
+    const { sunday, template } = splitMasses(allMasses);
+    const pages = [];
+
+    if (sunday.length) {
+      for (const group of chunk(sunday, 3)) {
+        pages.push(
+          renderSchedulePageHTMLEucharisticMinister({
+            grouped,
+            masses: group,
+            department,
+            dateISO,
+            centerLabel: "Sunday Mass",
+          })
+        );
+      }
+    }
+
+    if (template.length) {
+      const type = await getTemplateMassType(templateID);
+      const centerLabel = type;
+      for (const group of chunk(template, 3)) {
+        pages.push(
+          renderSchedulePageHTMLEucharisticMinister({
+            grouped,
+            masses: group,
+            department,
+            dateISO,
+            centerLabel,
+          })
+        );
+      }
+    }
+
+    const html = pages.join("");
+    const w = window.open("", "_blank", "width=816,height=1056");
+    if (!w) {
+      await Swal.fire(
+        "Popup Blocked",
+        "Please allow popups to print.",
+        "error"
+      );
+      return;
+    }
+    w.document.open();
+    w.document.write(`
+      <html>
+        <head>
+          <title>Schedule (${dateISO})</title>
+          <style>${getSchedulePrintStylesEucharisticMinister()}</style>
+        </head>
+        <body>${html}</body>
+      </html>
+    `);
+    w.document.close();
+    w.onload = () => {
+      w.focus();
+      w.print();
+      w.close();
+    };
+  } catch (err) {
+    console.error("Print (EM) failed:", err);
+    await Swal.fire(
+      "Error",
+      "Unexpected error occurred while printing.",
+      "error"
+    );
+  }
+}

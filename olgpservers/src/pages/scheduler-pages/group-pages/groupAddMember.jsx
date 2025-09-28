@@ -153,7 +153,7 @@ export default function GroupAddMember() {
       sex,
       email,
       contactNumber,
-      null // always null at first; we upload image after the row is created
+      null
     );
 
     if (!isAdded) return;

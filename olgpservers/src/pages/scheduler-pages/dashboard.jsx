@@ -8,6 +8,8 @@ import {
   fetchAuthRowByIdNumber,
   setHasAgreeTrue,
   redirectOnExit,
+  countDepartmentHandles,
+  countSchedulesAssigned,
 } from "../../assets/scripts/dashboard";
 
 import "../../assets/styles/dashboard.css";
@@ -15,6 +17,23 @@ import "../../assets/styles/dashboard.css";
 export default function Dashboard() {
   const storedIdNumber = localStorage.getItem("idNumber");
   const [showTerms, setShowTerms] = useState(false);
+
+  const [handlesCount, setHandlesCount] = useState(0);
+  const [assignedCount, setAssignedCount] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      const c = await countDepartmentHandles(storedIdNumber);
+      setHandlesCount(c);
+    })();
+  }, [storedIdNumber]);
+
+  useEffect(() => {
+    (async () => {
+      const count = await countSchedulesAssigned(storedIdNumber);
+      setAssignedCount(count);
+    })();
+  }, [storedIdNumber]);
 
   useEffect(() => {
     document.title = "OLGP Servers | Dashboard";
@@ -71,8 +90,8 @@ export default function Dashboard() {
                 className="img-people"
               />
               <div>
-                <h4 className="mb-0 fw-bold fs-3">1</h4>
-                <small>Department Handles</small>
+                <h4 className="mb-0 fw-bold fs-3">{handlesCount}</h4>
+                <small>Department Handled</small>
               </div>
             </div>
           </div>
@@ -86,8 +105,8 @@ export default function Dashboard() {
                 className="img-checkIcon"
               />
               <div>
-                <h4 className="mb-0 fw-bold fs-3">5</h4>
-                <small>Mass Completed</small>
+                <h4 className="mb-0 fw-bold fs-3">{assignedCount}</h4>
+                <small>Schedules Assigned</small>
               </div>
             </div>
           </div>
@@ -104,6 +123,5 @@ export default function Dashboard() {
         <Footer />
       </div>
     </div>
-    
   );
 }

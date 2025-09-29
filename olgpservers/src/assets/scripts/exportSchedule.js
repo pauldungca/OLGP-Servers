@@ -2269,10 +2269,9 @@ function underlineToTextGeneric(pdf, text, x, y, maxRight = PAGE_W - MARGIN) {
   pdf.line(x, y + 5, endX, y + 5);
 }
 
-// chunk helper for Ministers rows (5 per line)
 function chunk5(arr = []) {
   const out = [];
-  for (let i = 0; i < arr.length; i += 3) out.push(arr.slice(i, i + 3));
+  for (let i = 0; i < arr.length; i += 2) out.push(arr.slice(i, i + 2));
   return out;
 }
 

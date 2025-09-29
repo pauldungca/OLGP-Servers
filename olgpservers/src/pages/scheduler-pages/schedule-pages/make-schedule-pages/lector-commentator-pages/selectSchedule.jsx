@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useNavigate } from "react-router-dom";
 import icon from "../../../../../helper/icon";
+import Swal from "sweetalert2";
 import image from "../../../../../helper/images";
 import Footer from "../../../../../components/footer";
 
@@ -17,6 +18,7 @@ import {
   getLoadingMessage,
   fetchLectorCommentatorTemplateDates,
   computeLectorCommentatorStatusForDate,
+  lectorCommentatorMemberCounts,
 } from "../../../../../assets/scripts/fetchSchedule";
 
 import {
@@ -55,6 +57,8 @@ export default function SelectSchedule() {
   const [loading, setLoading] = useState(true);
   const [navigating, setNavigating] = useState(false);
 
+  const [hasMembers, setHasMembers] = useState(true);
+
   const [scheduleStatus, setScheduleStatus] = useState({});
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [initialStatusLoadComplete, setInitialStatusLoadComplete] =
@@ -62,6 +66,29 @@ export default function SelectSchedule() {
 
   // Track if auto-assignment is in progress
   const [autoAssigning, setAutoAssigning] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { total } = await lectorCommentatorMemberCounts();
+      if (cancelled) return;
+
+      if (!total || total === 0) {
+        setHasMembers(false);
+        await Swal.fire({
+          icon: "info",
+          title: "No Lector Commentator Members",
+          text: "There are currently no Lector Commentator members in the system.",
+          confirmButtonText: "OK",
+        });
+      } else {
+        setHasMembers(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Fetch template dates (includes .time) for Lector Commentator
   useEffect(() => {
@@ -283,7 +310,9 @@ export default function SelectSchedule() {
           <div className="auto-btn-container">
             <button
               className="auto-btn"
-              disabled={isLoading || autoAssigning || autoDisabled}
+              disabled={
+                isLoading || autoAssigning || autoDisabled || !hasMembers
+              }
               onClick={handleAutoAssign}
               title="Automatically assign all Sunday masses for this month"
             >

@@ -1,5 +1,6 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import DisableBack from "../src/components/disableBack.jsx";
 
 // Ant Design
 import "antd/dist/reset.css";
@@ -121,6 +122,7 @@ import "./assets/styles/font.css";
 function App() {
   return (
     <BrowserRouter>
+      <DisableBack />
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<Login />} />

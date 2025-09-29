@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import icon from "../../../../../helper/icon";
 import image from "../../../../../helper/images";
 import Footer from "../../../../../components/footer";
@@ -17,6 +18,7 @@ import {
   computeStatusForDate,
   viewFor,
   getLoadingMessage,
+  altarServerMemberCounts,
 } from "../../../../../assets/scripts/fetchSchedule";
 
 import {
@@ -38,6 +40,7 @@ export default function SelectSchedule() {
   const [year, setYear] = useState(today.getFullYear());
 
   const [autoDisabled, setAutoDisabled] = React.useState(false);
+  const [hasMembers, setHasMembers] = useState(true);
 
   const refreshMonthStatus = React.useCallback(async () => {
     const { isComplete } = await isMonthFullyScheduled(year, month);
@@ -59,6 +62,29 @@ export default function SelectSchedule() {
 
   // Track if auto-assignment is in progress
   const [autoAssigning, setAutoAssigning] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { total } = await altarServerMemberCounts();
+      if (cancelled) return;
+
+      if (!total || total === 0) {
+        setHasMembers(false);
+        await Swal.fire({
+          icon: "info",
+          title: "No Altar Server Members",
+          text: "There are currently no Altar Server members in the system.",
+          confirmButtonText: "OK",
+        });
+      } else {
+        setHasMembers(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Fetch template dates (includes .time)
   useEffect(() => {
@@ -280,7 +306,9 @@ export default function SelectSchedule() {
           <div className="auto-btn-container">
             <button
               className="auto-btn"
-              disabled={isLoading || autoAssigning || autoDisabled}
+              disabled={
+                isLoading || autoAssigning || autoDisabled || !hasMembers
+              }
               onClick={handleAutoAssign}
               title="Automatically assign all Sunday masses for this month"
             >

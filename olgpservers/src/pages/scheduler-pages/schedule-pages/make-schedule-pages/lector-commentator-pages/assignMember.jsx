@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useMemo } from "react";
+// src/pages/scheduler-pages/lector-commentator/assignMember.jsx
+import React, { useEffect, useMemo, useState } from "react";
 import { Breadcrumb } from "antd";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+
 import icon from "../../../../../helper/icon";
 import image from "../../../../../helper/images";
 import Footer from "../../../../../components/footer";
 
-// Import necessary functions from assignMember
 import {
   fetchLectorCommentatorMembersNormalized,
   slotBaseLabelFor,
@@ -27,10 +28,13 @@ export default function AssignMemberLectorCommentator() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // -------- Context from SelectRole --------
+  // ====== Nav state from SelectRole
   const selectedDate = location.state?.selectedDate || "No date selected";
   const selectedISO = location.state?.selectedISO || null;
   const selectedMass = location.state?.selectedMass || "No mass selected";
+  const selectedMassDisplay =
+    location.state?.selectedMassDisplay || selectedMass;
+
   const source = location.state?.source || null;
   const isSunday = location.state?.isSunday ?? null;
   const templateID = location.state?.templateID ?? null;
@@ -39,37 +43,120 @@ export default function AssignMemberLectorCommentator() {
   const selectedRoleLabel = location.state?.selectedRoleLabel || "Reading";
   const slotsCount = Math.max(1, Number(location.state?.slotsCount || 1));
 
+  const massKind =
+    location.state?.massKind || (templateID ? "template" : "sunday");
+
   const slotBaseLabel = useMemo(
     () => slotBaseLabelFor(selectedRoleKey, selectedRoleLabel),
     [selectedRoleKey, selectedRoleLabel]
   );
 
-  // -------- Members (left list) --------
-  const [members, setMembers] = useState([]); // [{ idNumber, fullName, roleCount, daysSinceLastRole, ... }]
+  // Check if this is a template mass
+  const isTemplateMass = useMemo(() => {
+    return templateID !== null && templateID !== undefined;
+  }, [templateID]);
+
+  // ====== LEFT: Members list
+  const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // NEW: include-unavailable override (for template masses)
+  const [includeUnavailable, setIncludeUnavailable] = useState(false);
+
+  // Load members list (refetch when override flips or template status changes)
+  /*useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingMembers(true);
+        const normalized = await fetchLectorCommentatorMembersNormalized(
+          selectedISO,
+          selectedMass,
+          selectedRoleKey,
+          {
+            massKind,
+            includeUnavailable: includeUnavailable || isTemplateMass, // Template masses always include all
+          }
+        );
+        if (!cancelled) setMembers(normalized || []);
+      } catch (err) {
+        console.error("LC fetch members failed:", err);
+        if (!cancelled) setMembers([]);
+      } finally {
+        if (!cancelled) setLoadingMembers(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedISO,
+    selectedMass,
+    selectedRoleKey,
+    massKind,
+    includeUnavailable,
+    isTemplateMass,
+  ]);*/
 
   useEffect(() => {
-    const loadMembers = async () => {
-      const normalizedMembers = await fetchLectorCommentatorMembersNormalized(
-        selectedISO,
-        selectedMass,
-        selectedRoleKey
-      );
-      setMembers(normalizedMembers);
-      setLoadingMembers(false);
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingMembers(true);
+        const normalized = await fetchLectorCommentatorMembersNormalized(
+          selectedISO,
+          selectedMass,
+          selectedRoleKey,
+          {
+            includeUnavailable: includeUnavailable || isTemplateMass,
+          }
+        );
+        if (!cancelled) setMembers(normalized || []);
+      } catch (err) {
+        console.error("LC fetch members failed:", err);
+        if (!cancelled) setMembers([]);
+      } finally {
+        if (!cancelled) setLoadingMembers(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
-    loadMembers();
-  }, [selectedISO, selectedMass, selectedRoleKey]);
+  }, [
+    selectedISO,
+    selectedMass,
+    selectedRoleKey,
+    includeUnavailable,
+    isTemplateMass,
+  ]);
 
-  // -------- Assigned (right panel) --------
+  const filteredMembers = useMemo(() => {
+    const term = (searchTerm || "").toLowerCase();
+    return (members || []).filter((m) =>
+      (m.fullName || "").toLowerCase().includes(term)
+    );
+  }, [members, searchTerm]);
+
+  // Priority = never did role OR last assignment > 30 days
+  const priorityOnlyMembers = useMemo(
+    () =>
+      filteredMembers.filter(
+        (m) => m.roleCount === 0 || (m.daysSinceLastRole ?? 0) > 30
+      ),
+    [filteredMembers]
+  );
+
+  // ====== RIGHT: Assigned slots
   const [preloading, setPreloading] = useState(true);
   const [assigned, setAssigned] = useState(ensureArraySize([], slotsCount));
 
-  // Keep assigned array size in sync with slotsCount
+  // Keep size in sync if slots change
   useEffect(() => {
     setAssigned((prev) => ensureArraySize(prev, slotsCount));
   }, [slotsCount]);
 
+  // Preload existing assignments for role
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -86,7 +173,8 @@ export default function AssignMemberLectorCommentator() {
           slotsCount,
         });
         if (!cancelled) setAssigned(arr);
-      } catch {
+      } catch (err) {
+        console.error("LC preload assigned failed:", err);
         if (!cancelled) setAssigned(ensureArraySize([], slotsCount));
       } finally {
         if (!cancelled) setPreloading(false);
@@ -97,55 +185,52 @@ export default function AssignMemberLectorCommentator() {
     };
   }, [selectedISO, selectedMass, selectedRoleKey, slotsCount]);
 
-  // -------- Search + Priority-only filter --------
-  const [searchTerm, setSearchTerm] = useState("");
+  // ====== AUTO-FALLBACK: if list becomes empty, show all members ========
+  useEffect(() => {
+    // Template masses don't need this logic - they already show all members
+    if (isTemplateMass) return;
 
-  // base filter by search
-  const filteredMembers = useMemo(() => {
-    return members.filter((m) =>
-      (m.fullName || "")
-        .toLowerCase()
-        .includes((searchTerm || "").toLowerCase())
-    );
-  }, [members, searchTerm]);
+    if (loadingMembers) return;
 
-  // show ONLY priority members (new to role OR last assignment > 30 days)
-  const priorityOnlyMembers = useMemo(() => {
-    return filteredMembers.filter(
-      (m) => m.roleCount === 0 || m.daysSinceLastRole > 30
-    );
-  }, [filteredMembers]);
+    // If list is empty, activate override to show all
+    if (filteredMembers.length === 0) {
+      setIncludeUnavailable(true);
+    }
+    // If list has members again and override is active, turn it off to show only available
+    else if (includeUnavailable && filteredMembers.length > 0) {
+      setIncludeUnavailable(false);
+    }
+  }, [
+    isTemplateMass,
+    loadingMembers,
+    filteredMembers.length,
+    includeUnavailable,
+  ]);
 
-  // -------- UI Handlers --------
+  // ====== Handlers
   const handleToggleMember = (member) => {
     setAssigned((prev) => {
       const id = String(member.idNumber ?? "").trim();
-      const alreadyIdx = prev.findIndex((m) => m && String(m.idNumber) === id);
+      const idx = prev.findIndex((m) => m && String(m.idNumber) === id);
 
-      // If already assigned, unassign them
-      if (alreadyIdx >= 0) {
+      // Unassign if already chosen
+      if (idx >= 0) {
         const next = [...prev];
-        next[alreadyIdx] = null; // unassign
+        next[idx] = null;
         return next;
       }
 
-      // If not assigned, assign them
-      const emptyIndex = prev.findIndex((m) => !m);
-      if (emptyIndex !== -1) {
+      // Assign to first empty slot
+      const emptyIdx = prev.findIndex((m) => !m);
+      if (emptyIdx !== -1) {
         const next = [...prev];
-        next[emptyIndex] = {
-          idNumber: id,
-          fullName: member.fullName,
-        };
+        next[emptyIdx] = { idNumber: id, fullName: member.fullName };
         return next;
       }
 
-      // If no empty slots, replace the first slot
+      // Otherwise replace first
       const next = [...prev];
-      next[0] = {
-        idNumber: id,
-        fullName: member.fullName,
-      };
+      next[0] = { idNumber: id, fullName: member.fullName };
       return next;
     });
   };
@@ -158,6 +243,7 @@ export default function AssignMemberLectorCommentator() {
       roleKey: selectedRoleKey,
       slotsCount,
     });
+    setIncludeUnavailable(false);
     setAssigned(next);
   };
 
@@ -175,14 +261,13 @@ export default function AssignMemberLectorCommentator() {
     }
   };
 
-  const formatRotationInfo = (member) => {
-    const roleCount =
-      typeof member.roleCount === "number" ? member.roleCount : 0;
-
+  // ====== UI helpers
+  const formatRotationInfo = (m) => {
+    const roleCount = Number.isFinite(m.roleCount) ? m.roleCount : 0;
     if (roleCount === 0) return "New to role";
 
-    const d = member.daysSinceLastRole;
-    const dayText =
+    const d = m.daysSinceLastRole;
+    const days =
       d === Infinity
         ? "Never"
         : d === 0
@@ -192,9 +277,10 @@ export default function AssignMemberLectorCommentator() {
         : Number.isFinite(d)
         ? `${d} days ago`
         : "—";
-
-    return `${roleCount}x done • Last: ${dayText}`;
+    return `${roleCount}x done • Last: ${days}`;
   };
+
+  const nothingToShow = !loadingMembers && filteredMembers.length === 0;
 
   return (
     <div className="schedule-page-container">
@@ -247,19 +333,18 @@ export default function AssignMemberLectorCommentator() {
                         selectedDate,
                         selectedISO,
                         selectedMass,
+                        selectedMassDisplay,
                         source,
                         isSunday,
                         templateID,
+                        massKind,
                       }}
                     >
                       Select Role
                     </Link>
                   ),
                 },
-                {
-                  title: "Assign Member",
-                  className: "breadcrumb-item-active",
-                },
+                { title: "Assign Member", className: "breadcrumb-item-active" },
               ]}
               separator={
                 <img
@@ -276,10 +361,9 @@ export default function AssignMemberLectorCommentator() {
       </div>
 
       <div className="schedule-content">
-        {/* Context header */}
         <h4 style={{ marginBottom: "0.5rem" }}>
           Selected Date: {selectedDate} &nbsp;|&nbsp; Selected Mass:{" "}
-          {selectedMass}
+          {selectedMassDisplay}
         </h4>
         <div
           style={{ color: "#2e4a9e", marginBottom: "1rem", fontWeight: 600 }}
@@ -288,7 +372,7 @@ export default function AssignMemberLectorCommentator() {
         </div>
 
         <div className="assign-container row">
-          {/* Left side */}
+          {/* LEFT */}
           <div className="col-md-6 assign-left">
             <h5 className="assign-title">{selectedRoleLabel}</h5>
 
@@ -296,7 +380,9 @@ export default function AssignMemberLectorCommentator() {
               <input
                 type="text"
                 className="form-control"
-                placeholder={loadingMembers ? "Loading members..." : "Search"}
+                placeholder={
+                  loadingMembers ? "Loading members…" : "Search members"
+                }
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 disabled={loadingMembers}
@@ -307,23 +393,45 @@ export default function AssignMemberLectorCommentator() {
             </div>
 
             <ul className="list-group assign-member-list">
-              <li className="list-group-item active d-flex justify-content-between">
-                <span>Name</span>
-                <span style={{ fontSize: "0.85em", opacity: 0.9 }}>
-                  Role History
-                </span>
-              </li>
-
-              {loadingMembers || preloading ? (
+              {preloading ? (
                 <li className="list-group-item text-muted">
                   {loadingMembers
                     ? "Fetching members..."
                     : "Loading assignments..."}
                 </li>
+              ) : nothingToShow ? (
+                <li className="list-group-item text-muted">
+                  No candidates with the current constraints.
+                </li>
+              ) : includeUnavailable || isTemplateMass ? (
+                // Override mode: show all without priority filtering
+                filteredMembers.map((m) => {
+                  const checked = isMemberChecked(assigned, m);
+                  return (
+                    <li
+                      key={String(m.idNumber)}
+                      className="list-group-item d-flex align-items-center justify-content-between"
+                      onClick={() => handleToggleMember(m)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <div className="d-flex align-items-center">
+                        <input
+                          type="checkbox"
+                          className="form-check-input me-2"
+                          checked={!!checked}
+                          onChange={() => handleToggleMember(m)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="d-flex align-items-center">
+                          {m.fullName}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })
               ) : priorityOnlyMembers.length > 0 ? (
                 priorityOnlyMembers.map((m) => {
                   const checked = isMemberChecked(assigned, m);
-                  // all in this list are priority by construction
                   return (
                     <li
                       key={String(m.idNumber)}
@@ -343,20 +451,17 @@ export default function AssignMemberLectorCommentator() {
                           onChange={() => handleToggleMember(m)}
                           onClick={(e) => e.stopPropagation()}
                         />
-                        <div>
-                          <div className="d-flex align-items-center">
-                            {m.fullName}
-                            <span
-                              className="badge bg-success ms-2"
-                              style={{ fontSize: "0.7em" }}
-                              title="Priority for role rotation"
-                            >
-                              Priority
-                            </span>
-                          </div>
+                        <div className="d-flex align-items-center">
+                          {m.fullName}
+                          <span
+                            className="badge bg-success ms-2"
+                            style={{ fontSize: "0.7em" }}
+                            title="Priority for role rotation"
+                          >
+                            Priority
+                          </span>
                         </div>
                       </div>
-
                       <div
                         className="text-end"
                         style={{
@@ -371,12 +476,35 @@ export default function AssignMemberLectorCommentator() {
                   );
                 })
               ) : (
-                <li className="list-group-item text-muted">No results found</li>
+                filteredMembers.map((m) => {
+                  const checked = isMemberChecked(assigned, m);
+                  return (
+                    <li
+                      key={String(m.idNumber)}
+                      className="list-group-item d-flex align-items-center justify-content-between"
+                      onClick={() => handleToggleMember(m)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <div className="d-flex align-items-center">
+                        <input
+                          type="checkbox"
+                          className="form-check-input me-2"
+                          checked={!!checked}
+                          onChange={() => handleToggleMember(m)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="d-flex align-items-center">
+                          {m.fullName}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })
               )}
             </ul>
           </div>
 
-          {/* Right side */}
+          {/* RIGHT */}
           <div className="col-md-6 assign-right">
             <div className="assign-right-scroll">
               {Array.from({ length: slotsCount }).map((_, i) => (
@@ -415,9 +543,7 @@ export default function AssignMemberLectorCommentator() {
         </div>
       </div>
 
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

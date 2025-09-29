@@ -1515,3 +1515,83 @@ export async function getEMStatusesForDate(dateISO, massLabels = []) {
     return out;
   }
 }
+
+/* ------   Counters  --------- */
+
+const countByUserTypeFlag = async (flagColumn) => {
+  try {
+    const { data, error } = await supabase
+      .from("user-type")
+      .select("idNumber")
+      .eq(flagColumn, 1);
+
+    if (error) throw error;
+    return { total: (data || []).length };
+  } catch (err) {
+    console.error("countByUserTypeFlag error:", err);
+    return { total: 0, error: err.message };
+  }
+};
+
+export const altarServerMemberCounts = async () =>
+  countByUserTypeFlag('"altar-server-member"');
+
+export const lectorCommentatorMemberCounts = async () =>
+  countByUserTypeFlag('"lector-commentator-member"');
+
+export const eucharisticMinisterMemberCounts = async () =>
+  countByUserTypeFlag('"eucharistic-minister-member"');
+
+export const choirMemberCounts = async () =>
+  countByUserTypeFlag('"choir-member"');
+
+// ===== Group counts (simple row counts) =====
+
+/*export const eucharisticMinisterGroupCounts = async () => {
+  try {
+    const { count, error } = await supabase
+      .from("eucharistic-minister-groups")
+      .select("id", { count: "exact", head: true });
+    if (error) throw error;
+    return { total: count ?? 0 };
+  } catch (err) {
+    console.error("eucharisticMinisterGroupCounts error:", err);
+    return { total: 0, error: err.message };
+  }
+};*/
+
+export const eucharisticMinisterGroupCounts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from("eucharistic-minister-groups")
+      .select("id");
+
+    if (error) throw error;
+
+    const ids = Array.isArray(data) ? data.map((row) => row.id) : [];
+    const total = ids.length;
+
+    return { total, ids };
+  } catch (err) {
+    console.error("eucharisticMinisterGroupCounts error:", err);
+    return { total: 0, ids: [], error: err.message };
+  }
+};
+
+export const choirGroupCounts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from("choir-groups") // quotes needed because of the hyphen
+      .select("id"); // fetch all ids
+
+    if (error) throw error;
+
+    const ids = Array.isArray(data) ? data.map((row) => row.id) : [];
+    const total = ids.length;
+
+    return { total, ids };
+  } catch (err) {
+    console.error("choirGroupCounts error:", err);
+    return { total: 0, ids: [], error: err.message };
+  }
+};

@@ -10,7 +10,7 @@ import {
   getTemplateFlagsForChoir,
 } from "./fetchSchedule";
 
-import { fetchChoirGroups } from "./group";
+import { fetchChoirGroups, fetchEucharisticMinisterGroups } from "./group";
 
 export const ROLE_COLUMN_MAP = {
   candleBearer: "candle-bearer",
@@ -381,7 +381,7 @@ export const buildFullName = (m) => {
   return finalName || String(m.idNumber || "").trim();
 };
 
-export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
+/*export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
   const { perRoleAllowed } = await buildEligibilityMaps();
   const allowedSet = perRoleAllowed.get(role) || new Set();
 
@@ -467,6 +467,129 @@ export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
         : Infinity;
 
       // convenience flag (like you showed)
+      const isPriority =
+        roleCount === 0 ||
+        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
+
+      return {
+        ...m,
+        rotationScore,
+        roleCount,
+        daysSinceLastRole,
+        isPriority,
+      };
+    })
+    .sort((a, b) => {
+      if (a.rotationScore !== b.rotationScore) {
+        return a.rotationScore - b.rotationScore;
+      }
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+  return normalized;
+};*/
+
+// Keep your existing imports and helpers above…
+
+// FULL REPLACEMENT: fetchMembersNormalized
+export const fetchMembersNormalized = async (
+  dateISO,
+  massLabel,
+  role,
+  options = {}
+) => {
+  const includeUnavailable = !!options.includeUnavailable;
+
+  // 1) Role eligibility
+  const { perRoleAllowed } = await buildEligibilityMaps();
+  const allowedSet = perRoleAllowed.get(role) || new Set();
+
+  // 2) Who is already assigned on this DATE (any mass/role) — KEEP THIS
+  const { data: allAssignedMembers, error: allAssignedError } = await supabase
+    .from("altar-server-placeholder")
+    .select("idNumber, role, mass")
+    .eq("date", dateISO);
+
+  if (allAssignedError) {
+    console.error("Error fetching assigned members:", allAssignedError);
+    return [];
+  }
+
+  // Sets for fast checks
+  const allAssignedIds = new Set(
+    (allAssignedMembers || []).map((m) => String(m.idNumber).trim())
+  );
+
+  const assignedByRole = new Map();
+  (allAssignedMembers || []).forEach((m) => {
+    const k = m.role;
+    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
+    assignedByRole.get(k).add(String(m.idNumber).trim());
+  });
+
+  // 3) Rotation history (last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+  const { data: historicalAssignments } = await supabase
+    .from("altar-server-placeholder")
+    .select("idNumber, role, date, mass")
+    .gte("date", sixMonthsAgoISO)
+    .order("date", { ascending: false });
+
+  // 4) Department-scoped members
+  const rows = await fetchAltarServerMembersWithRole();
+
+  // 5) Normalize + filter + compute rotation info
+  const normalized = (rows || [])
+    .map((m) => ({
+      idNumber: String(m.idNumber ?? "").trim(),
+      fullName: buildFullName(m),
+      role: m.role || "Non-Flexible",
+      sex: m.sex || "Unknown",
+    }))
+    .filter((m) => {
+      if (!m.idNumber || !m.fullName) return false;
+
+      // Keep members already assigned to THIS role so you can unassign them
+      const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
+      if (assignedToCurrentRole) return true;
+
+      // Eligibility gate for target role
+      if (!allowedSet.has(m.idNumber)) return false;
+
+      // Default: block double-booking the same DATE (any mass)
+      // Override: allow showing them (so you can complete schedule)
+      if (!includeUnavailable && allAssignedIds.has(m.idNumber)) return false;
+
+      return true;
+    })
+    .map((m) => {
+      const rotationScore = calculateRotationScore(
+        m.idNumber,
+        role,
+        historicalAssignments || [],
+        dateISO
+      );
+
+      // roleCount & daysSinceLastRole
+      const history = (historicalAssignments || []).filter(
+        (a) => String(a.idNumber).trim() === m.idNumber
+      );
+      const roleCount = history.filter((a) => a.role === role).length;
+
+      const lastRoleAssignment = history
+        .filter((a) => a.role === role)
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+      const daysSinceLastRole = lastRoleAssignment
+        ? Math.floor(
+            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
+              (1000 * 60 * 60 * 24)
+          )
+        : Infinity;
+
       const isPriority =
         roleCount === 0 ||
         (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
@@ -956,7 +1079,7 @@ export const autoAssignSundaySchedules = async (year, month) => {
       `Successfully auto-assigned schedules!\n\n` +
       `Sundays processed: ${stats.sundaysProcessed}\n` +
       `Masses processed: ${stats.massesProcessed}\n` +
-      `Total assignments: ${stats.membersAssigned}\n` +
+      `Members assigned: ${stats.membersAssigned}\n` +
       (stats.errors.length ? `Errors: ${stats.errors.length}` : ``);
 
     if (stats.errors.length) {
@@ -1404,7 +1527,7 @@ export async function buildLectorCommentatorEligibilityMaps() {
   return { perRoleAllowed, perMemberAllowed };
 }
 
-export const fetchLectorCommentatorMembersNormalized = async (
+/*export const fetchLectorCommentatorMembersNormalized = async (
   dateISO,
   massLabel,
   role
@@ -1473,6 +1596,271 @@ export const fetchLectorCommentatorMembersNormalized = async (
       // Already assigned to this role
       if (allAssignedIds.has(m.idNumber)) {
         console.log("Already assigned: ", m.idNumber);
+        return false;
+      }
+
+      return true;
+    })
+    .map((m) => {
+      const rotationScore = calculateRotationScore(
+        m.idNumber,
+        role,
+        historicalAssignments || [],
+        dateISO
+      );
+
+      // Compute roleCount and daysSinceLastRole
+      const memberHistory = (historicalAssignments || []).filter(
+        (a) => String(a.idNumber).trim() === m.idNumber
+      );
+      const roleCount = memberHistory.filter((a) => a.role === role).length;
+
+      const lastRoleAssignment = memberHistory
+        .filter((a) => a.role === role)
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+      const daysSinceLastRole = lastRoleAssignment
+        ? Math.floor(
+            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
+              (1000 * 60 * 60 * 24)
+          )
+        : Infinity;
+
+      const isPriority =
+        roleCount === 0 ||
+        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
+
+      return {
+        ...m,
+        rotationScore,
+        roleCount,
+        daysSinceLastRole,
+        isPriority,
+      };
+    })
+    .sort((a, b) => {
+      if (a.rotationScore !== b.rotationScore) {
+        return a.rotationScore - b.rotationScore;
+      }
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+  return normalized;
+};*/
+
+/*export const fetchLectorCommentatorMembersNormalized = async (
+  dateISO,
+  massLabel,
+  role,
+  options = {} // ADD THIS PARAMETER
+) => {
+  const { includeUnavailable = false } = options; // EXTRACT THE FLAG
+
+  const { perRoleAllowed } = await buildLectorCommentatorEligibilityMaps();
+  const allowedSet = perRoleAllowed.get(role) || new Set();
+
+  // Fetch assigned members for the Lector/Commentator roles
+  const { data: allAssignedMembers, error: allAssignedError } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, mass")
+    .eq("date", dateISO);
+
+  if (allAssignedError) {
+    console.error(
+      "Error fetching assigned Lector/Commentator members:",
+      allAssignedError
+    );
+    return [];
+  }
+
+  const allAssignedIds = new Set(
+    (allAssignedMembers || []).map((m) => String(m.idNumber).trim())
+  );
+
+  const assignedByRole = new Map();
+  (allAssignedMembers || []).forEach((m) => {
+    const k = m.role;
+    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
+    assignedByRole.get(k).add(String(m.idNumber).trim());
+  });
+
+  // Fetch historical assignments for Lector/Commentator roles in the last 6 months
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+  const { data: historicalAssignments } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, date, mass")
+    .gte("date", sixMonthsAgoISO)
+    .order("date", { ascending: false });
+
+  console.log("Fetched Historical Assignments: ", historicalAssignments);
+
+  const rows = await fetchLectorCommentatorMembersWithRole();
+
+  const normalized = (rows || [])
+    .map((m) => ({
+      idNumber: String(m.idNumber ?? "").trim(),
+      fullName: buildFullName(m),
+      role: m.role || "Non-Flexible",
+      sex: m.sex || "Unknown",
+    }))
+    .filter((m) => {
+      console.log("Filtering member: ", m);
+      if (!m.idNumber || !m.fullName) return false;
+
+      // Eligibility check
+      if (!allowedSet.has(m.idNumber)) {
+        console.log("Not eligible: ", m.idNumber);
+        return false;
+      }
+
+      // ⭐ KEY CHANGE: Skip "already assigned" check if includeUnavailable is true
+      if (!includeUnavailable && allAssignedIds.has(m.idNumber)) {
+        console.log("Already assigned: ", m.idNumber);
+        return false;
+      }
+
+      return true;
+    })
+    .map((m) => {
+      const rotationScore = calculateRotationScore(
+        m.idNumber,
+        role,
+        historicalAssignments || [],
+        dateISO
+      );
+
+      // Compute roleCount and daysSinceLastRole
+      const memberHistory = (historicalAssignments || []).filter(
+        (a) => String(a.idNumber).trim() === m.idNumber
+      );
+      const roleCount = memberHistory.filter((a) => a.role === role).length;
+
+      const lastRoleAssignment = memberHistory
+        .filter((a) => a.role === role)
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+      const daysSinceLastRole = lastRoleAssignment
+        ? Math.floor(
+            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
+              (1000 * 60 * 60 * 24)
+          )
+        : Infinity;
+
+      const isPriority =
+        roleCount === 0 ||
+        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
+
+      return {
+        ...m,
+        rotationScore,
+        roleCount,
+        daysSinceLastRole,
+        isPriority,
+      };
+    })
+    .sort((a, b) => {
+      if (a.rotationScore !== b.rotationScore) {
+        return a.rotationScore - b.rotationScore;
+      }
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+  return normalized;
+};*/
+
+export const fetchLectorCommentatorMembersNormalized = async (
+  dateISO,
+  massLabel, // THIS PARAMETER IS BEING PASSED BUT NOT USED!
+  role,
+  options = {}
+) => {
+  const { includeUnavailable = false } = options;
+
+  const { perRoleAllowed } = await buildLectorCommentatorEligibilityMaps();
+  const allowedSet = perRoleAllowed.get(role) || new Set();
+
+  // Fetch assigned members for the Lector/Commentator roles
+  const { data: allAssignedMembers, error: allAssignedError } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, mass")
+    .eq("date", dateISO);
+
+  if (allAssignedError) {
+    console.error(
+      "Error fetching assigned Lector/Commentator members:",
+      allAssignedError
+    );
+    return [];
+  }
+
+  // ⭐ FILTER BY CURRENT MASS ONLY (not all masses on this date)
+  const assignedInCurrentMass = new Set(
+    (allAssignedMembers || [])
+      .filter((m) => m.mass === massLabel) // ONLY this mass
+      .map((m) => String(m.idNumber).trim())
+  );
+
+  // ⭐ ALSO track members assigned to OTHER masses on same date
+  const assignedInOtherMasses = new Set(
+    (allAssignedMembers || [])
+      .filter((m) => m.mass !== massLabel) // OTHER masses
+      .map((m) => String(m.idNumber).trim())
+  );
+
+  const assignedByRole = new Map();
+  (allAssignedMembers || []).forEach((m) => {
+    const k = m.role;
+    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
+    assignedByRole.get(k).add(String(m.idNumber).trim());
+  });
+
+  // Fetch historical assignments for Lector/Commentator roles in the last 6 months
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+  const { data: historicalAssignments } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, date, mass")
+    .gte("date", sixMonthsAgoISO)
+    .order("date", { ascending: false });
+
+  console.log("Fetched Historical Assignments: ", historicalAssignments);
+
+  const rows = await fetchLectorCommentatorMembersWithRole();
+
+  const normalized = (rows || [])
+    .map((m) => ({
+      idNumber: String(m.idNumber ?? "").trim(),
+      fullName: buildFullName(m),
+      role: m.role || "Non-Flexible",
+      sex: m.sex || "Unknown",
+    }))
+    .filter((m) => {
+      console.log("Filtering member: ", m);
+      if (!m.idNumber || !m.fullName) return false;
+
+      // Eligibility check
+      if (!allowedSet.has(m.idNumber)) {
+        console.log("Not eligible: ", m.idNumber);
+        return false;
+      }
+
+      // ⭐ ALWAYS exclude if already assigned in THIS mass
+      if (assignedInCurrentMass.has(m.idNumber)) {
+        console.log("Already assigned in this mass: ", m.idNumber);
+        return false;
+      }
+
+      // ⭐ For non-template masses: also exclude if assigned to OTHER masses
+      if (!includeUnavailable && assignedInOtherMasses.has(m.idNumber)) {
+        console.log(
+          "Already assigned to another mass on same date: ",
+          m.idNumber
+        );
         return false;
       }
 
@@ -2508,8 +2896,8 @@ export async function autoAssignLectorCommentatorSchedules(year, month) {
     title: "Automate Scheduling?",
     text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
     showCancelButton: true,
-    confirmButtonText: "Yes",
-    cancelButtonText: "No",
+    confirmButtonText: "Yes, automate",
+    cancelButtonText: "Cancel",
     reverseButtons: true,
   });
   if (!ok.isConfirmed) return { success: false };
@@ -2544,6 +2932,8 @@ export async function autoAssignLectorCommentatorSchedules(year, month) {
     const nameMap = await lcNameMap2();
 
     let assignedTotal = 0;
+    let sundaysProcessed = 0;
+
     for (const s of sundays) {
       const dateISO = ymdLocal2(s);
       const n = await lcAssignOneSunday2({
@@ -2553,6 +2943,8 @@ export async function autoAssignLectorCommentatorSchedules(year, month) {
         eligible,
       });
       assignedTotal += n;
+      sundaysProcessed += 1;
+
       // 3 masses → 3 ticks
       LCPaint.mTick();
       LCPaint.mTick();
@@ -2565,8 +2957,8 @@ export async function autoAssignLectorCommentatorSchedules(year, month) {
 
     await Swal.fire({
       icon: "success",
-      title: "Auto-Assignment Complete",
-      text: `Masses processed: ${totalMasses}\nAssignments inserted: ${assignedTotal}`,
+      title: "Auto-Assignment Complete!",
+      text: `Successfully auto-assigned schedules! Sundays processed: ${sundaysProcessed}\n Masses processed: ${totalMasses}\nMembers assigned: ${assignedTotal}`,
     });
 
     // 🔁 Reload the SelectSchedule view after success (your request)
@@ -2913,7 +3305,7 @@ const AssignProgressChoir = (() => {
   return { mount, maybePaint, paint, unmount };
 })();
 
-export const autoAssignChoirSchedules = async (year, month) => {
+/*export const autoAssignChoirSchedules = async (year, month) => {
   const monthNames = [
     "January",
     "February",
@@ -2933,7 +3325,7 @@ export const autoAssignChoirSchedules = async (year, month) => {
   const result = await Swal.fire({
     icon: "question",
     title: "Automate Scheduling?",
-    text: `Do you want to automate the process of scheduling for Choir groups in ${monthText}?`,
+    text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
     showCancelButton: true,
     confirmButtonText: "Yes, automate",
     cancelButtonText: "Cancel",
@@ -3036,6 +3428,251 @@ export const autoAssignChoirSchedules = async (year, month) => {
             // 1) Preferred round-robin pick
             const prefIdx = preferredGroupIndex(w, m, groupNamesCycle.length);
             // create a candidate order starting at preferred, then wrap around
+            const orderedCandidates = [
+              ...groupNamesCycle.slice(prefIdx),
+              ...groupNamesCycle.slice(0, prefIdx),
+            ];
+
+            // 2) First pass: strict Rule #2 + 1/day
+            let assigned = false;
+            for (const name of orderedCandidates) {
+              assigned = await tryAssignSpecificGroup({
+                dateISO,
+                massLabel,
+                groupName: name,
+                dailyAssignedGroups,
+                historicalAssignments,
+                onAssign: handleAssign,
+              });
+              if (assigned) break;
+            }
+
+            // 3) Second pass: relax Rule #2 (keeps 1/day)
+            if (!assigned) {
+              console.warn(
+                `[Rotation Relaxed] ${dateISO} ${massLabel}: strict rotation blocked all candidates.`
+              );
+              assigned = await tryAssignWithRelaxedRotation({
+                dateISO,
+                massLabel,
+                candidateNamesInOrder: orderedCandidates,
+                dailyAssignedGroups,
+                historicalAssignments,
+                onAssign: handleAssign,
+              });
+            }
+
+            stats.massesProcessed += 1;
+            ui.massesProcessed = stats.massesProcessed;
+            AssignProgressChoir.maybePaint(ui);
+          } catch (massError) {
+            console.error(
+              `Error assigning ${massLabel} on ${dateISO}:`,
+              massError
+            );
+            stats.errors.push(`${dateISO} ${massLabel}: ${massError.message}`);
+            ui.errors = stats.errors.length;
+            stats.massesProcessed += 1;
+            ui.massesProcessed = stats.massesProcessed;
+            AssignProgressChoir.maybePaint(ui);
+          }
+        }
+
+        stats.sundaysProcessed += 1;
+        ui.sundaysProcessed = stats.sundaysProcessed;
+        AssignProgressChoir.maybePaint(ui);
+      } catch (sundayError) {
+        console.error(`Error processing Sunday ${dateISO}:`, sundayError);
+        stats.errors.push(`${dateISO}: ${sundayError.message}`);
+        ui.errors = stats.errors.length;
+        AssignProgressChoir.maybePaint(ui);
+      }
+    }
+
+    stats.groupsAssigned = counters.totalAssignments;
+    AssignProgressChoir.unmount();
+
+    const successMessage =
+      `Successfully auto-assigned schedules!\n\n` +
+      `Sundays processed: ${stats.sundaysProcessed}\n` +
+      `Masses processed: ${stats.massesProcessed}\n` +
+      `Total groups assigned: ${stats.groupsAssigned}\n` +
+      (stats.errors.length ? `Errors: ${stats.errors.length}` : ``);
+
+    if (stats.errors.length) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Partial Success",
+        text: successMessage,
+        footer: `Errors: ${stats.errors.length}`,
+      });
+    } else {
+      await Swal.fire({
+        icon: "success",
+        title: "Auto-Assignment Complete!",
+        text: successMessage,
+      });
+      window.location.reload();
+    }
+
+    return { success: true, message: successMessage, stats };
+  } catch (error) {
+    console.error("Auto-assignment failed:", error);
+    AssignProgressChoir.unmount();
+    await Swal.fire({
+      icon: "error",
+      title: "Auto-Assignment Failed",
+      text: `An error occurred: ${error.message}`,
+    });
+    return {
+      success: false,
+      message: `Auto-assignment failed: ${error.message}`,
+      stats: {},
+    };
+  }
+};*/
+
+export const autoAssignChoirSchedules = async (year, month) => {
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const monthText = `${monthNames[month]} - ${year}`;
+
+  const result = await Swal.fire({
+    icon: "question",
+    title: "Automate Scheduling?",
+    text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
+    showCancelButton: true,
+    confirmButtonText: "Yes, automate",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  const ui = {
+    sundaysProcessed: 0,
+    totalSundays: 0,
+    massesProcessed: 0,
+    totalMasses: 0,
+    groupsAssigned: 0,
+    assignments: 0,
+    errors: 0,
+  };
+
+  const counters = { totalAssignments: 0 };
+  const handleAssign = () => {
+    counters.totalAssignments += 1;
+    ui.assignments = counters.totalAssignments;
+    ui.groupsAssigned = counters.totalAssignments;
+    AssignProgressChoir.maybePaint(ui);
+  };
+
+  try {
+    AssignProgressChoir.mount(monthText);
+
+    const sundays = getSundaysInMonth(year, month);
+    ui.totalSundays = sundays.length;
+    ui.totalMasses = sundays.length * SUNDAY_MASSES_CHOIR.length;
+    AssignProgressChoir.paint(ui);
+
+    if (sundays.length === 0) {
+      AssignProgressChoir.unmount();
+      await Swal.fire(
+        "No Sundays Found",
+        "No Sundays found in the selected month.",
+        "info"
+      );
+      return { success: false, message: "No Sundays", stats: {} };
+    }
+
+    const availableGroups = await fetchChoirGroups();
+    if (!availableGroups || availableGroups.length === 0) {
+      AssignProgressChoir.unmount();
+      await Swal.fire(
+        "No Groups Found",
+        "No choir groups available for assignment.",
+        "info"
+      );
+      return { success: false, message: "No Groups", stats: {} };
+    }
+
+    // Fetch historical assignments (mutable reference)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+    let { data: historicalAssignments, error: histError } = await supabase
+      .from("choir-placeholder")
+      .select("group, mass, date")
+      .gte("date", sixMonthsAgoISO)
+      .order("date", { ascending: false });
+
+    if (histError) {
+      console.error("Error fetching historical assignments:", histError);
+      historicalAssignments = [];
+      ui.errors += 1;
+      AssignProgressChoir.maybePaint(ui);
+    } else {
+      historicalAssignments = historicalAssignments || [];
+    }
+
+    const stats = {
+      sundaysProcessed: 0,
+      massesProcessed: 0,
+      groupsAssigned: 0,
+      errors: [],
+    };
+
+    // Build a stable cycle order once
+    const groupCycle = makeGroupCycle(availableGroups);
+    const groupNamesCycle = groupCycle.map((g) => g.name.trim());
+
+    // Process each Sunday with week index
+    for (let w = 0; w < sundays.length; w++) {
+      const sunday = sundays[w];
+      const dateISO = ymdLocal(sunday);
+
+      try {
+        const dailyAssignedGroups = new Set(); // 1 per day
+
+        // Iterate masses by index (0..2)
+        for (let m = 0; m < SUNDAY_MASSES_CHOIR.length; m++) {
+          const massLabel = SUNDAY_MASSES_CHOIR[m];
+
+          try {
+            // CHECK: Skip if this mass already has an assignment
+            const { data: existingForMass } = await supabase
+              .from("choir-placeholder")
+              .select("group")
+              .eq("date", dateISO)
+              .eq("mass", massLabel);
+
+            if (existingForMass && existingForMass.length > 0) {
+              // Already assigned - add to tracking and skip
+              const existingGroup = existingForMass[0].group.trim();
+              dailyAssignedGroups.add(existingGroup);
+
+              stats.massesProcessed += 1;
+              ui.massesProcessed = stats.massesProcessed;
+              AssignProgressChoir.maybePaint(ui);
+              continue; // Skip to next mass
+            }
+
+            // 1) Preferred round-robin pick
+            const prefIdx = preferredGroupIndex(w, m, groupNamesCycle.length);
+            // Create a candidate order starting at preferred, then wrap around
             const orderedCandidates = [
               ...groupNamesCycle.slice(prefIdx),
               ...groupNamesCycle.slice(0, prefIdx),
@@ -3835,19 +4472,6 @@ export async function fetchEMGroupNamesDistinct() {
   }
 }
 
-/**
- * Get the eligible EM groups for a given date + mass, enforcing both rules.
- *
- * Tables used:
- *  - eucharistic-minister-group           (source of distinct group names via "group-name")
- *  - eucharistic-minister-group-placeholder (stores: date, mass, group)
- *
- * @param {Object} p
- * @param {string} p.dateISO    "YYYY-MM-DD"
- * @param {string} p.massLabel  e.g. "1st Mass - 6:00 AM"
- * @param {string[]} [p.allGroups] Optional pre-fetched group names to avoid extra query
- * @returns {Promise<string[]>}   Eligible group names for the dropdown
- */
 export async function fetchEligibleEucharisticMinisterGroups({
   dateISO,
   massLabel,
@@ -3949,22 +4573,107 @@ function sundayOrdinalInMonth(date) {
   return count; // 1-based
 }
 
+// ---- splash overlay UI (lightweight)
+const EMProgress = (() => {
+  let el, nodes;
+  const html = (monthText) => `
+    <div id="em-overlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+      <div style="width:min(520px,92vw);border-radius:10px;padding:18px 20px 22px;background:#fff;color:#222;box-shadow:0 10px 30px rgba(0,0,0,.25)">
+        <div style="font-size:22px;font-weight:700;margin-bottom:8px">Auto-assigning Schedules…</div>
+        <div style="margin-bottom:10px"><strong>Month:</strong> ${monthText}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:14px;line-height:1.35">
+          <div><strong>Sundays:</strong> <span id="em-sun">0</span>/<span id="em-sunT">0</span></div>
+          <div><strong>Masses:</strong> <span id="em-mass">0</span>/<span id="em-massT">0</span></div>
+          <div><strong>Members Assigned:</strong> <span id="em-assign">0</span></div>
+          <div><strong>Errors:</strong> <span id="em-err">0</span></div>
+        </div>
+        <div style="margin-top:10px;height:10px;background:#e9ecef;border-radius:6px;overflow:hidden;">
+          <div id="em-bar" style="height:100%;width:0%;background:#4e79ff;transition:width .15s ease"></div>
+        </div>
+        <div id="em-pct" style="font-size:12px;margin-top:6px;opacity:.8">0% complete</div>
+      </div>
+    </div>
+  `;
+  const mount = (m) => {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = html(m);
+    el = wrap.firstElementChild;
+    document.body.appendChild(el);
+    nodes = {
+      sun: el.querySelector("#em-sun"),
+      sunT: el.querySelector("#em-sunT"),
+      mass: el.querySelector("#em-mass"),
+      massT: el.querySelector("#em-massT"),
+      assign: el.querySelector("#em-assign"),
+      err: el.querySelector("#em-err"),
+      bar: el.querySelector("#em-bar"),
+      pct: el.querySelector("#em-pct"),
+    };
+  };
+  const paint = ({ sDone, sTotal, mDone, mTotal, assigned, errors }) => {
+    nodes.sun.textContent = String(sDone);
+    nodes.sunT.textContent = String(sTotal);
+    nodes.mass.textContent = String(mDone);
+    nodes.massT.textContent = String(mTotal);
+    nodes.assign.textContent = String(assigned);
+    nodes.err.textContent = String(errors);
+    const pct = mTotal ? Math.round((mDone / mTotal) * 100) : 0;
+    nodes.bar.style.width = pct + "%";
+    nodes.pct.textContent = `${pct}% complete`;
+  };
+  const unmount = () => {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+    el = null;
+    nodes = null;
+  };
+  return { mount, paint, unmount };
+})();
+
 // ---- rotation matrix (3-week cycle)
-const ROTATION = [
-  // ordinal 1 (mod 3 === 1): [Mass1, Mass2, Mass3]
-  ["Group 1", "Group 2", "Group 3"],
+async function buildDynamicEMRotation() {
+  const groups = await fetchEucharisticMinisterGroups();
+  if (!groups || groups.length === 0) {
+    console.warn(
+      "No Eucharistic Minister groups found, falling back to default"
+    );
+    return [
+      ["Group 1", "Group 2", "Group 3"],
+      ["Group 2", "Group 3", "Group 1"],
+      ["Group 3", "Group 1", "Group 2"],
+    ];
+  }
 
-  // ordinal 2 (mod 3 === 2)
-  ["Group 2", "Group 3", "Group 1"],
+  // Sort groups for consistent ordering (like choir does)
+  const sortedGroups = groups
+    .map((g) => g.name || g) // handle both object and string formats
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
-  // ordinal 3 (mod 3 === 0)
-  ["Group 3", "Group 1", "Group 2"],
-];
+  // Build rotation matrix - each Sunday ordinal cycles through groups
+  const rotation = [];
+  for (let ordinal = 0; ordinal < 3; ordinal++) {
+    const massAssignments = [];
+    for (let massIndex = 0; massIndex < 3; massIndex++) {
+      // Calculate which group should serve this mass on this Sunday ordinal
+      const groupIndex = (ordinal + massIndex) % sortedGroups.length;
+      massAssignments.push(sortedGroups[groupIndex]);
+    }
+    rotation.push(massAssignments);
+  }
 
-function groupFor(ordinal1, massIndex0) {
-  // cycle every 3 Sundays
-  const idx = (ordinal1 - 1) % 3;
-  return ROTATION[idx][massIndex0];
+  return rotation;
+}
+
+async function getGroupForMass(ordinal1, massIndex0, rotationMatrix) {
+  if (!rotationMatrix || rotationMatrix.length === 0) {
+    console.warn("No rotation matrix available");
+    return null;
+  }
+
+  // cycle every 3 Sundays, but handle cases where we have fewer than 3 groups
+  const idx = (ordinal1 - 1) % Math.min(3, rotationMatrix.length);
+  const massAssignments = rotationMatrix[idx] || rotationMatrix[0];
+
+  return massAssignments[massIndex0 % massAssignments.length];
 }
 
 // ---- CORE: auto-assign one Sunday mass (group + 6 members)
@@ -4061,64 +4770,8 @@ async function autoAssignEMForMass({
   if (onAssign) onAssign(pick.length);
 }
 
-// ---- splash overlay UI (lightweight)
-const EMProgress = (() => {
-  let el, nodes;
-  const html = (monthText) => `
-    <div id="em-overlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
-      <div style="width:min(520px,92vw);border-radius:10px;padding:18px 20px 22px;background:#fff;color:#222;box-shadow:0 10px 30px rgba(0,0,0,.25)">
-        <div style="font-size:22px;font-weight:700;margin-bottom:8px">Auto-assigning Schedules…</div>
-        <div style="margin-bottom:10px"><strong>Month:</strong> ${monthText}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:14px;line-height:1.35">
-          <div><strong>Sundays:</strong> <span id="em-sun">0</span>/<span id="em-sunT">0</span></div>
-          <div><strong>Masses:</strong> <span id="em-mass">0</span>/<span id="em-massT">0</span></div>
-          <div><strong>Members Assigned:</strong> <span id="em-assign">0</span></div>
-          <div><strong>Errors:</strong> <span id="em-err">0</span></div>
-        </div>
-        <div style="margin-top:10px;height:10px;background:#e9ecef;border-radius:6px;overflow:hidden;">
-          <div id="em-bar" style="height:100%;width:0%;background:#4e79ff;transition:width .15s ease"></div>
-        </div>
-        <div id="em-pct" style="font-size:12px;margin-top:6px;opacity:.8">0% complete</div>
-      </div>
-    </div>
-  `;
-  const mount = (m) => {
-    const wrap = document.createElement("div");
-    wrap.innerHTML = html(m);
-    el = wrap.firstElementChild;
-    document.body.appendChild(el);
-    nodes = {
-      sun: el.querySelector("#em-sun"),
-      sunT: el.querySelector("#em-sunT"),
-      mass: el.querySelector("#em-mass"),
-      massT: el.querySelector("#em-massT"),
-      assign: el.querySelector("#em-assign"),
-      err: el.querySelector("#em-err"),
-      bar: el.querySelector("#em-bar"),
-      pct: el.querySelector("#em-pct"),
-    };
-  };
-  const paint = ({ sDone, sTotal, mDone, mTotal, assigned, errors }) => {
-    nodes.sun.textContent = String(sDone);
-    nodes.sunT.textContent = String(sTotal);
-    nodes.mass.textContent = String(mDone);
-    nodes.massT.textContent = String(mTotal);
-    nodes.assign.textContent = String(assigned);
-    nodes.err.textContent = String(errors);
-    const pct = mTotal ? Math.round((mDone / mTotal) * 100) : 0;
-    nodes.bar.style.width = pct + "%";
-    nodes.pct.textContent = `${pct}% complete`;
-  };
-  const unmount = () => {
-    if (el && el.parentNode) el.parentNode.removeChild(el);
-    el = null;
-    nodes = null;
-  };
-  return { mount, paint, unmount };
-})();
-
 // ---- PUBLIC: run auto-assign for the month (Sundays only)
-export async function autoAssignEucharisticMinisterSchedules(year, month) {
+/*export async function autoAssignEucharisticMinisterSchedules(year, month) {
   const monthNames = [
     "January",
     "February",
@@ -4137,8 +4790,8 @@ export async function autoAssignEucharisticMinisterSchedules(year, month) {
 
   const ok = await Swal.fire({
     icon: "question",
-    title: "Automate Sunday Schedules?",
-    text: `This fills all Sunday masses for ${monthText} with rotated groups and fair member rotation.`,
+    title: "Automate Scheduling?",
+    text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
     showCancelButton: true,
     confirmButtonText: "Yes, automate",
     cancelButtonText: "Cancel",
@@ -4189,9 +4842,9 @@ export async function autoAssignEucharisticMinisterSchedules(year, month) {
     EMProgress.unmount();
 
     const msg =
-      `Finished auto-assigning EM schedules.\n\n` +
-      `Sundays: ${sDone}/${sTotal}\n` +
-      `Masses: ${mDone}/${mTotal}\n` +
+      `Successfully auto-assigned schedules!\n\n` +
+      `Sundays processed: ${sDone}/${sTotal}\n` +
+      `Masses processed: ${mDone}/${mTotal}\n` +
       `Members assigned: ${assigned}\n` +
       (errors ? `Errors: ${errors}` : `Errors: 0`);
 
@@ -4205,6 +4858,130 @@ export async function autoAssignEucharisticMinisterSchedules(year, month) {
     try {
       window.location.reload();
     } catch {}
+    return {
+      success: true,
+      stats: { sDone, sTotal, mDone, mTotal, assigned, errors },
+    };
+  } catch (e) {
+    console.error("autoAssignEucharisticMinisterSchedules fatal:", e);
+    EMProgress.unmount();
+    await Swal.fire("Error", e.message || "Auto-assignment failed.", "error");
+    return { success: false, error: e?.message || "Unknown error" };
+  }
+}*/
+
+export async function autoAssignEucharisticMinisterSchedules(year, month) {
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const monthText = `${monthNames[month]} - ${year}`;
+
+  const ok = await Swal.fire({
+    icon: "question",
+    title: "Automate Scheduling?",
+    text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
+    showCancelButton: true,
+    confirmButtonText: "Yes, automate",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+  if (!ok.isConfirmed) return { success: false };
+
+  // BUILD DYNAMIC ROTATION MATRIX
+  const rotationMatrix = await buildDynamicEMRotation();
+  if (!rotationMatrix || rotationMatrix.length === 0) {
+    await Swal.fire(
+      "Error",
+      "No Eucharistic Minister groups found for assignment.",
+      "error"
+    );
+    return { success: false, error: "No groups available" };
+  }
+
+  const sundays = getSundaysInMonth(year, month);
+  const sTotal = sundays.length;
+  const mTotal = sTotal * SUNDAY_MASSES.length;
+
+  EMProgress.mount(monthText);
+  let sDone = 0,
+    mDone = 0,
+    assigned = 0,
+    errors = 0;
+
+  const onAssign = (n) => {
+    assigned += Number(n || 0);
+    EMProgress.paint({ sDone, sTotal, mDone, mTotal, assigned, errors });
+  };
+
+  try {
+    for (const s of sundays) {
+      const dateISO = ymdLocal(s);
+      const ord = sundayOrdinalInMonth(s);
+
+      for (let i = 0; i < SUNDAY_MASSES.length; i++) {
+        const massLabel = SUNDAY_MASSES[i];
+
+        // Use dynamic group selection
+        const groupName = await getGroupForMass(ord, i, rotationMatrix);
+
+        if (!groupName) {
+          console.warn(`No group assigned for ${dateISO} ${massLabel}`);
+          errors += 1;
+          mDone += 1;
+          EMProgress.paint({ sDone, sTotal, mDone, mTotal, assigned, errors });
+          continue;
+        }
+
+        try {
+          await autoAssignEMForMass({
+            dateISO,
+            massLabel,
+            groupName,
+            onAssign,
+          });
+        } catch (e) {
+          console.error(`EM auto-assign failed ${dateISO} ${massLabel}`, e);
+          errors += 1;
+        } finally {
+          mDone += 1;
+          EMProgress.paint({ sDone, sTotal, mDone, mTotal, assigned, errors });
+        }
+      }
+      sDone += 1;
+      EMProgress.paint({ sDone, sTotal, mDone, mTotal, assigned, errors });
+    }
+
+    EMProgress.unmount();
+
+    const msg =
+      `Successfully auto-assigned schedules!\n\n` +
+      `Sundays processed: ${sDone}/${sTotal}\n` +
+      `Masses processed: ${mDone}/${mTotal}\n` +
+      `Members assigned: ${assigned}\n` +
+      (errors ? `Errors: ${errors}` : `Errors: 0`);
+
+    await Swal.fire({
+      icon: errors ? "warning" : "success",
+      title: errors ? "Partial Success" : "Auto-Assignment Complete",
+      text: msg,
+    });
+
+    // optional: refresh
+    try {
+      window.location.reload();
+    } catch {}
+
     return {
       success: true,
       stats: { sDone, sTotal, mDone, mTotal, assigned, errors },
@@ -4261,4 +5038,22 @@ export async function isMonthFullyScheduledEucharisticMinister(year, month) {
     }
   }
   return true;
+}
+
+export async function validateEMGroupsForMonth(year, month) {
+  const groups = await fetchEucharisticMinisterGroups();
+  const sundays = getSundaysInMonth(year, month);
+
+  if (groups.length === 0) {
+    return { valid: false, message: "No Eucharistic Minister groups found" };
+  }
+
+  if (groups.length < 3 && sundays.length > groups.length) {
+    return {
+      valid: false,
+      message: `Not enough groups (${groups.length}) for fair rotation across ${sundays.length} Sundays`,
+    };
+  }
+
+  return { valid: true, groups: groups.length };
 }

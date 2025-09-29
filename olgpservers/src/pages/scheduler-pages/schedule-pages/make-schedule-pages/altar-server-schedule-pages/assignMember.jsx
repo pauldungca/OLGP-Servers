@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+
 import icon from "../../../../../helper/icon";
 import image from "../../../../../helper/images";
 import Footer from "../../../../../components/footer";
 
 import {
-  // DB + helpers
   fetchMembersNormalized,
   slotBaseLabelFor,
   preloadAssignedForRole,
@@ -27,7 +27,7 @@ export default function AssignMember() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // -------- Context from SelectRole --------
+  // -------- Context from Select Role --------
   const selectedDate = location.state?.selectedDate || "No date selected";
   const selectedISO = location.state?.selectedISO || null;
   const selectedMass = location.state?.selectedMass || "No mass selected";
@@ -45,35 +45,61 @@ export default function AssignMember() {
     [selectedRoleKey, selectedRoleLabel]
   );
 
-  // Check if current role needs gender filtering (candle bearers or bellers)
+  // Does this role use gender filtering?
   const needsGenderFiltering = useMemo(
     () => selectedRoleKey === "candleBearer" || selectedRoleKey === "beller",
     [selectedRoleKey]
   );
 
   // -------- Members (left list) --------
-  const [members, setMembers] = useState([]); // [{ idNumber, fullName, role, sex }]
+  const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
+  // NEW: include-unavailable override + explicit override sex
+  const [includeUnavailable, setIncludeUnavailable] = useState(false);
+  const [overrideSex, setOverrideSex] = useState(null);
+
+  // Check if this is a template mass
+  const isTemplateMass = useMemo(() => {
+    return templateID !== null && templateID !== undefined;
+  }, [templateID]);
+
+  // Load members list (refetch when override flips)
   useEffect(() => {
+    let cancelled = false;
     const loadMembers = async () => {
-      // Pass the role (e.g., "thurifer") along with dateISO and massLabel
-      const normalizedMembers = await fetchMembersNormalized(
+      setLoadingMembers(true);
+      const normalized = await fetchMembersNormalized(
         selectedISO,
         selectedMass,
-        selectedRoleKey
+        selectedRoleKey,
+        {
+          includeUnavailable: includeUnavailable || isTemplateMass, // Template masses always include all
+        }
       );
-      setMembers(normalizedMembers);
-      setLoadingMembers(false);
+      if (!cancelled) {
+        setMembers(normalized);
+        setLoadingMembers(false);
+      }
     };
     loadMembers();
-  }, [selectedISO, selectedMass, selectedRoleKey]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedISO,
+    selectedMass,
+    selectedRoleKey,
+    includeUnavailable,
+    isTemplateMass,
+  ]);
 
   // -------- Assigned (right panel) --------
   const [preloading, setPreloading] = useState(true);
   const [assigned, setAssigned] = useState(ensureArraySize([], slotsCount));
 
-  // Keep assigned array size in sync with slotsCount
+  // Keep slots array in sync with count
   useEffect(() => {
     setAssigned((prev) => ensureArraySize(prev, slotsCount));
   }, [slotsCount]);
@@ -105,71 +131,88 @@ export default function AssignMember() {
     };
   }, [selectedISO, selectedMass, selectedRoleKey, slotsCount]);
 
-  // -------- Gender filtering logic --------
+  // -------- Gender filter (auto-locks to sex of first assigned member) --------
   const genderFilter = useMemo(() => {
     if (!needsGenderFiltering) return null;
-
-    // Check if any members are assigned
     const assignedMembers = assigned.filter(Boolean);
     if (assignedMembers.length === 0) return null;
 
-    // Find the first assigned member and check their gender
     const firstAssigned = assignedMembers[0];
-    const firstAssignedMember = members.find(
-      (m) => m.idNumber === firstAssigned.idNumber
-    );
-
-    // Return the gender of the first assigned member to filter by that gender
-    return firstAssignedMember?.sex || null;
+    const first = members.find((m) => m.idNumber === firstAssigned.idNumber);
+    return first?.sex || null;
   }, [needsGenderFiltering, assigned, members]);
 
-  // -------- Search --------
-  const [searchTerm, setSearchTerm] = useState("");
+  // -------- Search + gender filter application --------
   const filteredMembers = useMemo(() => {
     let filtered = members.filter((m) =>
-      m.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+      (m.fullName || "")
+        .toLowerCase()
+        .includes((searchTerm || "").toLowerCase())
     );
 
-    // Apply gender filter if needed
-    if (genderFilter) {
-      filtered = filtered.filter((m) => m.sex === genderFilter);
-    }
+    const g = overrideSex || genderFilter;
+    if (g) filtered = filtered.filter((m) => m.sex === g);
 
     return filtered;
-  }, [members, searchTerm, genderFilter]);
+  }, [members, searchTerm, genderFilter, overrideSex]);
+
+  // -------- AUTO-FALLBACK: if Male/Female chosen and list becomes empty, show all of that sex --------
+  useEffect(() => {
+    // Template masses don't need this logic - they already show all members
+    if (isTemplateMass) return;
+
+    if (!needsGenderFiltering) return;
+    const g = genderFilter;
+    if (!g) return;
+    if (loadingMembers) return;
+
+    // If list is empty, activate override to show all of that gender
+    if (filteredMembers.length === 0) {
+      setIncludeUnavailable(true);
+      setOverrideSex(g);
+    }
+    // If list has members again and override is active, turn it off to show only available
+    else if (includeUnavailable && filteredMembers.length > 0) {
+      setIncludeUnavailable(false);
+      setOverrideSex(null);
+    }
+  }, [
+    isTemplateMass,
+    needsGenderFiltering,
+    genderFilter,
+    loadingMembers,
+    filteredMembers.length,
+    includeUnavailable,
+  ]);
+
+  // -------- Priority-only sublist --------
+  const priorityOnlyMembers = useMemo(() => {
+    return filteredMembers.filter(
+      (m) => (m.roleCount || 0) === 0 || (m.daysSinceLastRole || Infinity) > 30
+    );
+  }, [filteredMembers]);
 
   // -------- UI Handlers --------
   const handleToggleMember = (member) => {
     setAssigned((prev) => {
       const id = String(member.idNumber ?? "").trim();
-      const alreadyIdx = prev.findIndex(
-        (m) => m && String(m.idNumber) === id // Add null check here too
-      );
+      const alreadyIdx = prev.findIndex((m) => m && String(m.idNumber) === id);
 
-      // If already assigned, unassign them
       if (alreadyIdx >= 0) {
         const next = [...prev];
-        next[alreadyIdx] = null; // unassign member by setting to null
-        return next; // Don't filter out nulls - keep array structure intact
-      }
-
-      // If not assigned, assign them
-      const emptyIndex = prev.findIndex((m) => !m);
-      if (emptyIndex !== -1) {
-        const next = [...prev];
-        next[emptyIndex] = {
-          idNumber: id,
-          fullName: member.fullName,
-        };
+        next[alreadyIdx] = null;
         return next;
       }
 
-      // If no empty slots, replace the first slot
+      const emptyIndex = prev.findIndex((m) => !m);
+      if (emptyIndex !== -1) {
+        const next = [...prev];
+        next[emptyIndex] = { idNumber: id, fullName: member.fullName };
+        return next;
+      }
+
       const next = [...prev];
-      next[0] = {
-        idNumber: id,
-        fullName: member.fullName,
-      };
+      next[0] = { idNumber: id, fullName: member.fullName };
       return next;
     });
   };
@@ -182,6 +225,8 @@ export default function AssignMember() {
       roleKey: selectedRoleKey,
       slotsCount,
     });
+    setIncludeUnavailable(false);
+    setOverrideSex(null);
     setAssigned(next);
   };
 
@@ -199,27 +244,9 @@ export default function AssignMember() {
     }
   };
 
-  /*const formatRotationInfo = (member) => {
-    if (member.roleCount === 0) {
-      return "New to role";
-    }
-
-    const dayText =
-      member.daysSinceLastRole === Infinity
-        ? "Never"
-        : member.daysSinceLastRole === 0
-        ? "Today"
-        : member.daysSinceLastRole === 1
-        ? "1 day ago"
-        : `${member.daysSinceLastRole} days ago`;
-
-    return `${member.roleCount}x done • Last: ${dayText}`;
-  };*/
-
   const formatRotationInfo = (member) => {
     const roleCount =
       typeof member.roleCount === "number" ? member.roleCount : 0;
-
     if (roleCount === 0) return "New to role";
 
     const d = member.daysSinceLastRole;
@@ -236,6 +263,8 @@ export default function AssignMember() {
 
     return `${roleCount}x done • Last: ${dayText}`;
   };
+
+  const nothingToShow = !loadingMembers && filteredMembers.length === 0;
 
   return (
     <div className="schedule-page-container">
@@ -297,10 +326,7 @@ export default function AssignMember() {
                     </Link>
                   ),
                 },
-                {
-                  title: "Assign Member",
-                  className: "breadcrumb-item-active",
-                },
+                { title: "Assign Member", className: "breadcrumb-item-active" },
               ]}
               separator={
                 <img
@@ -317,7 +343,6 @@ export default function AssignMember() {
       </div>
 
       <div className="schedule-content">
-        {/* Context header */}
         <h4 style={{ marginBottom: "0.5rem" }}>
           Selected Date: {selectedDate} &nbsp;|&nbsp; Selected Mass:{" "}
           {selectedMass}
@@ -326,15 +351,21 @@ export default function AssignMember() {
           style={{ color: "#2e4a9e", marginBottom: "1rem", fontWeight: 600 }}
         >
           Role: {selectedRoleLabel} &nbsp;•&nbsp; Slots: {slotsCount}
-          {genderFilter && (
+          {(overrideSex || genderFilter) && (
             <span style={{ color: "#e74c3c", marginLeft: "10px" }}>
-              (Filtered: {genderFilter} only)
+              (Filtered: {overrideSex || genderFilter} only
+              {isTemplateMass
+                ? ", template mass - all members shown"
+                : includeUnavailable
+                ? ", showing all"
+                : ""}
+              )
             </span>
           )}
         </div>
 
         <div className="assign-container row">
-          {/* Left side */}
+          {/* LEFT: candidates */}
           <div className="col-md-6 assign-left">
             <h5 className="assign-title">{selectedRoleLabel}</h5>
 
@@ -342,7 +373,7 @@ export default function AssignMember() {
               <input
                 type="text"
                 className="form-control"
-                placeholder={loadingMembers ? "Loading members..." : "Search"}
+                placeholder={loadingMembers ? "Fetching members…" : "Search"}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 disabled={loadingMembers}
@@ -352,79 +383,95 @@ export default function AssignMember() {
               </button>
             </div>
 
-            <ul className="list-group assign-member-list">
-              <li className="list-group-item active d-flex justify-content-between">
-                <span>Name</span>
-                <span style={{ fontSize: "0.85em", opacity: 0.9 }}>
-                  Role History
-                </span>
-              </li>
-
-              {loadingMembers || preloading ? (
+            <ul className="list-group">
+              {preloading ? (
                 <li className="list-group-item text-muted">
                   {loadingMembers
                     ? "Fetching members..."
                     : "Loading assignments..."}
                 </li>
-              ) : filteredMembers.length > 0 ? (
+              ) : nothingToShow ? (
+                <li className="list-group-item text-muted">
+                  No candidates with the current constraints.
+                </li>
+              ) : includeUnavailable || overrideSex || isTemplateMass ? (
+                // Override mode: show all without priority filtering
                 filteredMembers.map((m) => {
                   const checked = isMemberChecked(assigned, m);
-                  const isPriorityMember =
-                    m.roleCount === 0 || m.daysSinceLastRole > 30;
-
                   return (
                     <li
                       key={String(m.idNumber)}
-                      className={`list-group-item d-flex align-items-center justify-content-between ${
-                        isPriorityMember ? "priority-member" : ""
-                      }`}
+                      className="list-group-item d-flex align-items-center justify-content-between"
                       onClick={() => handleToggleMember(m)}
-                      style={{
-                        cursor: "pointer",
-                        backgroundColor: isPriorityMember
-                          ? "#f8f9ff"
-                          : "inherit",
-                        borderLeft: isPriorityMember
-                          ? "3px solid #2e4a9e"
-                          : "none",
-                      }}
+                      style={{ cursor: "pointer" }}
                     >
-                      <div className="d-flex align-items-center flex-grow-1">
+                      <div className="d-flex align-items-center">
                         <input
                           type="checkbox"
                           className="form-check-input me-2"
-                          checked={checked}
+                          checked={!!checked}
                           onChange={() => handleToggleMember(m)}
                           onClick={(e) => e.stopPropagation()}
                         />
-                        <div>
-                          <div className="d-flex align-items-center">
-                            {m.fullName}
-                            {needsGenderFiltering && (
-                              <span
-                                className={`badge ms-2 ${
-                                  m.sex === "Male"
-                                    ? "bg-primary"
-                                    : "bg-secondary"
-                                }`}
-                                style={{ fontSize: "0.7em" }}
-                              >
-                                {m.sex === "Male" ? "M" : "F"}
-                              </span>
-                            )}
-                            {isPriorityMember && (
-                              <span
-                                className="badge bg-success ms-2"
-                                style={{ fontSize: "0.7em" }}
-                                title="Priority for role rotation"
-                              >
-                                Priority
-                              </span>
-                            )}
-                          </div>
+                        <div className="d-flex align-items-center">
+                          {m.fullName}
+                          {needsGenderFiltering && (
+                            <span
+                              className={`badge ms-2 ${
+                                m.sex === "Male" ? "bg-primary" : "bg-secondary"
+                              }`}
+                              style={{ fontSize: "0.7em" }}
+                            >
+                              {m.sex === "Male" ? "M" : "F"}
+                            </span>
+                          )}
                         </div>
                       </div>
-
+                    </li>
+                  );
+                })
+              ) : priorityOnlyMembers.length > 0 ? (
+                priorityOnlyMembers.map((m) => {
+                  const checked = isMemberChecked(assigned, m);
+                  return (
+                    <li
+                      key={String(m.idNumber)}
+                      className="list-group-item d-flex align-items-center justify-content-between priority-member"
+                      onClick={() => handleToggleMember(m)}
+                      style={{
+                        cursor: "pointer",
+                        backgroundColor: "#f8f9ff",
+                        borderLeft: "3px solid #2e4a9e",
+                      }}
+                    >
+                      <div className="d-flex align-items-center">
+                        <input
+                          type="checkbox"
+                          className="form-check-input me-2"
+                          checked={!!checked}
+                          onChange={() => handleToggleMember(m)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="d-flex align-items-center">
+                          {m.fullName}
+                          {needsGenderFiltering && (
+                            <span
+                              className={`badge ms-2 ${
+                                m.sex === "Male" ? "bg-primary" : "bg-secondary"
+                              }`}
+                              style={{ fontSize: "0.7em" }}
+                            >
+                              {m.sex === "Male" ? "M" : "F"}
+                            </span>
+                          )}
+                          <span
+                            className="badge bg-success ms-2"
+                            style={{ fontSize: "0.7em" }}
+                          >
+                            Priority
+                          </span>
+                        </div>
+                      </div>
                       <div
                         className="text-end"
                         style={{
@@ -439,12 +486,45 @@ export default function AssignMember() {
                   );
                 })
               ) : (
-                <li className="list-group-item text-muted">No results found</li>
+                filteredMembers.map((m) => {
+                  const checked = isMemberChecked(assigned, m);
+                  return (
+                    <li
+                      key={String(m.idNumber)}
+                      className="list-group-item d-flex align-items-center justify-content-between"
+                      onClick={() => handleToggleMember(m)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <div className="d-flex align-items-center">
+                        <input
+                          type="checkbox"
+                          className="form-check-input me-2"
+                          checked={!!checked}
+                          onChange={() => handleToggleMember(m)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="d-flex align-items-center">
+                          {m.fullName}
+                          {needsGenderFiltering && (
+                            <span
+                              className={`badge ms-2 ${
+                                m.sex === "Male" ? "bg-primary" : "bg-secondary"
+                              }`}
+                              style={{ fontSize: "0.7em" }}
+                            >
+                              {m.sex === "Male" ? "M" : "F"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })
               )}
             </ul>
           </div>
 
-          {/* Right side */}
+          {/* RIGHT: slots */}
           <div className="col-md-6 assign-right">
             <div className="assign-right-scroll">
               {Array.from({ length: slotsCount }).map((_, i) => (
@@ -483,9 +563,7 @@ export default function AssignMember() {
         </div>
       </div>
 
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useNavigate } from "react-router-dom";
 import icon from "../../../../../helper/icon";
+import Swal from "sweetalert2";
 import image from "../../../../../helper/images";
 import Footer from "../../../../../components/footer";
 
@@ -17,6 +18,8 @@ import {
   getLoadingMessage,
   fetchChoirTemplateDates,
   computeChoirGroupStatusForDate,
+  choirMemberCounts,
+  choirGroupCounts,
 } from "../../../../../assets/scripts/fetchSchedule";
 
 import {
@@ -43,6 +46,8 @@ export default function SelectSchedule() {
   const [loading, setLoading] = useState(true);
   const [navigating, setNavigating] = useState(false);
 
+  const [hasMembers, setHasMembers] = useState(true);
+
   const [scheduleStatus, setScheduleStatus] = useState({});
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [initialStatusLoadComplete, setInitialStatusLoadComplete] =
@@ -61,6 +66,31 @@ export default function SelectSchedule() {
         if (!cancelled) setTemplateDates([]);
       } finally {
         if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { total } = await choirMemberCounts();
+      const { total: totalGroups } = await choirGroupCounts();
+
+      if (cancelled) return;
+
+      if (!totalGroups || totalGroups === 0 || !total || total === 0) {
+        setHasMembers(false);
+        await Swal.fire({
+          icon: "info",
+          title: "No Choir Groups or Members",
+          text: "There are currently no Choir groups or members in the system.",
+          confirmButtonText: "OK",
+        });
+      } else {
+        setHasMembers(true);
       }
     })();
     return () => {
@@ -273,7 +303,9 @@ export default function SelectSchedule() {
           <div className="auto-btn-container">
             <button
               className="auto-btn"
-              disabled={isLoading || autoAssigning || autoDisabled}
+              disabled={
+                isLoading || autoAssigning || autoDisabled || !hasMembers
+              }
               onClick={handleAutoAssign}
               title="Automatically assign all Sunday masses for this month"
             >

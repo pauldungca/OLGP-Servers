@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import icon from "../../../../../helper/icon";
 import image from "../../../../../helper/images";
 import Footer from "../../../../../components/footer";
@@ -19,12 +20,15 @@ import {
   // EM-specific
   fetchEucharisticMinisterTemplateDates,
   computeEucharisticMinisterStatusForDate,
+  eucharisticMinisterMemberCounts,
+  eucharisticMinisterGroupCounts,
 } from "../../../../../assets/scripts/fetchSchedule";
 
 import {
-  // EM auto-assign + completeness check
+  // EM auto-assign + completeness check + validation
   autoAssignEucharisticMinisterSchedules,
   isMonthFullyScheduledEucharisticMinister,
+  validateEMGroupsForMonth,
 } from "../../../../../assets/scripts/assignMember";
 
 import "../../../../../assets/styles/schedule.css";
@@ -54,6 +58,40 @@ export default function SelectSchedule() {
   // Auto-assign UI state
   const [autoAssigning, setAutoAssigning] = useState(false);
   const [autoDisabled, setAutoDisabled] = useState(false);
+  const [hasMembers, setHasMembers] = useState(true);
+
+  // Group validation state
+  const [groupValidation, setGroupValidation] = useState({
+    valid: true,
+    message: "",
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { total } = await eucharisticMinisterMemberCounts();
+      const { total: totalGroups } = await eucharisticMinisterGroupCounts();
+
+      if (cancelled) return;
+
+      if (cancelled) return;
+
+      if (!totalGroups || totalGroups === 0 || !total || total === 0) {
+        setHasMembers(false);
+        await Swal.fire({
+          icon: "info",
+          title: "No Eucharistic Minister Groups or Members",
+          text: "There are currently no Eucharistic Minister groups or members in the system.",
+          confirmButtonText: "OK",
+        });
+      } else {
+        setHasMembers(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 1) Fetch ALL EM template uses once
   useEffect(() => {
@@ -163,7 +201,7 @@ export default function SelectSchedule() {
     };
   }, [scheduleItems]);
 
-  // 4) Recompute “month complete?” for the auto button
+  // 4) Recompute "month complete?" for the auto button
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -174,6 +212,34 @@ export default function SelectSchedule() {
         if (!cancelled) setAutoDisabled(false);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
+  }, [year, month]);
+
+  // 5) Validate EM groups when month changes
+  useEffect(() => {
+    let cancelled = false;
+
+    const validateGroups = async () => {
+      try {
+        const validation = await validateEMGroupsForMonth(year, month);
+        if (!cancelled) {
+          setGroupValidation(validation);
+        }
+      } catch (error) {
+        console.error("Error validating EM groups:", error);
+        if (!cancelled) {
+          setGroupValidation({
+            valid: false,
+            message: "Error checking group availability",
+          });
+        }
+      }
+    };
+
+    validateGroups();
+
     return () => {
       cancelled = true;
     };
@@ -194,9 +260,21 @@ export default function SelectSchedule() {
     });
   };
 
-  // 5) Auto-assign handler (only reset UI on success)
+  // 6) Auto-assign handler with group validation check
   const handleAutoAssign = async () => {
     if (autoAssigning) return;
+
+    // PRE-FLIGHT VALIDATION CHECK
+    if (!groupValidation.valid) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Cannot Auto-Assign",
+        text: groupValidation.message,
+        confirmButtonText: "OK",
+      });
+      return;
+    }
+
     setAutoAssigning(true);
     try {
       const res = await autoAssignEucharisticMinisterSchedules(year, month);
@@ -271,10 +349,18 @@ export default function SelectSchedule() {
             <button
               type="button"
               className="auto-btn"
-              disabled={isLoading || autoAssigning || autoDisabled}
+              disabled={
+                isLoading ||
+                autoAssigning ||
+                autoDisabled ||
+                !groupValidation.valid ||
+                !hasMembers
+              }
               onClick={handleAutoAssign}
               title={
-                autoDisabled
+                !groupValidation.valid
+                  ? groupValidation.message
+                  : autoDisabled
                   ? "All Sunday EM masses this month already have 6 assigned ministers."
                   : "Automatically assign EM groups (by rotation) and 6 ministers per Sunday mass."
               }
@@ -284,6 +370,24 @@ export default function SelectSchedule() {
             </button>
           </div>
         </div>
+
+        {/* Optional warning message display if groups are invalid */}
+        {!groupValidation.valid && (
+          <div
+            style={{
+              margin: "10px 0",
+              padding: "8px 12px",
+              backgroundColor: "#fff3cd",
+              border: "1px solid #ffeaa7",
+              borderRadius: "4px",
+              color: "#856404",
+              fontSize: "14px",
+            }}
+          >
+            <strong>⚠️ Auto-assignment unavailable:</strong>{" "}
+            {groupValidation.message}
+          </div>
+        )}
 
         {isLoading ? (
           <div

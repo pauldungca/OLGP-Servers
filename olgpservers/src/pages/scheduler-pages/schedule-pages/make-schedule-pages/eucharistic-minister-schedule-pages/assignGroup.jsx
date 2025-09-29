@@ -1,3 +1,4 @@
+// src/pages/scheduler-pages/eucharistic-minister/assignGroup.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -15,9 +16,14 @@ import {
   resetEucharisticMinisterGroupAndMembers,
   saveEucharisticMinisterGroup,
   fetchExistingEucharisticMinisterGroup,
-  // 👇 NEW: uses server-side logic to compute eligible groups (same-day + rotation)
+  // server-side eligibility (same-day exclusion + rotation) — use only for SUNDAY
   fetchEligibleEucharisticMinisterGroups,
 } from "../../../../../assets/scripts/assignMember";
+
+// Label sniffers
+const isSundayMassLabel = (label = "") =>
+  /^(?:\d+(?:st|nd|rd|th)\s+Mass)/i.test(label);
+const isTemplateMassLabel = (label = "") => /^Mass\s*-\s*/i.test(label);
 
 export default function AssignGroup() {
   useEffect(() => {
@@ -34,52 +40,52 @@ export default function AssignGroup() {
   const templateID = state?.templateID ?? null;
   const isSunday = !!state?.isSunday;
 
+  // Derive massKind; prefer explicit isSunday flag, then fallback by label
+  const massKind = useMemo(() => {
+    if (isSunday) return "sunday";
+    if (isTemplateMassLabel(selectedMassDisplay)) return "template";
+    if (isSundayMassLabel(selectedMassDisplay)) return "sunday";
+    return "template";
+  }, [isSunday, selectedMassDisplay]);
+
   // groups + UI state
   const [allGroups, setAllGroups] = useState([]); // [{id, name}]
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedGroup, setSelectedGroup] = useState(null); // store the whole object {id, name}
+  const [selectedGroup, setSelectedGroup] = useState(null); // {id, name}
   const [loadingExistingGroup, setLoadingExistingGroup] = useState(true);
 
-  // Fetch existing assigned group for this exact date+mass (for auto-select + include even if filtered)
+  // Fetch existing assigned group for this exact date+mass (to preselect and ensure visible)
   useEffect(() => {
     let cancelled = false;
-
-    const fetchExistingGroup = async () => {
+    (async () => {
       try {
         setLoadingExistingGroup(true);
-
-        const existingGroupName = await fetchExistingEucharisticMinisterGroup(
+        const existingName = await fetchExistingEucharisticMinisterGroup(
           selectedISO,
           selectedMassDisplay
         );
-
-        if (!cancelled && existingGroupName) {
-          // Store temporarily until eligible list is computed
-          window.existingGroupName = existingGroupName;
+        if (!cancelled) {
+          window.__em_existingGroupName = existingName || null;
         }
       } catch (err) {
         console.error("Failed to fetch existing group assignment:", err);
+        if (!cancelled) window.__em_existingGroupName = null;
       } finally {
-        if (!cancelled) {
-          setLoadingExistingGroup(false);
-        }
+        if (!cancelled) setLoadingExistingGroup(false);
       }
-    };
-
-    fetchExistingGroup();
-
+    })();
     return () => {
       cancelled = true;
     };
   }, [selectedISO, selectedMassDisplay]);
 
   /**
-   * Load master groups and filter them by eligibility rules:
-   *  - same-day exclusivity
-   *  - Sunday ordinal rotation
-   * Always include the "existing assignment" for this mass if present,
-   * even when normally filtered out, so it remains visible/selected.
+   * Load groups:
+   *  - TEMPLATE: show the full master list (no same-day filtering).
+   *  - SUNDAY:   show only server-computed eligible names
+   *              (same-day exclusivity + rotation), BUT always include the
+   *              existing assignment for this mass if present.
    */
   useEffect(() => {
     let cancelled = false;
@@ -88,28 +94,31 @@ export default function AssignGroup() {
       try {
         setLoadingGroups(true);
 
-        // 1) Load full master list [{id, name}, ...]
+        // 1) Load full master list
         const master = (await fetchEucharisticMinisterGroups()) || [];
 
-        // 2) Compute eligible names for this date+mass
-        const eligibleNames =
-          (await fetchEligibleEucharisticMinisterGroups({
-            dateISO: selectedISO,
-            massLabel: selectedMassDisplay,
-          })) || [];
+        // 2) Build the working list based on massKind
+        let reduced = master;
 
-        // 3) Reduce master by eligible names
-        let reduced = master.filter((g) => eligibleNames.includes(g.name));
+        if (massKind === "sunday") {
+          const eligibleNames =
+            (await fetchEligibleEucharisticMinisterGroups({
+              dateISO: selectedISO,
+              massLabel: selectedMassDisplay,
+            })) || [];
+          reduced = master.filter((g) => eligibleNames.includes(g.name));
+        } else {
+          // TEMPLATE ⇒ no extra filtering (show all groups)
+          reduced = master.slice();
+        }
 
-        // 4) If there's an existing assignment for THIS mass, ensure it's present
-        const existingName = window.existingGroupName;
+        // 3) Ensure existing assignment is included even if normally filtered out
+        const existingName = window.__em_existingGroupName;
         if (existingName) {
-          const existsInReduced = reduced.some((g) => g.name === existingName);
-          if (!existsInReduced) {
+          const alreadyIn = reduced.some((g) => g.name === existingName);
+          if (!alreadyIn) {
             const existingObj = master.find((g) => g.name === existingName);
-            if (existingObj) {
-              reduced = [existingObj, ...reduced]; // prepend for visibility
-            }
+            if (existingObj) reduced = [existingObj, ...reduced];
           }
         }
 
@@ -125,26 +134,24 @@ export default function AssignGroup() {
     return () => {
       cancelled = true;
     };
-  }, [selectedISO, selectedMassDisplay]);
+  }, [selectedISO, selectedMassDisplay, massKind]);
 
   // Auto-select existing group when lists are ready
   useEffect(() => {
     if (
       !loadingGroups &&
       !loadingExistingGroup &&
-      window.existingGroupName &&
+      window.__em_existingGroupName &&
       allGroups.length > 0
     ) {
       const existingGroup = allGroups.find(
-        (group) => group.name === window.existingGroupName
+        (group) => group.name === window.__em_existingGroupName
       );
-
       if (existingGroup) {
         setSelectedGroup(existingGroup);
       }
-
-      // Clean up temporary storage
-      delete window.existingGroupName;
+      // cleanup
+      delete window.__em_existingGroupName;
     }
   }, [loadingGroups, loadingExistingGroup, allGroups]);
 
@@ -157,20 +164,17 @@ export default function AssignGroup() {
   }, [allGroups, searchTerm]);
 
   const handleAssign = async () => {
-    // Check if there's already an existing group assignment
-    const existingGroupName = await fetchExistingEucharisticMinisterGroup(
+    // Re-check the existing group to avoid no-op save
+    const existingName = await fetchExistingEucharisticMinisterGroup(
       selectedISO,
       selectedMassDisplay
     );
 
     let shouldSave = true;
-
-    // If there's already a group assigned and it's the same as selected, skip saving
-    if (existingGroupName && existingGroupName === selectedGroup?.name) {
+    if (existingName && existingName === selectedGroup?.name) {
       shouldSave = false;
     }
 
-    // Only save if we need to (new assignment or different group)
     if (shouldSave && selectedGroup?.name) {
       const ok = await saveEucharisticMinisterGroup({
         dateISO: selectedISO,
@@ -178,21 +182,18 @@ export default function AssignGroup() {
         templateID,
         group: selectedGroup.name,
       });
-
-      if (!ok) {
-        // If save failed, don't navigate
-        return;
-      }
+      if (!ok) return;
     }
 
-    // Navigate to assign members (whether we saved or not)
+    // Go to assign members
     navigate("/assignMemberEucharisticMinister", {
       state: {
         selectedDate,
         selectedISO,
         selectedMassDisplay,
         templateID,
-        isSunday,
+        isSunday: massKind === "sunday",
+        massKind,
         group: selectedGroup
           ? { id: selectedGroup.id, name: selectedGroup.name }
           : null,
@@ -205,9 +206,7 @@ export default function AssignGroup() {
       selectedISO,
       selectedMassDisplay
     );
-    if (ok) {
-      setSelectedGroup(null); // uncheck radio
-    }
+    if (ok) setSelectedGroup(null);
   };
 
   const isLoading = loadingGroups || loadingExistingGroup;
@@ -216,7 +215,7 @@ export default function AssignGroup() {
     <div className="schedule-page-container">
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>MAKE SCHEDULE</h3>
+          <h3>MAKE SCHEDULE - EUCHARISTIC MINISTER</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -244,7 +243,9 @@ export default function AssignGroup() {
                       state={{
                         selectedDate,
                         selectedISO,
-                        isSunday,
+                        dateISOForDB: selectedISO,
+                        source: "combined",
+                        isSunday: true,
                         templateID,
                       }}
                       className="breadcrumb-item"
@@ -274,7 +275,6 @@ export default function AssignGroup() {
 
       {/* Content */}
       <div className="schedule-content">
-        {/* Selected date and mass label */}
         <h4 style={{ marginBottom: "0.5rem" }}>
           Selected Date: {selectedDate} | Selected Mass: {selectedMassDisplay}
         </h4>
@@ -283,6 +283,20 @@ export default function AssignGroup() {
           {/* Left side */}
           <div className="col-md-6 assign-left">
             <h5 className="assign-title">Assign Group</h5>
+
+            {massKind === "template" && (
+              <div
+                style={{
+                  fontSize: 13,
+                  marginBottom: 8,
+                  color: "#2e4a9e",
+                  fontWeight: 600,
+                }}
+              >
+                Template mass: showing all groups (no same-day blocking).
+              </div>
+            )}
+
             <div className="input-group mb-3">
               <input
                 type="text"
@@ -328,7 +342,6 @@ export default function AssignGroup() {
           {/* Right side */}
           <div className="col-md-6 assign-right">
             <div className="mb-4">
-              {/* Dynamic label uses the selected mass from SelectMass */}
               <label className="form-label">
                 Group for {selectedMassDisplay}:
               </label>
@@ -365,9 +378,8 @@ export default function AssignGroup() {
           </div>
         </div>
       </div>
-      <div>
-        <Footer />
-      </div>
+
+      <Footer />
     </div>
   );
 }

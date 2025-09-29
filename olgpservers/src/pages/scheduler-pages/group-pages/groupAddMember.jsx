@@ -139,6 +139,12 @@ export default function GroupAddMember() {
     setIdNumber(generateUserID());
   }, []);
 
+  useEffect(() => {
+    if (department === "Eucharistic Minister") {
+      setSex("Male");
+    }
+  }, [department]);
+
   // ---- Submit handler (DB flow like AddMember.jsx + group save + image upload)
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -451,16 +457,23 @@ export default function GroupAddMember() {
           <div className="row mb-3">
             <div className="col-md-4">
               <label className="form-label">Sex</label>
-              <select
-                className="form-control"
-                value={sex}
-                onChange={(e) => setSex(e.target.value)}
-              >
-                <option value="">Select Sex</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
+              {department === "Eucharistic Minister" ? (
+                <select className="form-control" value="Male" disabled>
+                  <option value="Male">Male</option>
+                </select>
+              ) : (
+                <select
+                  className="form-control"
+                  value={sex}
+                  onChange={(e) => setSex(e.target.value)}
+                >
+                  <option value="">Select Sex</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              )}
             </div>
+
             <div className="col-md-4">
               <label className="form-label">Email</label>
               <input

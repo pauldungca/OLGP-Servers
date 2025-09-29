@@ -129,3 +129,8 @@
   line-height: 20px;
   text-align: center;
 }
+
+.assign-left .list-group {
+  max-height: 250px; /* or whatever height */
+  overflow-y: auto;
+}

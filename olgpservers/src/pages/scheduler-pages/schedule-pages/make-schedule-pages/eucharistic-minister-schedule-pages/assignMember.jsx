@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// src/pages/scheduler-pages/eucharistic-minister/assignMember.jsx
+import React, { useState, useEffect, useMemo } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import icon from "../../../../../helper/icon";
@@ -15,6 +16,11 @@ import {
   resetEucharisticMinisterAssignments,
 } from "../../../../../assets/scripts/assignMember";
 
+// Label sniffers
+const isSundayMassLabel = (label = "") =>
+  /^(?:\d+(?:st|nd|rd|th)\s+Mass)/i.test(label);
+const isTemplateMassLabel = (label = "") => /^Mass\s*-\s*/i.test(label);
+
 export default function AssignMemberEucharistic() {
   useEffect(() => {
     document.title = "OLGP Servers | Make Schedule";
@@ -28,15 +34,23 @@ export default function AssignMemberEucharistic() {
   const selectedISO = state?.selectedISO || null;
   const selectedMassDisplay = state?.selectedMassDisplay || "Selected Mass";
   const templateID = state?.templateID ?? null;
-  const isSunday = !!state?.isSunday;
   const group = state?.group || null;
 
-  // Local state
+  // Mass kind
+  const passedMassKind = state?.massKind || null;
+  const massKind = useMemo(() => {
+    if (passedMassKind) return passedMassKind;
+    if (isSundayMassLabel(selectedMassDisplay)) return "sunday";
+    if (isTemplateMassLabel(selectedMassDisplay)) return "template";
+    return "template";
+  }, [passedMassKind, selectedMassDisplay]);
+
+  // Members list
   const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Assignment state (6 slots)
+  // Assignments (6 slots)
   const [assigned, setAssigned] = useState({
     minister1: "",
     minister2: "",
@@ -46,7 +60,6 @@ export default function AssignMemberEucharistic() {
     minister6: "",
   });
 
-  // Helper to normalize IDs to string everywhere
   const asStr = (v) => (v === null || v === undefined ? "" : String(v));
 
   // Load group members
@@ -66,7 +79,6 @@ export default function AssignMemberEucharistic() {
         );
 
         if (!cancelled) {
-          // Normalize IDs to string to avoid number/string mismatches
           const normalized = (groupMembers || []).map((m) => ({
             id: asStr(m.id),
             name: m.name,
@@ -87,7 +99,7 @@ export default function AssignMemberEucharistic() {
     };
   }, [group?.name]);
 
-  // Load existing assignments AFTER members are loaded (pre-check boxes)
+  // Load existing assignments (pre-check boxes)
   useEffect(() => {
     let cancelled = false;
 
@@ -164,7 +176,12 @@ export default function AssignMemberEucharistic() {
 
       if (success) {
         navigate("/selectMassEucharisticMinister", {
-          state: { selectedDate, selectedISO, isSunday, templateID },
+          state: {
+            selectedDate,
+            selectedISO,
+            isSunday: massKind === "sunday",
+            templateID,
+          },
         });
       } else {
         alert("Failed to save assignments. Please try again.");
@@ -209,7 +226,7 @@ export default function AssignMemberEucharistic() {
     <div className="schedule-page-container">
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>MAKE SCHEDULE</h3>
+          <h3>MAKE SCHEDULE - EUCHARISTIC MINISTER</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -237,7 +254,9 @@ export default function AssignMemberEucharistic() {
                       state={{
                         selectedDate,
                         selectedISO,
-                        isSunday,
+                        dateISOForDB: selectedISO,
+                        source: "combined",
+                        isSunday: true,
                         templateID,
                       }}
                       className="breadcrumb-item"
@@ -253,9 +272,12 @@ export default function AssignMemberEucharistic() {
                       state={{
                         selectedDate,
                         selectedISO,
+                        dateISOForDB: selectedISO,
+                        source: "combined",
                         selectedMassDisplay,
                         templateID,
-                        isSunday,
+                        isSunday: massKind === "sunday",
+                        massKind,
                       }}
                       className="breadcrumb-item"
                     >
@@ -283,14 +305,27 @@ export default function AssignMemberEucharistic() {
         <h4 style={{ marginBottom: "0.5rem" }}>
           Selected Date: {selectedDate} | Selected Mass: {selectedMassDisplay}
         </h4>
-        <h5 style={{ marginBottom: "1rem", color: "#666" }}>
-          Group: {group?.name || "No group selected"}
-        </h5>
+
+        {massKind === "template" && (
+          <div
+            style={{
+              fontSize: 13,
+              marginBottom: 10,
+              color: "#2e4a9e",
+              fontWeight: 600,
+            }}
+          >
+            Template mass: members may also be serving another template mass on
+            the same date.
+          </div>
+        )}
 
         <div className="assign-container row">
           {/* Left */}
           <div className="col-md-6 assign-left">
-            <h5 className="assign-title">Eucharistic Ministers</h5>
+            <h5 className="assign-title">
+              Group: {group?.name || "No group selected"}
+            </h5>
             <div className="input-group mb-3">
               <input
                 type="text"
@@ -315,7 +350,6 @@ export default function AssignMemberEucharistic() {
                     className="list-group-item d-flex align-items-center"
                     style={{ cursor: "pointer" }}
                     onClick={() => {
-                      // Block adding new if all 6 filled, but allow unselecting
                       if (
                         !(
                           !isChecked(member) &&
@@ -394,9 +428,7 @@ export default function AssignMemberEucharistic() {
         </div>
       </div>
 
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

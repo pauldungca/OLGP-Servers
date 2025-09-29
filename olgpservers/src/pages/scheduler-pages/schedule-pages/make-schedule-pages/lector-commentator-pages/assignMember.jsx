@@ -45,12 +45,11 @@ export default function AssignMemberLectorCommentator() {
   );
 
   // -------- Members (left list) --------
-  const [members, setMembers] = useState([]); // [{ idNumber, fullName, role, sex }]
+  const [members, setMembers] = useState([]); // [{ idNumber, fullName, roleCount, daysSinceLastRole, ... }]
   const [loadingMembers, setLoadingMembers] = useState(true);
 
   useEffect(() => {
     const loadMembers = async () => {
-      // Pass the role (e.g., "reading") along with dateISO and massLabel
       const normalizedMembers = await fetchLectorCommentatorMembersNormalized(
         selectedISO,
         selectedMass,
@@ -98,13 +97,24 @@ export default function AssignMemberLectorCommentator() {
     };
   }, [selectedISO, selectedMass, selectedRoleKey, slotsCount]);
 
-  // -------- Search --------
+  // -------- Search + Priority-only filter --------
   const [searchTerm, setSearchTerm] = useState("");
+
+  // base filter by search
   const filteredMembers = useMemo(() => {
     return members.filter((m) =>
-      m.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+      (m.fullName || "")
+        .toLowerCase()
+        .includes((searchTerm || "").toLowerCase())
     );
   }, [members, searchTerm]);
+
+  // show ONLY priority members (new to role OR last assignment > 30 days)
+  const priorityOnlyMembers = useMemo(() => {
+    return filteredMembers.filter(
+      (m) => m.roleCount === 0 || m.daysSinceLastRole > 30
+    );
+  }, [filteredMembers]);
 
   // -------- UI Handlers --------
   const handleToggleMember = (member) => {
@@ -115,7 +125,7 @@ export default function AssignMemberLectorCommentator() {
       // If already assigned, unassign them
       if (alreadyIdx >= 0) {
         const next = [...prev];
-        next[alreadyIdx] = null; // unassign member by setting to null
+        next[alreadyIdx] = null; // unassign
         return next;
       }
 
@@ -310,27 +320,19 @@ export default function AssignMemberLectorCommentator() {
                     ? "Fetching members..."
                     : "Loading assignments..."}
                 </li>
-              ) : filteredMembers.length > 0 ? (
-                filteredMembers.map((m) => {
+              ) : priorityOnlyMembers.length > 0 ? (
+                priorityOnlyMembers.map((m) => {
                   const checked = isMemberChecked(assigned, m);
-                  const isPriorityMember =
-                    m.roleCount === 0 || m.daysSinceLastRole > 30;
-
+                  // all in this list are priority by construction
                   return (
                     <li
                       key={String(m.idNumber)}
-                      className={`list-group-item d-flex align-items-center justify-content-between ${
-                        isPriorityMember ? "priority-member" : ""
-                      }`}
+                      className="list-group-item d-flex align-items-center justify-content-between priority-member"
                       onClick={() => handleToggleMember(m)}
                       style={{
                         cursor: "pointer",
-                        backgroundColor: isPriorityMember
-                          ? "#f8f9ff"
-                          : "inherit",
-                        borderLeft: isPriorityMember
-                          ? "3px solid #2e4a9e"
-                          : "none",
+                        backgroundColor: "#f8f9ff",
+                        borderLeft: "3px solid #2e4a9e",
                       }}
                     >
                       <div className="d-flex align-items-center flex-grow-1">
@@ -344,15 +346,13 @@ export default function AssignMemberLectorCommentator() {
                         <div>
                           <div className="d-flex align-items-center">
                             {m.fullName}
-                            {isPriorityMember && (
-                              <span
-                                className="badge bg-success ms-2"
-                                style={{ fontSize: "0.7em" }}
-                                title="Priority for role rotation"
-                              >
-                                Priority
-                              </span>
-                            )}
+                            <span
+                              className="badge bg-success ms-2"
+                              style={{ fontSize: "0.7em" }}
+                              title="Priority for role rotation"
+                            >
+                              Priority
+                            </span>
                           </div>
                         </div>
                       </div>

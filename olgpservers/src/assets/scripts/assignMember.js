@@ -729,7 +729,7 @@ const AssignProgress = (() => {
       <div style="
         width:min(520px, 92vw); border-radius:10px; padding:18px 20px 22px;
         background:#fff; color:#222; box-shadow:0 10px 30px rgba(0,0,0,.25)">
-        <div style="font-size:22px; font-weight:700; margin-bottom:8px">Auto-assigning schedulesâ€¦</div>
+        <div style="font-size:22px; font-weight:700; margin-bottom:8px">Auto-assigning schedules...</div>
         <div style="margin-bottom:10px"><strong>Month:</strong> ${monthText}</div>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px 16px; font-size:14px; line-height:1.35">
           <div><strong>Sundays:</strong> <span id="ap-sun">0</span>/<span id="ap-sunTotal">0</span></div>
@@ -1794,7 +1794,7 @@ export async function isMonthFullyScheduledLectorCommentator(year, month) {
   };
 }
 
-export const autoAssignLectorCommentatorSchedules = async (year, month) => {
+/*export const autoAssignLectorCommentatorSchedules = async (year, month) => {
   const monthNames = [
     "January",
     "February",
@@ -2109,11 +2109,484 @@ const autoAssignLectorCommentatorSingleMass = async ({
   }
 
   return totalNewAssignments;
+};*/
+
+// =================== LECTOR–COMMENTATOR: AUTO-ASSIGN with HARD ROTATION + ANTI-TRIO ===================
+
+const LC_SUNDAY_MASSES = [
+  "1st Mass - 6:00 AM",
+  "2nd Mass - 8:00 AM",
+  "3rd Mass - 5:00 PM",
+];
+const MASS_INDEX2 = (label) => LC_SUNDAY_MASSES.findIndex((s) => s === label);
+const nextMassIdx2 = (idx) => ((idx ?? 0) + 1) % 3;
+
+const ymdLocal2 = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 };
+const getSundaysInMonth2 = (year, month) => {
+  const out = [];
+  const d = new Date(year, month, 1);
+  while (d.getMonth() === month) {
+    if (d.getDay() === 0) out.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+};
+const getPrevSunday2 = (iso) => {
+  const d = new Date(iso);
+  for (let i = 1; i <= 7; i++) {
+    const back = new Date(d);
+    back.setDate(d.getDate() - i);
+    if (back.getDay() === 0) return ymdLocal2(back);
+  }
+  return null;
+};
+// exactly 3 Sundays back (≈21 days) – used to prevent week-4 == week-1 groups
+const getPrevSameMassSunday3w2 = (iso) => {
+  const d = new Date(iso);
+  d.setDate(d.getDate() - 21);
+  // ensure it's a Sunday; if not, walk back until Sunday
+  for (let i = 0; i < 7; i++) {
+    if (d.getDay() === 0) return ymdLocal2(d);
+    d.setDate(d.getDate() - 1);
+  }
+  return null;
+};
+
+// tiny painter that reuses your existing overlay if present
+const LCPaint = (() => {
+  let ui = {
+    sundaysProcessed: 0,
+    totalSundays: 0,
+    massesProcessed: 0,
+    totalMasses: 0,
+    membersAssigned: 0,
+    errors: 0,
+  };
+  const paint = () => AssignProgress?.maybePaint?.(ui);
+  return {
+    mount: (m) => AssignProgress?.mount?.(m),
+    totals: (s, m) => {
+      ui.totalSundays = s;
+      ui.totalMasses = m;
+      paint();
+    },
+    mTick: () => {
+      ui.massesProcessed++;
+      paint();
+    },
+    sTick: () => {
+      ui.sundaysProcessed++;
+      paint();
+    },
+    add: (n = 1) => {
+      ui.membersAssigned += n;
+      paint();
+    },
+    err: () => {
+      ui.errors++;
+      paint();
+    },
+    done: () => AssignProgress?.unmount?.(),
+  };
+})();
+
+const lcCountsForSunday2 = () =>
+  roleCountsForLectorCommentator({ flags: null, isSunday: true });
+const lcVisibleForSunday2 = () =>
+  roleVisibilityForLectorCommentator({ flags: null, isSunday: true });
+
+async function lcEligibilitySets2() {
+  const { data } = await supabase
+    .from("lector-commentator-roles")
+    .select("idNumber, reading, preface");
+  const out = { reading: new Set(), preface: new Set() };
+  (data || []).forEach((r) => {
+    const id = String(r.idNumber).trim();
+    if (Number(r.reading) === 1) out.reading.add(id);
+    if (Number(r.preface) === 1) out.preface.add(id);
+  });
+  return out;
+}
+async function lcNameMap2() {
+  const { data } = await supabase
+    .from("members-information")
+    .select("idNumber, firstName, middleName, lastName");
+  const map = new Map();
+  (data || []).forEach((m) => {
+    const name = [
+      m.firstName,
+      m.middleName ? `${m.middleName[0]}.` : "",
+      m.lastName,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    map.set(String(m.idNumber).trim(), name || String(m.idNumber));
+  });
+  return map;
+}
+
+async function lcSundayAssignments2(dateISO) {
+  const { data } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, mass")
+    .eq("date", dateISO);
+
+  const byMember = new Map();
+  const byRoleMass = {
+    reading: { 0: [], 1: [], 2: [] },
+    preface: { 0: [], 1: [], 2: [] },
+  };
+
+  (data || []).forEach((r) => {
+    const id = String(r.idNumber).trim();
+    const idx = MASS_INDEX2(r.mass || "");
+    if (idx < 0) return;
+    if (!byMember.has(id)) byMember.set(id, { roles: [], masses: new Set() });
+    byMember.get(id).roles.push({ role: r.role, massIdx: idx });
+    byMember.get(id).masses.add(idx);
+    if (byRoleMass[r.role]) byRoleMass[r.role][idx].push(id);
+  });
+
+  return { byMember, byRoleMass };
+}
+
+// set of members who served on the same mass *three weeks ago*
+async function lcPrevSameMassCohort2(prev3wISO, massIdx) {
+  if (!prev3wISO) return new Set();
+  const massLabel = LC_SUNDAY_MASSES[massIdx];
+  const { data } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber")
+    .eq("date", prev3wISO)
+    .eq("mass", massLabel);
+  return new Set((data || []).map((r) => String(r.idNumber).trim()));
+}
+
+/** priority pass: move last-Sunday people to next mass (hard rotation),
+ *  but avoid re-forming the *same trio* from 3 weeks ago:
+ *    - allow at most ONE member from that 3w-ago cohort per mass this week (when possible)
+ */
+async function lcPriorityRotationPass2({
+  dateISO,
+  prevSundayISO,
+  eligible,
+  counts,
+  visible,
+  alreadyToday,
+  existingByRoleMass,
+  prev3wCohortPerMass, // [Set, Set, Set]
+}) {
+  const insertRows = [];
+  const assigned = new Set();
+  if (!prevSundayISO) return { assigned, insertRows };
+
+  const { byMember: prevByMember } = await lcSundayAssignments2(prevSundayISO);
+
+  // remaining capacity per role/mass
+  const caps = { reading: { 0: 0, 1: 0, 2: 0 }, preface: { 0: 0, 1: 0, 2: 0 } };
+  for (const roleKey of Object.keys(caps)) {
+    if (!visible[roleKey]) continue;
+    const req = Number(counts[roleKey] || 0);
+    for (let idx = 0; idx < 3; idx++) {
+      const have = (existingByRoleMass[roleKey]?.[idx] || []).length;
+      caps[roleKey][idx] = Math.max(0, req - have);
+    }
+  }
+
+  // track how many from the 3w-ago cohort we already picked per mass
+  const pickedFromCohort = [0, 0, 0];
+
+  for (const [id, info] of prevByMember.entries()) {
+    if (alreadyToday.has(id)) continue;
+    const last = info.roles[0];
+    if (!last) continue;
+
+    const targetIdx = nextMassIdx2(last.massIdx);
+    const cohort = prev3wCohortPerMass[targetIdx];
+    const cohortLimitHit = cohort.has(id) && pickedFromCohort[targetIdx] >= 1;
+
+    // same-role first, then the other if needed
+    const tryRoles = [
+      last.role,
+      ...(last.role === "reading" ? ["preface"] : ["reading"]),
+    ].filter(
+      (r) => visible[r] && eligible[r].has(id) && caps[r][targetIdx] > 0
+    );
+
+    if (!tryRoles.length) continue;
+    if (cohortLimitHit && tryRoles.length === 0) continue; // (defensive)
+
+    // if cohort limit would be exceeded AND we still have other people to place,
+    // skip this person for this mass; they can be used elsewhere by fair pass
+    if (cohortLimitHit) continue;
+
+    const rolePick = tryRoles[0];
+    const massLabel = LC_SUNDAY_MASSES[targetIdx];
+
+    insertRows.push({
+      date: dateISO,
+      mass: massLabel,
+      role: rolePick,
+      slot: (existingByRoleMass[rolePick][targetIdx]?.length || 0) + 1,
+      idNumber: id,
+    });
+
+    caps[rolePick][targetIdx] -= 1;
+    existingByRoleMass[rolePick][targetIdx] = (
+      existingByRoleMass[rolePick][targetIdx] || []
+    ).concat(id);
+    alreadyToday.add(id);
+    assigned.add(id);
+
+    if (cohort.has(id)) pickedFromCohort[targetIdx] += 1;
+  }
+
+  return { assigned, insertRows };
+}
+
+async function lcFairFillPass2({
+  dateISO,
+  eligible,
+  counts,
+  visible,
+  alreadyToday,
+  existingByRoleMass,
+  nameMap,
+  monthAssignCount,
+  prev3wCohortPerMass, // [Set,Set,Set]
+}) {
+  const inserts = [];
+  const selectedFromCohort = [0, 0, 0];
+
+  for (const roleKey of ["reading", "preface"]) {
+    if (!visible[roleKey]) continue;
+    const req = Number(counts[roleKey] || 0);
+    for (let idx = 0; idx < 3; idx++) {
+      const massLabel = LC_SUNDAY_MASSES[idx];
+      const already = existingByRoleMass[roleKey][idx] || [];
+      const need = Math.max(0, req - already.length);
+      if (need <= 0) continue;
+
+      const pool = Array.from(eligible[roleKey] || []).filter(
+        (id) => !alreadyToday.has(id) && !already.includes(id)
+      );
+
+      const cohort = prev3wCohortPerMass[idx];
+
+      const ranked = pool
+        .map((id) => {
+          const monthCnt = monthAssignCount.get(id) || 0;
+          // big penalty if we’d exceed 1 person from the 3w-ago cohort for this mass
+          const cohortPenalty =
+            cohort.has(id) && selectedFromCohort[idx] >= 1
+              ? 10000
+              : cohort.has(id)
+              ? 2000
+              : 0; // mild penalty for first one, allowed
+          return {
+            id,
+            score: monthCnt * 100 + cohortPenalty,
+            nameTie: (nameMap.get(id) || "").toUpperCase(),
+          };
+        })
+        .sort((a, b) => a.score - b.score || a.nameTie.localeCompare(b.nameTie))
+        .slice(0, need);
+
+      if (!ranked.length) continue;
+
+      const rows = ranked.map((r, i) => ({
+        date: dateISO,
+        mass: massLabel,
+        role: roleKey,
+        slot: already.length + i + 1,
+        idNumber: r.id,
+      }));
+      inserts.push(...rows);
+
+      ranked.forEach((r) => {
+        alreadyToday.add(r.id);
+        existingByRoleMass[roleKey][idx] = (
+          existingByRoleMass[roleKey][idx] || []
+        ).concat(r.id);
+        monthAssignCount.set(r.id, (monthAssignCount.get(r.id) || 0) + 1);
+        if (cohort.has(r.id)) selectedFromCohort[idx] += 1;
+      });
+    }
+  }
+
+  return inserts;
+}
+
+async function lcAssignOneSunday2({
+  dateISO,
+  monthAssignCount,
+  nameMap,
+  eligible,
+}) {
+  const counts = lcCountsForSunday2();
+  const visible = lcVisibleForSunday2();
+
+  const existing = await lcSundayAssignments2(dateISO);
+  const existingByRoleMass = existing.byRoleMass;
+
+  const { data: todayRows } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber")
+    .eq("date", dateISO);
+  const alreadyToday = new Set(
+    (todayRows || []).map((r) => String(r.idNumber).trim())
+  );
+
+  // get cohorts from exactly 3 Sundays earlier (same mass index)
+  const prev3wISO = getPrevSameMassSunday3w2(dateISO);
+  const prev3wCohortPerMass = [
+    await lcPrevSameMassCohort2(prev3wISO, 0),
+    await lcPrevSameMassCohort2(prev3wISO, 1),
+    await lcPrevSameMassCohort2(prev3wISO, 2),
+  ];
+
+  // hard rotation (from last Sunday) but cohort-aware
+  const prev = getPrevSunday2(dateISO);
+  const { insertRows } = await lcPriorityRotationPass2({
+    dateISO,
+    prevSundayISO: prev,
+    eligible,
+    counts,
+    visible,
+    alreadyToday,
+    existingByRoleMass,
+    prev3wCohortPerMass,
+  });
+  if (insertRows.length)
+    await supabase.from("lector-commentator-placeholder").insert(insertRows);
+
+  // fair fill with cohort diversity
+  const fillRows = await lcFairFillPass2({
+    dateISO,
+    eligible,
+    counts,
+    visible,
+    alreadyToday,
+    existingByRoleMass,
+    nameMap,
+    monthAssignCount,
+    prev3wCohortPerMass,
+  });
+  if (fillRows.length)
+    await supabase.from("lector-commentator-placeholder").insert(fillRows);
+
+  return insertRows.length + fillRows.length;
+}
+
+/** PUBLIC: month auto-assign (rotation + anti-trio).  */
+export async function autoAssignLectorCommentatorSchedules(year, month) {
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const monthText = `${monthNames[month]} - ${year}`;
+
+  // 🔒 Keep your exact confirmation copy
+  const ok = await Swal.fire({
+    icon: "question",
+    title: "Automate Scheduling?",
+    text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
+    showCancelButton: true,
+    confirmButtonText: "Yes",
+    cancelButtonText: "No",
+    reverseButtons: true,
+  });
+  if (!ok.isConfirmed) return { success: false };
+
+  LCPaint.mount(monthText);
+
+  try {
+    const sundays = getSundaysInMonth2(year, month);
+    const totalMasses = sundays.length * LC_SUNDAY_MASSES.length;
+    if (!sundays.length) {
+      LCPaint.done();
+      await Swal.fire("No Sundays", "No Sundays in this month.", "info");
+      return { success: true };
+    }
+    LCPaint.totals(sundays.length, totalMasses);
+
+    // month counters for fairness (pre-existing rows included)
+    const monthAssignCount = new Map();
+    const startISO = ymdLocal2(new Date(year, month, 1));
+    const endISO = ymdLocal2(new Date(year, month + 1, 0));
+    const { data: monthRows } = await supabase
+      .from("lector-commentator-placeholder")
+      .select("idNumber, date")
+      .gte("date", startISO)
+      .lte("date", endISO);
+    (monthRows || []).forEach((r) => {
+      const id = String(r.idNumber).trim();
+      monthAssignCount.set(id, (monthAssignCount.get(id) || 0) + 1);
+    });
+
+    const eligible = await lcEligibilitySets2();
+    const nameMap = await lcNameMap2();
+
+    let assignedTotal = 0;
+    for (const s of sundays) {
+      const dateISO = ymdLocal2(s);
+      const n = await lcAssignOneSunday2({
+        dateISO,
+        monthAssignCount,
+        nameMap,
+        eligible,
+      });
+      assignedTotal += n;
+      // 3 masses → 3 ticks
+      LCPaint.mTick();
+      LCPaint.mTick();
+      LCPaint.mTick();
+      LCPaint.sTick();
+      LCPaint.add(n);
+    }
+
+    LCPaint.done();
+
+    await Swal.fire({
+      icon: "success",
+      title: "Auto-Assignment Complete",
+      text: `Masses processed: ${totalMasses}\nAssignments inserted: ${assignedTotal}`,
+    });
+
+    // 🔁 Reload the SelectSchedule view after success (your request)
+    try {
+      window.location.reload();
+    } catch {}
+
+    return { success: true, stats: { assignedTotal, totalMasses } };
+  } catch (e) {
+    console.error("LC auto-assign fatal:", e);
+    LCPaint.err();
+    LCPaint.done();
+    await Swal.fire("Error", e?.message || "Auto-assignment failed.", "error");
+    return { success: false, error: e?.message || "Unknown error" };
+  }
+}
 
 /*----------------------------------
 
-LECTOR COMMENTATOR FUNCTIONS
+CHOIR FUNCTIONS
 
 ------------------------------------*/
 
@@ -2354,7 +2827,7 @@ const AssignProgressChoir = (() => {
       <div style="
         width:min(520px, 92vw); border-radius:10px; padding:18px 20px 22px;
         background:#fff; color:#222; box-shadow:0 10px 30px rgba(0,0,0,.25)">
-        <div style="font-size:22px; font-weight:700; margin-bottom:8px">Auto-assigning schedulesâ€¦</div>
+        <div style="font-size:22px; font-weight:700; margin-bottom:8px">Auto-assigning Schedules…</div>
         <div style="margin-bottom:10px"><strong>Month:</strong> ${
           monthText ?? ""
         }</div>
@@ -3594,7 +4067,7 @@ const EMProgress = (() => {
   const html = (monthText) => `
     <div id="em-overlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
       <div style="width:min(520px,92vw);border-radius:10px;padding:18px 20px 22px;background:#fff;color:#222;box-shadow:0 10px 30px rgba(0,0,0,.25)">
-        <div style="font-size:22px;font-weight:700;margin-bottom:8px">Auto-assigning EM schedules…</div>
+        <div style="font-size:22px;font-weight:700;margin-bottom:8px">Auto-assigning Schedules…</div>
         <div style="margin-bottom:10px"><strong>Month:</strong> ${monthText}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:14px;line-height:1.35">
           <div><strong>Sundays:</strong> <span id="em-sun">0</span>/<span id="em-sunT">0</span></div>

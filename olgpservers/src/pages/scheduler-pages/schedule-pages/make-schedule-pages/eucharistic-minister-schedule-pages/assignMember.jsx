@@ -283,14 +283,13 @@ export default function AssignMemberEucharistic() {
         <h4 style={{ marginBottom: "0.5rem" }}>
           Selected Date: {selectedDate} | Selected Mass: {selectedMassDisplay}
         </h4>
-        <h5 style={{ marginBottom: "1rem", color: "#666" }}>
-          Group: {group?.name || "No group selected"}
-        </h5>
 
         <div className="assign-container row">
           {/* Left */}
           <div className="col-md-6 assign-left">
-            <h5 className="assign-title">Eucharistic Ministers</h5>
+            <h5 className="assign-title">
+              Group: {group?.name || "No group selected"}
+            </h5>
             <div className="input-group mb-3">
               <input
                 type="text"

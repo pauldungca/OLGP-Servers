@@ -93,19 +93,12 @@ export default function ViewNotification() {
         ? created.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
         : "");
 
-    const noteText = (n.note ?? "").toString().trim() ? n.note : "non";
-    const clientText =
-      (n.clientName ?? n.client_name ?? n.client ?? "").toString().trim() ||
-      "non";
+    const noteText = (n.note ?? "").toString().trim() ? n.note : "None";
 
     return (
       <div className="view-notification-card">
         {n.message && <p className="view-notification-text">{n.message}</p>}
 
-        <div className="view-notification-detail">
-          <span className="label">Client:</span>
-          <span className="value">{clientText}</span>
-        </div>
         <div className="view-notification-detail">
           <span className="label">Date:</span>
           <span className="value">{displayDate}</span>

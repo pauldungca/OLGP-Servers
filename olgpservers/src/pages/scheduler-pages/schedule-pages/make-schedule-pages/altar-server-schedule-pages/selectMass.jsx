@@ -64,18 +64,21 @@ export default function SelectMass() {
       setLoadingTemplates(true);
       try {
         const uses = await fetchTemplateMassesForDate(selectedISO); // [{templateID,time}]
+
         if (!cancel) setTemplateUses(uses || []);
 
         // fetch each mass-type once
         const uniqueIds = Array.from(
           new Set((uses || []).map((u) => u.templateID))
         );
+
         const entries = await Promise.all(
           uniqueIds.map(async (id) => [id, await getTemplateMassType(id)])
         );
         if (!cancel) {
           const map = {};
           for (const [id, type] of entries) map[id] = type || "Mass";
+
           setMassTypes(map);
         }
       } finally {
@@ -87,17 +90,18 @@ export default function SelectMass() {
     };
   }, [selectedISO]);
 
-  /** Build the full mass list shown on the page */
   const templateCards = useMemo(() => {
-    // display label -> { storageLabel, templateID, time }
     const map = new Map();
     for (const u of templateUses) {
       const type = massTypes[u.templateID] || "Mass";
-      const display = `${type} - ${u.time}`;
-      const storage = `Mass - ${u.time}`; // DB label
-      map.set(display, {
+      // Use the row ID to make it unique
+      const uniqueKey = `${type} - ${u.time} (No. ${u.id})`;
+      const storage = `Mass - ${u.time} - ${u.id}`;
+
+      map.set(uniqueKey, {
         storageLabel: storage,
         templateID: u.templateID,
+        useId: u.id,
         time: u.time,
       });
     }

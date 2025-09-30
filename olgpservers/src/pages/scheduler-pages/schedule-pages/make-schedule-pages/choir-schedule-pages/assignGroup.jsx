@@ -11,11 +11,11 @@ import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/assignGroup.css";
 
 // === Helpers (keep DB logic outside JSX) ===
-import { fetchChoirGroups } from "../../../../../assets/scripts/group";
 import {
   getChoirGroupAssignments,
   saveChoirGroupAssignments,
   clearChoirGroupAssignments,
+  fetchAvailableChoirGroupsForMass,
 } from "../../../../../assets/scripts/assignMember";
 
 // Label sniffers
@@ -56,6 +56,8 @@ export default function AssignGroupChoir() {
     return "template"; // safe default
   }, [passedMassKind, selectedMass]);
 
+  const isTemplate = massKind === "template";
+
   // ---- Data: Choir groups ----
   const [availableGroups, setAvailableGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
@@ -65,22 +67,18 @@ export default function AssignGroupChoir() {
     (async () => {
       setLoadingGroups(true);
       try {
-        const rows = (await fetchChoirGroups()) || [];
+        const groups = await fetchAvailableChoirGroupsForMass({
+          dateISO: dateISOForDB,
+          massLabel: selectedMass,
+          isTemplate,
+        });
 
-        // Ensure "Koro Ni Maria" exists even if DB has none (case-insensitive check)
-        const hasKNM = rows.some(
-          (g) => (g?.name || "").trim().toLowerCase() === "koro ni maria"
-        );
-        const withFallback = hasKNM
-          ? rows
-          : [...rows, { id: "knm-local", name: "Koro Ni Maria" }];
-
-        if (!cancelled) setAvailableGroups(withFallback);
+        if (!cancelled) setAvailableGroups(groups);
       } catch (e) {
-        console.error("fetchChoirGroups error:", e);
-        // Still inject fallback if the fetch failed
-        if (!cancelled)
+        console.error("fetchAvailableChoirGroupsForMass error:", e);
+        if (!cancelled) {
           setAvailableGroups([{ id: "knm-local", name: "Koro Ni Maria" }]);
+        }
       } finally {
         if (!cancelled) setLoadingGroups(false);
       }
@@ -88,7 +86,7 @@ export default function AssignGroupChoir() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dateISOForDB, selectedMass, isTemplate]);
 
   // ---- Preselect already-assigned group (if any) ----
   const [preloading, setPreloading] = useState(true);
@@ -131,8 +129,6 @@ export default function AssignGroupChoir() {
   // ---- Search + visibility ----
   const [search, setSearch] = useState("");
 
-  // REQUIREMENT: when it's a TEMPLATE mass, render ALL groups (no same-day blocking).
-  // Here we just search-filter; we do not hide anything for template.
   const visibleGroups = useMemo(() => {
     const term = search.trim().toLowerCase();
     return (availableGroups || []).filter((g) =>

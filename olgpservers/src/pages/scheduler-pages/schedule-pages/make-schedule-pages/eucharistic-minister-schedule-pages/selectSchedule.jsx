@@ -175,6 +175,9 @@ export default function SelectSchedule() {
               dateISO,
               isSunday: !!item.hasSunday,
             });
+
+            console.log("EM status", dateISO, status, item);
+
             if (!cancelled) next[dateISO] = status;
           } catch {
             if (!cancelled) next[dateISO] = "empty";

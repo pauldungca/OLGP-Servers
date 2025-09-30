@@ -69,7 +69,7 @@ export default function SelectMass() {
 
         (tmpl || []).forEach((t) =>
           list.push({
-            label: `Mass - ${t.time}`,
+            label: `Mass - ${t.time} (No. ${t.id})`,
             isSunday: false,
             templateID: t.templateID,
           })

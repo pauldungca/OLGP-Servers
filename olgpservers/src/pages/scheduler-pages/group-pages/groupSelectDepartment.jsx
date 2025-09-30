@@ -3,9 +3,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Breadcrumb } from "antd";
 
 import icon from "../../../helper/icon";
-import images from "../../../helper/images";
 import Footer from "../../../components/footer";
-
 import { createSelectedDepartmentCard } from "../../../assets/scripts/member";
 
 import "../../../assets/styles/member.css";
@@ -19,26 +17,7 @@ export default function GroupSelectDepartment() {
   const location = useLocation();
   const { department, group } = location.state || {};
 
-  const SelectedDepartmentCard = createSelectedDepartmentCard(images, navigate);
-
-  const departments = [
-    {
-      department: "Altar Server",
-      parish: "Import a member from the Altar Server Department.",
-    },
-    {
-      department: "Eucharistic Minister",
-      parish: "Import a member from the Eucharistic Minister Department.",
-    },
-    {
-      department: "Choir",
-      parish: "Import a member from the Choir Department.",
-    },
-    {
-      department: "Lector Commentator",
-      parish: "Import a member from the Lector Commentator Department.",
-    },
-  ];
+  const SelectedDepartmentCard = createSelectedDepartmentCard(navigate);
 
   return (
     <div className="member-page-container">
@@ -100,19 +79,53 @@ export default function GroupSelectDepartment() {
 
       <div className="member-content">
         <div className="member-cards-container">
-          {departments
-            .filter((d) => d.department !== department)
-            .map((d) => (
-              <SelectedDepartmentCard
-                key={d.department}
-                department={d.department}
-                parish={d.parish}
-                toPage="/groupImportMember"
-                selectedDepartment={d.department}
-                originalDepartment={department}
-                group={group}
-              />
-            ))}
+          {department !== "Altar Server" && (
+            <SelectedDepartmentCard
+              department="Altar Server"
+              parish="Import a member from the Altar Server Department."
+              toPage="/groupImportMember"
+              selectedDepartment="Altar Server"
+              originalDepartment={department}
+              group={group}
+              icon={icon.altarServerIcon}
+            />
+          )}
+
+          {department !== "Eucharistic Minister" && (
+            <SelectedDepartmentCard
+              department="Eucharistic Minister"
+              parish="Import a member from the Eucharistic Minister Department."
+              toPage="/groupImportMember"
+              selectedDepartment="Eucharistic Minister"
+              originalDepartment={department}
+              group={group}
+              icon={icon.eucharisticMinisterIcon}
+            />
+          )}
+
+          {department !== "Choir" && (
+            <SelectedDepartmentCard
+              department="Choir"
+              parish="Import a member from the Choir Department."
+              toPage="/groupImportMember"
+              selectedDepartment="Choir"
+              originalDepartment={department}
+              group={group}
+              icon={icon.choirIcon}
+            />
+          )}
+
+          {department !== "Lector Commentator" && (
+            <SelectedDepartmentCard
+              department="Lector Commentator"
+              parish="Import a member from the Lector Commentator Department."
+              toPage="/groupImportMember"
+              selectedDepartment="Lector Commentator"
+              originalDepartment={department}
+              group={group}
+              icon={icon.lectorCommentatorIcon}
+            />
+          )}
         </div>
       </div>
 

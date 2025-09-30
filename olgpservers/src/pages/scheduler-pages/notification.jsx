@@ -57,8 +57,8 @@ export default function Notification() {
       const normalizedAssigned = (assigned || []).map((a) => ({
         ...a,
         _kind: "assignment",
-        label: `Assigned: ${a.role}`,
-        // a.date and a.time come from the table; keep as-is so we don't misparse
+        label:
+          a.role === "Schedule Cancellation" ? a.role : `Assigned: ${a.role}`,
         date: a.date || "",
         time: a.time || "",
       }));

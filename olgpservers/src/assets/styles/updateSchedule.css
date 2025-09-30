@@ -139,6 +139,7 @@
 /* Cancel Button */
 .cancel-btn {
   width: 100%;
+  height: 10%;
   font-weight: bold;
   display: flex;
   justify-content: center;

@@ -198,26 +198,23 @@ export function Sidebar({ collapsed, mobileOpen }) {
                 userRoles.isAltarServerScheduler ||
                 userRoles.isEucharisticMinisterScheduler ||
                 userRoles.isLectorCommentatorScheduler ||
-                userRoles.isChoirScheduler ||
+                userRoles.isChoirScheduler
+              );
+            }
+            if (option.title === "View Schedule") {
+              return (
                 userRoles.isAltarServerMember ||
                 userRoles.isEucharisticMinisterMember ||
                 userRoles.isLectorCommentatorMember ||
                 userRoles.isChoirMember
               );
             }
-            if (option.title === "View Schedule") {
-              return (
-                userRoles.isAltarServerScheduler ||
-                userRoles.isEucharisticMinisterScheduler ||
-                userRoles.isChoirScheduler ||
-                userRoles.isLectorCommentatorScheduler
-              );
-            }
             if (option.title === "Open Schedule") {
               return (
                 userRoles.isAltarServerMember ||
                 userRoles.isEucharisticMinisterMember ||
-                userRoles.isLectorCommentatorMember
+                userRoles.isLectorCommentatorMember ||
+                userRoles.isChoirMember
               );
             }
             return true;

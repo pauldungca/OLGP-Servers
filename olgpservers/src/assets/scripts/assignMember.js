@@ -2182,323 +2182,6 @@ export async function isMonthFullyScheduledLectorCommentator(year, month) {
   };
 }
 
-/*export const autoAssignLectorCommentatorSchedules = async (year, month) => {
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-  const monthText = `${monthNames[month]} - ${year}`;
-
-  const result = await Swal.fire({
-    icon: "question",
-    title: "Automate Scheduling?",
-    text: `Do you want to automate the process of scheduling for Lector Commentator roles in ${monthText}?`,
-    showCancelButton: true,
-    confirmButtonText: "Yes, automate",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
-  });
-  if (!result.isConfirmed) return;
-
-  const ui = {
-    sundaysProcessed: 0,
-    totalSundays: 0,
-    massesProcessed: 0,
-    totalMasses: 0,
-    membersAssigned: 0,
-    errors: 0,
-  };
-
-  const counters = { totalAssignments: 0 };
-  const handleAssign = () => {
-    counters.totalAssignments += 1;
-    ui.membersAssigned = counters.totalAssignments;
-    AssignProgress.maybePaint(ui);
-  };
-
-  try {
-    AssignProgress.mount(monthText);
-
-    const sundays = getSundaysInMonth(year, month);
-    ui.totalSundays = sundays.length;
-
-    const sundayMasses = [
-      "1st Mass - 6:00 AM",
-      "2nd Mass - 8:00 AM",
-      "3rd Mass - 5:00 PM",
-    ];
-    ui.totalMasses = sundays.length * sundayMasses.length;
-    AssignProgress.paint(ui);
-
-    if (sundays.length === 0) {
-      AssignProgress.unmount();
-      await Swal.fire(
-        "No Sundays Found",
-        "No Sundays found in the selected month.",
-        "info"
-      );
-      return { success: false, message: "No Sundays", stats: {} };
-    }
-
-    // Prefetch eligibility map for lector-commentators
-    const { perRoleAllowed } = await buildLectorCommentatorEligibilityMaps();
-
-    // Historical assignments
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-
-    const { data: historicalAssignments, error: histError } = await supabase
-      .from("lector-commentator-placeholder")
-      .select("idNumber, role, date, mass")
-      .gte("date", sixMonthsAgoISO)
-      .order("date", { ascending: false });
-    if (histError) {
-      console.error("Error fetching historical assignments:", histError);
-      ui.errors += 1;
-      AssignProgress.maybePaint(ui);
-    }
-
-    const availableMembers = await fetchLectorCommentatorMembersWithRole();
-    const normalizedMembers = normalizeMembers(availableMembers);
-
-    const stats = {
-      sundaysProcessed: 0,
-      massesProcessed: 0,
-      membersAssigned: 0,
-      errors: [],
-    };
-
-    for (const sunday of sundays) {
-      const dateISO = ymdLocal(sunday);
-      try {
-        const sundayAssignments = new Set();
-
-        for (const massLabel of sundayMasses) {
-          try {
-            await autoAssignLectorCommentatorSingleMass({
-              dateISO,
-              massLabel,
-              availableMembers: normalizedMembers,
-              historicalAssignments: historicalAssignments || [],
-              sundayAssignments,
-              perRoleAllowed,
-              onAssign: handleAssign,
-            });
-
-            stats.massesProcessed += 1;
-            ui.massesProcessed = stats.massesProcessed;
-
-            const { data: newAssignments } = await supabase
-              .from("lector-commentator-placeholder")
-              .select("idNumber")
-              .eq("date", dateISO)
-              .eq("mass", massLabel);
-
-            newAssignments?.forEach((a) =>
-              sundayAssignments.add(String(a.idNumber))
-            );
-
-            AssignProgress.maybePaint(ui);
-          } catch (massError) {
-            console.error(
-              `Error assigning ${massLabel} on ${dateISO}:`,
-              massError
-            );
-            stats.errors.push(`${dateISO} ${massLabel}: ${massError.message}`);
-            ui.errors = stats.errors.length;
-
-            stats.massesProcessed += 1;
-            ui.massesProcessed = stats.massesProcessed;
-            AssignProgress.maybePaint(ui);
-          }
-        }
-
-        stats.sundaysProcessed += 1;
-        ui.sundaysProcessed = stats.sundaysProcessed;
-        AssignProgress.maybePaint(ui);
-      } catch (sundayError) {
-        console.error(`Error processing Sunday ${dateISO}:`, sundayError);
-        stats.errors.push(`${dateISO}: ${sundayError.message}`);
-        ui.errors = stats.errors.length;
-        AssignProgress.maybePaint(ui);
-      }
-    }
-
-    stats.membersAssigned = counters.totalAssignments;
-    AssignProgress.unmount();
-
-    const successMessage =
-      `Successfully auto-assigned schedules!\n\n` +
-      `Sundays processed: ${stats.sundaysProcessed}\n` +
-      `Masses processed: ${stats.massesProcessed}\n` +
-      `Total assignments: ${stats.membersAssigned}\n` +
-      (stats.errors.length ? `Errors: ${stats.errors.length}` : ``);
-
-    if (stats.errors.length) {
-      await Swal.fire({
-        icon: "warning",
-        title: "Partial Success",
-        text: successMessage,
-        footer: `Errors: ${stats.errors.length}`,
-      });
-    } else {
-      await Swal.fire({
-        icon: "success",
-        title: "Auto-Assignment Complete!",
-        text: successMessage,
-      });
-      window.location.reload();
-    }
-
-    return { success: true, message: successMessage, stats };
-  } catch (error) {
-    console.error("Auto-assignment failed:", error);
-    AssignProgress.unmount();
-    await Swal.fire({
-      icon: "error",
-      title: "Auto-Assignment Failed",
-      text: `An error occurred: ${error.message}`,
-    });
-    return {
-      success: false,
-      message: `Auto-assignment failed: ${error.message}`,
-      stats: {},
-    };
-  }
-};
-
-const autoAssignLectorCommentatorSingleMass = async ({
-  dateISO,
-  massLabel,
-  availableMembers,
-  historicalAssignments,
-  sundayAssignments,
-  perRoleAllowed,
-  onAssign,
-}) => {
-  const roleRequirements = {
-    reading: 2, // Two members for Readings
-    preface: 1, // One member for Preface
-  };
-
-  let totalNewAssignments = 0;
-
-  // Fetch existing assignments for this mass
-  const { data: existingAssignments, error: existingError } = await supabase
-    .from("lector-commentator-placeholder")
-    .select("role, slot, idNumber")
-    .eq("date", dateISO)
-    .eq("mass", massLabel);
-
-  if (existingError) {
-    console.error("Error fetching existing assignments:", existingError);
-    throw existingError;
-  }
-
-  // Convert existing assignments into a role-based structure
-  const existingByRole = {};
-  (existingAssignments || []).forEach((assignment) => {
-    const k = assignment.role;
-    if (!existingByRole[k]) existingByRole[k] = [];
-    existingByRole[k].push({
-      slot: assignment.slot,
-      idNumber: assignment.idNumber,
-    });
-  });
-
-  // Create a set of all members already assigned to this specific mass
-  const membersInThisMass = new Set();
-  (existingAssignments || []).forEach((assignment) => {
-    membersInThisMass.add(String(assignment.idNumber).trim());
-  });
-
-  // Process each role and try to assign members
-  for (const [roleKey, requiredCount] of Object.entries(roleRequirements)) {
-    // Calculate how many are already assigned to this role
-    const alreadyAssigned = existingByRole[roleKey]?.length || 0;
-    const needToAssign = requiredCount - alreadyAssigned;
-
-    if (needToAssign <= 0) continue;
-
-    try {
-      const allowedSet = perRoleAllowed.get(roleKey) || new Set();
-
-      const candidatesForRole = availableMembers
-        .filter((member) => {
-          const id = String(member.idNumber).trim();
-
-          // Eligibility from lector-commentator-roles
-          if (!allowedSet.has(id)) return false;
-
-          // Not already assigned this Sunday
-          if (sundayAssignments.has(id)) return false;
-
-          // FIXED: Not already assigned to ANY role in this mass (not just the same role)
-          if (membersInThisMass.has(id)) return false;
-
-          return true;
-        })
-        .map((member) => ({
-          ...member,
-          rotationScore: calculateRotationScore(
-            member.idNumber,
-            roleKey,
-            historicalAssignments || [],
-            dateISO
-          ),
-        }))
-        .sort((a, b) => a.rotationScore - b.rotationScore);
-
-      const selectedMembers = candidatesForRole.slice(0, needToAssign);
-      if (selectedMembers.length === 0) continue;
-
-      // Calculate the starting slot number based on existing assignments
-      const startingSlot = alreadyAssigned + 1;
-
-      const assignments = selectedMembers.map((member, index) => ({
-        date: dateISO,
-        mass: massLabel,
-        role: roleKey,
-        slot: startingSlot + index,
-        idNumber: String(member.idNumber).trim(),
-      }));
-
-      const { data: inserted, error } = await supabase
-        .from("lector-commentator-placeholder")
-        .insert(assignments)
-        .select("idNumber");
-
-      if (error)
-        throw new Error(`Failed to assign ${roleKey}: ${error.message}`);
-
-      (inserted || []).forEach((row) => {
-        const id = String(row.idNumber).trim();
-        sundayAssignments.add(id);
-        membersInThisMass.add(id); // Add to the mass-specific set isMonthFullyScheduled
-        if (typeof onAssign === "function") onAssign(id);
-      });
-
-      totalNewAssignments += selectedMembers.length;
-    } catch (roleError) {
-      console.error(`Error assigning role ${roleKey}:`, roleError);
-      throw roleError;
-    }
-  }
-
-  return totalNewAssignments;
-};*/
-
 // =================== LECTOR–COMMENTATOR: AUTO-ASSIGN with HARD ROTATION + ANTI-TRIO ===================
 
 const LC_SUNDAY_MASSES = [
@@ -3305,233 +2988,6 @@ const AssignProgressChoir = (() => {
   return { mount, maybePaint, paint, unmount };
 })();
 
-/*export const autoAssignChoirSchedules = async (year, month) => {
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-  const monthText = `${monthNames[month]} - ${year}`;
-
-  const result = await Swal.fire({
-    icon: "question",
-    title: "Automate Scheduling?",
-    text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
-    showCancelButton: true,
-    confirmButtonText: "Yes, automate",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
-  });
-
-  if (!result.isConfirmed) return;
-
-  const ui = {
-    sundaysProcessed: 0,
-    totalSundays: 0,
-    massesProcessed: 0,
-    totalMasses: 0,
-    groupsAssigned: 0,
-    assignments: 0,
-    errors: 0,
-  };
-
-  const counters = { totalAssignments: 0 };
-  const handleAssign = () => {
-    counters.totalAssignments += 1;
-    ui.assignments = counters.totalAssignments;
-    ui.groupsAssigned = counters.totalAssignments;
-    AssignProgressChoir.maybePaint(ui);
-  };
-
-  try {
-    AssignProgressChoir.mount(monthText);
-
-    const sundays = getSundaysInMonth(year, month);
-    ui.totalSundays = sundays.length;
-    ui.totalMasses = sundays.length * SUNDAY_MASSES_CHOIR.length;
-    AssignProgressChoir.paint(ui);
-
-    if (sundays.length === 0) {
-      AssignProgressChoir.unmount();
-      await Swal.fire(
-        "No Sundays Found",
-        "No Sundays found in the selected month.",
-        "info"
-      );
-      return { success: false, message: "No Sundays", stats: {} };
-    }
-
-    const availableGroups = await fetchChoirGroups();
-    if (!availableGroups || availableGroups.length === 0) {
-      AssignProgressChoir.unmount();
-      await Swal.fire(
-        "No Groups Found",
-        "No choir groups available for assignment.",
-        "info"
-      );
-      return { success: false, message: "No Groups", stats: {} };
-    }
-
-    // IMPORTANT: fetch once, but keep this array MUTABLE and updated as we assign
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-
-    let { data: historicalAssignments, error: histError } = await supabase
-      .from("choir-placeholder")
-      .select("group, mass, date")
-      .gte("date", sixMonthsAgoISO)
-      .order("date", { ascending: false });
-
-    if (histError) {
-      console.error("Error fetching historical assignments:", histError);
-      historicalAssignments = []; // fall back to empty, but still mutable
-      ui.errors += 1;
-      AssignProgressChoir.maybePaint(ui);
-    } else {
-      historicalAssignments = historicalAssignments || [];
-    }
-
-    const stats = {
-      sundaysProcessed: 0,
-      massesProcessed: 0,
-      groupsAssigned: 0,
-      errors: [],
-    };
-
-    // Build a stable cycle order once
-    const groupCycle = makeGroupCycle(availableGroups);
-    const groupNamesCycle = groupCycle.map((g) => g.name.trim());
-
-    // Process each Sunday with week index
-    for (let w = 0; w < sundays.length; w++) {
-      const sunday = sundays[w];
-      const dateISO = ymdLocal(sunday);
-
-      try {
-        const dailyAssignedGroups = new Set(); // 1 per day
-
-        // iterate masses by index (0..2)
-        for (let m = 0; m < SUNDAY_MASSES_CHOIR.length; m++) {
-          const massLabel = SUNDAY_MASSES_CHOIR[m];
-
-          try {
-            // 1) Preferred round-robin pick
-            const prefIdx = preferredGroupIndex(w, m, groupNamesCycle.length);
-            // create a candidate order starting at preferred, then wrap around
-            const orderedCandidates = [
-              ...groupNamesCycle.slice(prefIdx),
-              ...groupNamesCycle.slice(0, prefIdx),
-            ];
-
-            // 2) First pass: strict Rule #2 + 1/day
-            let assigned = false;
-            for (const name of orderedCandidates) {
-              assigned = await tryAssignSpecificGroup({
-                dateISO,
-                massLabel,
-                groupName: name,
-                dailyAssignedGroups,
-                historicalAssignments,
-                onAssign: handleAssign,
-              });
-              if (assigned) break;
-            }
-
-            // 3) Second pass: relax Rule #2 (keeps 1/day)
-            if (!assigned) {
-              console.warn(
-                `[Rotation Relaxed] ${dateISO} ${massLabel}: strict rotation blocked all candidates.`
-              );
-              assigned = await tryAssignWithRelaxedRotation({
-                dateISO,
-                massLabel,
-                candidateNamesInOrder: orderedCandidates,
-                dailyAssignedGroups,
-                historicalAssignments,
-                onAssign: handleAssign,
-              });
-            }
-
-            stats.massesProcessed += 1;
-            ui.massesProcessed = stats.massesProcessed;
-            AssignProgressChoir.maybePaint(ui);
-          } catch (massError) {
-            console.error(
-              `Error assigning ${massLabel} on ${dateISO}:`,
-              massError
-            );
-            stats.errors.push(`${dateISO} ${massLabel}: ${massError.message}`);
-            ui.errors = stats.errors.length;
-            stats.massesProcessed += 1;
-            ui.massesProcessed = stats.massesProcessed;
-            AssignProgressChoir.maybePaint(ui);
-          }
-        }
-
-        stats.sundaysProcessed += 1;
-        ui.sundaysProcessed = stats.sundaysProcessed;
-        AssignProgressChoir.maybePaint(ui);
-      } catch (sundayError) {
-        console.error(`Error processing Sunday ${dateISO}:`, sundayError);
-        stats.errors.push(`${dateISO}: ${sundayError.message}`);
-        ui.errors = stats.errors.length;
-        AssignProgressChoir.maybePaint(ui);
-      }
-    }
-
-    stats.groupsAssigned = counters.totalAssignments;
-    AssignProgressChoir.unmount();
-
-    const successMessage =
-      `Successfully auto-assigned schedules!\n\n` +
-      `Sundays processed: ${stats.sundaysProcessed}\n` +
-      `Masses processed: ${stats.massesProcessed}\n` +
-      `Total groups assigned: ${stats.groupsAssigned}\n` +
-      (stats.errors.length ? `Errors: ${stats.errors.length}` : ``);
-
-    if (stats.errors.length) {
-      await Swal.fire({
-        icon: "warning",
-        title: "Partial Success",
-        text: successMessage,
-        footer: `Errors: ${stats.errors.length}`,
-      });
-    } else {
-      await Swal.fire({
-        icon: "success",
-        title: "Auto-Assignment Complete!",
-        text: successMessage,
-      });
-      window.location.reload();
-    }
-
-    return { success: true, message: successMessage, stats };
-  } catch (error) {
-    console.error("Auto-assignment failed:", error);
-    AssignProgressChoir.unmount();
-    await Swal.fire({
-      icon: "error",
-      title: "Auto-Assignment Failed",
-      text: `An error occurred: ${error.message}`,
-    });
-    return {
-      success: false,
-      message: `Auto-assignment failed: ${error.message}`,
-      stats: {},
-    };
-  }
-};*/
-
 export const autoAssignChoirSchedules = async (year, month) => {
   const monthNames = [
     "January",
@@ -3815,183 +3271,6 @@ const hasCompletedFullRotationSinceLastTargetMass = (
   return otherTwo.every((m) => otherMassesDone.has(m));
 };
 
-/*const autoAssignChoirSingleMass = async ({
-  dateISO,
-  massLabel,
-  availableGroups,
-  historicalAssignments, // <-- MUTABLE reference
-  dailyAssignedGroups,
-  onAssign,
-}) => {
-  // Already assigned?
-  const { data: existingAssignments, error: existingError } = await supabase
-    .from("choir-placeholder")
-    .select("group")
-    .eq("date", dateISO)
-    .eq("mass", massLabel);
-
-  if (existingError) {
-    console.error("Error fetching existing assignments:", existingError);
-    throw existingError;
-  }
-  if (existingAssignments && existingAssignments.length > 0) {
-    return 0;
-  }
-
-  // 1 group per day filter
-  const baseCandidates = availableGroups.filter((group) => {
-    const groupName = group.name.trim();
-    return !dailyAssignedGroups.has(groupName);
-  });
-
-  if (baseCandidates.length === 0) {
-    console.warn(`No available groups for ${massLabel} on ${dateISO}`);
-    return 0;
-  }
-
-  // Hard Rule #2 gate
-  const hardEligible = baseCandidates.filter((g) =>
-    hasCompletedFullRotationSinceLastTargetMass(
-      g.name,
-      massLabel,
-      historicalAssignments
-    )
-  );
-
-  const candidates = hardEligible.length > 0 ? hardEligible : baseCandidates;
-  if (hardEligible.length === 0) {
-    console.warn(
-      `[Rotation Relaxed] ${dateISO} ${massLabel}: No group satisfied full rotation; relaxing Rule #2 for this slot.`
-    );
-  }
-
-  // Score, with penalty if we relaxed Rule #2
-  const groupsWithScores = candidates.map((group) => {
-    const rotationScore = calculateChoirGroupRotationScore(
-      group.name,
-      massLabel,
-      historicalAssignments,
-      dateISO
-    );
-
-    const brokeRule2 = !hasCompletedFullRotationSinceLastTargetMass(
-      group.name,
-      massLabel,
-      historicalAssignments
-    );
-    const penaltyIfRelaxed = brokeRule2 ? 6000 : 0;
-
-    return { ...group, rotationScore: rotationScore + penaltyIfRelaxed };
-  });
-
-  groupsWithScores.sort((a, b) => a.rotationScore - b.rotationScore);
-  const selectedGroup = groupsWithScores[0];
-
-  // Insert and **UPDATE HISTORY IN-MEMORY**
-  try {
-    const { data: inserted, error } = await supabase
-      .from("choir-placeholder")
-      .insert([
-        {
-          date: dateISO,
-          mass: massLabel,
-          group: selectedGroup.name,
-          templateID: null,
-        },
-      ])
-      .select("group, mass, date");
-
-    if (error)
-      throw new Error(
-        `Failed to assign ${selectedGroup.name}: ${error.message}`
-      );
-
-    if (inserted && inserted.length > 0) {
-      // Enforce 1/day
-      dailyAssignedGroups.add(selectedGroup.name);
-
-      // ðŸ”´ CRITICAL LINE: teach the scheduler what we just did
-      historicalAssignments.unshift({
-        group: selectedGroup.name,
-        mass: massLabel,
-        date: dateISO,
-      });
-
-      if (typeof onAssign === "function") onAssign();
-      return 1;
-    }
-    return 0;
-  } catch (error) {
-    console.error(`Error assigning group to ${massLabel}:`, error);
-    throw error;
-  }
-};*/
-
-/*const calculateChoirGroupRotationScore = (
-  groupName,
-  targetMass,
-  historicalAssignments,
-  targetDate
-) => {
-  if (!historicalAssignments || historicalAssignments.length === 0) {
-    return -5000; // New/unknown group gets high priority
-  }
-
-  const groupAssignments = historicalAssignments
-    .filter((a) => (a.group || "").trim() === groupName.trim())
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  if (groupAssignments.length === 0) return -5000;
-
-  let score = 0;
-
-  // How many times this group did the target mass (historically)?
-  const massCount = groupAssignments.filter(
-    (a) => a.mass === targetMass
-  ).length;
-
-  // Most recent date they did the target mass
-  const lastTarget = groupAssignments.find((a) => a.mass === targetMass);
-  const lastTargetDate = lastTarget ? new Date(lastTarget.date) : null;
-
-  const daysSinceLastMass = lastTargetDate
-    ? Math.floor(
-        (new Date(targetDate) - lastTargetDate) / (1000 * 60 * 60 * 24)
-      )
-    : Infinity;
-
-  // Penalize recent repeats of same mass; reward long gaps
-  if (daysSinceLastMass < 7) score += 8000;
-  else if (daysSinceLastMass < 21) score += 4000;
-  else if (daysSinceLastMass < 60) score += 1000;
-  if (daysSinceLastMass > 90) score -= 2000;
-
-  // Penalize heavy skew toward this mass
-  score += massCount * 2000;
-
-  // Distribution balance (historical)
-  const dist = {
-    "1st Mass - 6:00 AM": 0,
-    "2nd Mass - 8:00 AM": 0,
-    "3rd Mass - 5:00 PM": 0,
-  };
-  groupAssignments.forEach((a) => {
-    if (dist.hasOwnProperty(a.mass)) dist[a.mass]++;
-  });
-  const avg =
-    (dist["1st Mass - 6:00 AM"] +
-      dist["2nd Mass - 8:00 AM"] +
-      dist["3rd Mass - 5:00 PM"]) /
-    3;
-  const currentMassCount = dist[targetMass] || 0;
-  if (currentMassCount > avg + 1) score += 3000;
-
-  // Big bonus if they have never done this mass before
-  if (massCount === 0) score -= 10000;
-
-  return score;
-};*/
-
 const makeGroupCycle = (availableGroups) =>
   [...availableGroups].sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
@@ -4089,6 +3368,131 @@ const tryAssignWithRelaxedRotation = async ({
     }
   }
   return false;
+};
+
+// Replace the existing fetchAvailableChoirGroupsForMass function in assignMember.js
+
+export const fetchAvailableChoirGroupsForMass = async ({
+  dateISO,
+  massLabel,
+  isTemplate = false,
+}) => {
+  try {
+    // Fetch all choir groups
+    const allGroups = await fetchChoirGroups();
+
+    // Ensure "Koro Ni Maria" exists as fallback
+    const hasKNM = allGroups.some(
+      (g) => (g?.name || "").trim().toLowerCase() === "koro ni maria"
+    );
+    const withFallback = hasKNM
+      ? allGroups
+      : [...allGroups, { id: "knm-local", name: "Koro Ni Maria" }];
+
+    // For template masses: show all groups (no filtering)
+    if (isTemplate) {
+      return withFallback;
+    }
+
+    // For regular/Sunday masses: apply rotation rules
+
+    // Rule 1: Can't be assigned to another mass on the SAME date
+    const { data: sameDateAssignments, error: sameDateError } = await supabase
+      .from("choir-placeholder")
+      .select("group, mass")
+      .eq("date", dateISO)
+      .neq("mass", massLabel); // Exclude current mass
+
+    if (sameDateError) {
+      console.error("Error fetching same-date assignments:", sameDateError);
+      return withFallback;
+    }
+
+    const assignedGroupsOnSameDate = new Set(
+      (sameDateAssignments || []).map((a) => a.group.trim().toLowerCase())
+    );
+
+    // Rule 2: Can't repeat the SAME mass time until they've done the other two masses
+    // Get historical assignments for rotation check
+    const sixMonthsAgo = new Date(dateISO);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+    const { data: historicalAssignments, error: histError } = await supabase
+      .from("choir-placeholder")
+      .select("group, mass, date")
+      .gte("date", sixMonthsAgoISO)
+      .lt("date", dateISO) // Only past assignments
+      .order("date", { ascending: false });
+
+    if (histError) {
+      console.error("Error fetching historical assignments:", histError);
+      // If we can't check rotation, at least apply same-date rule
+      return withFallback.filter(
+        (g) => !assignedGroupsOnSameDate.has(g.name.trim().toLowerCase())
+      );
+    }
+
+    // Check rotation eligibility for each group
+    const eligibleGroups = withFallback.filter((group) => {
+      const groupNameLower = group.name.trim().toLowerCase();
+
+      // Rule 1: Already assigned on same date
+      if (assignedGroupsOnSameDate.has(groupNameLower)) {
+        return false;
+      }
+
+      // Rule 2: Rotation check - must complete other masses before returning to same mass
+      const groupHistory = (historicalAssignments || [])
+        .filter((a) => a.group.trim().toLowerCase() === groupNameLower)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      if (groupHistory.length === 0) {
+        // New group - eligible
+        return true;
+      }
+
+      // Find the last time they did THIS specific mass
+      const lastSameMass = groupHistory.find((a) => a.mass === massLabel);
+
+      if (!lastSameMass) {
+        // Never done this mass before - eligible
+        return true;
+      }
+
+      // Check if they've done the OTHER two masses since their last appearance at THIS mass
+      const lastSameMassDate = new Date(lastSameMass.date);
+
+      // Define all Sunday masses
+      const ALL_MASSES = [
+        "1st Mass - 6:00 AM",
+        "2nd Mass - 8:00 AM",
+        "3rd Mass - 5:00 PM",
+      ];
+
+      const otherMasses = ALL_MASSES.filter((m) => m !== massLabel);
+      const completedOtherMasses = new Set();
+
+      // Check assignments AFTER their last appearance at this mass
+      for (const assignment of groupHistory) {
+        const assignmentDate = new Date(assignment.date);
+        if (assignmentDate <= lastSameMassDate) {
+          break; // Stop when we reach their last same-mass assignment
+        }
+        if (otherMasses.includes(assignment.mass)) {
+          completedOtherMasses.add(assignment.mass);
+        }
+      }
+
+      // They must have completed BOTH other masses to be eligible again
+      return completedOtherMasses.size === otherMasses.length;
+    });
+
+    return eligibleGroups;
+  } catch (err) {
+    console.error("fetchAvailableChoirGroupsForMass error:", err);
+    return [{ id: "knm-local", name: "Koro Ni Maria" }];
+  }
 };
 
 /*----------------------------------

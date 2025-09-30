@@ -30,11 +30,13 @@ function pickBestSunday(masses = []) {
 }
 
 function deriveTimeFromLabel(label = "") {
-  // "2nd Mass - 8:00 AM" → "2nd Mass | 8:00 AM"
-  if (!label) return "";
+  // "2nd Mass - 8:00 AM" → { mass: "2nd Mass", time: "8:00 AM" }
+  if (!label) return { mass: "", time: "" };
   const parts = label.split("-").map((s) => s.trim());
-  if (parts.length >= 2) return `${parts[0]} | ${parts[1]}`;
-  return label;
+  if (parts.length >= 2) {
+    return { mass: parts[0], time: parts[1] };
+  }
+  return { mass: label, time: "" };
 }
 
 export default function CancelSchedule() {
@@ -57,10 +59,12 @@ export default function CancelSchedule() {
   const [fetchErr, setFetchErr] = useState("");
   const [reason, setReason] = useState("");
 
-  // Resolved display values
-  const [massLabel, setMassLabel] = useState(""); // DB label e.g. "2nd Mass - 8:00 AM"
-  const [timeLabel, setTimeLabel] = useState(""); // UI label e.g. "2nd Mass | 8:00 AM"
-  const [summary, setSummary] = useState(null); // raw rows for reference
+  // State we’ll use:
+  // - massLabel holds the FULL DB label, e.g. "2nd Mass - 8:00 AM" (used in delete)
+  // - timeLabel is for UI display convenience
+  const [massLabel, setMassLabel] = useState(""); // DB label
+  const [timeLabel, setTimeLabel] = useState(""); // UI label
+  const [, setSummary] = useState(null); // raw rows for reference
 
   const displayDate = useMemo(() => {
     if (!selectedISO) return "—";
@@ -110,7 +114,6 @@ export default function CancelSchedule() {
             idNumber
           );
         } else {
-          // default to Altar Servers
           rows = await fetchAltarServerScheduleByDateForUser(
             selectedISO,
             idNumber
@@ -133,8 +136,10 @@ export default function CancelSchedule() {
               ? selectedMass
               : pickBestSunday(masses);
 
-          setMassLabel(chosen);
-          setTimeLabel(deriveTimeFromLabel(chosen));
+          // IMPORTANT: store FULL label for deletion; show clean values in UI
+          const { time } = deriveTimeFromLabel(chosen);
+          setMassLabel(chosen); // full: "2nd Mass - 8:00 AM"
+          setTimeLabel(time); // "8:00 AM"
         }
       } catch (e) {
         if (!cancelled) {
@@ -151,6 +156,11 @@ export default function CancelSchedule() {
       cancelled = true;
     };
   }, [selectedISO, department, idNumber, selectedMass]);
+
+  const displayMassName = useMemo(
+    () => deriveTimeFromLabel(massLabel).mass || "—",
+    [massLabel]
+  );
 
   return (
     <div className="schedule-page-container">
@@ -229,7 +239,7 @@ export default function CancelSchedule() {
                 <strong>Date:</strong> {displayDate}
               </p>
               <p>
-                <strong>Mass:</strong> {massLabel || "—"}
+                <strong>Mass:</strong> {displayMassName}
               </p>
               <p>
                 <strong>Time:</strong> {timeLabel || "—"}
@@ -263,7 +273,7 @@ export default function CancelSchedule() {
                       department,
                       idNumber,
                       dateISO: selectedISO,
-                      mass: massLabel,
+                      mass: massLabel, // full label for exact DB match
                       reason: reason.trim(),
                     });
 

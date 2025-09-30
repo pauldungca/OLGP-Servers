@@ -43,7 +43,6 @@ export default function UpdateSchedule() {
     }
   }, [department, navigate]);
 
-  // Fetch schedules when month changes or component mounts
   useEffect(() => {
     if (!idNumber || !monthValue) return;
 
@@ -57,6 +56,7 @@ export default function UpdateSchedule() {
         switch (department.toLowerCase()) {
           case "altar server":
             data = await fetchUserAltarServerSchedules(idNumber, year, month);
+            
             break;
           case "lector commentator":
             data = await fetchUserLectorCommentatorSchedules(
@@ -102,7 +102,6 @@ export default function UpdateSchedule() {
     });
   };
 
-  // Generate all days for selected month
   const monthDays = React.useMemo(() => {
     if (!monthValue) return [];
     const start = monthValue.startOf("month");
@@ -195,7 +194,6 @@ export default function UpdateSchedule() {
               const iso = d.format("YYYY-MM-DD");
               const daySchedules = schedules[iso] || [];
 
-              // Group by mass
               const massList = {};
               daySchedules.forEach((s) => {
                 if (!massList[s.mass]) massList[s.mass] = [];
@@ -204,7 +202,6 @@ export default function UpdateSchedule() {
 
               const masses = Object.keys(massList);
 
-              // If no schedule, show compact view
               if (masses.length === 0) {
                 return (
                   <div
@@ -221,7 +218,6 @@ export default function UpdateSchedule() {
                 );
               }
 
-              // If has schedule, show full card
               return (
                 <div
                   key={iso}
@@ -242,13 +238,21 @@ export default function UpdateSchedule() {
                   <div className="update-schedule-body">
                     {masses.map((mass) => {
                       const massSchedules = massList[mass];
-                      const roles = massSchedules
-                        .map((s) =>
-                          department.toLowerCase() === "choir"
-                            ? `Group: ${s.group}`
-                            : formatRoleName(s.role)
-                        )
-                        .join(", ");
+
+                      // What to display under "Your Assignment:"
+                      const dept = department.toLowerCase();
+                      const roles =
+                        dept === "choir"
+                          ? `Group: ${massSchedules[0]?.group ?? "—"}`
+                          : dept === "eucharistic minister"
+                          ? `Group: ${massSchedules[0]?.group ?? "—"}`
+                          : Array.from(
+                              new Set(
+                                massSchedules
+                                  .map((s) => formatRoleName(s.role))
+                                  .filter(Boolean)
+                              )
+                            ).join(", ");
 
                       return (
                         <div key={mass} className="schedule-col assigned-group">
@@ -280,7 +284,8 @@ export default function UpdateSchedule() {
                               Print
                             </button>
                           </div>
-                          {department.toLowerCase() !== "choir" && (
+
+                          {dept !== "choir" && (
                             <button
                               className="btn cancel-btn"
                               onClick={() => handleCancel(iso, mass)}

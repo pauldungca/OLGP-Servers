@@ -15,7 +15,7 @@ import {
   fetchRequestNotificationById,
   fetchGlobalNotificationById,
   fetchUserSpecificNotificationById,
-  fetchTemplateMetaByScheduleID, // ← used to pull date/time/note/clientName
+  fetchTemplateMetaByScheduleID,
   renderNotificationBody,
   renderNotificationTitle,
   approveRequest,
@@ -45,10 +45,8 @@ export default function ViewNotification() {
 
       let row = null;
       if (kind === "global") {
-        // 1) fetch the global/broadcast row
         row = await fetchGlobalNotificationById(id);
 
-        // 2) if it has scheduleID, pull meta (date/time/note/clientName) and merge
         if (row?.scheduleID) {
           const meta = await fetchTemplateMetaByScheduleID(row.scheduleID);
           if (meta) row = { ...row, ...meta };
@@ -84,11 +82,8 @@ export default function ViewNotification() {
   const renderGlobalBody = (n) => {
     if (!n) return null;
 
-    // Prefer explicit fields from row; fallback to created_at
     const created = n.created_at ? new Date(n.created_at) : null;
-
     const displayDate = n.date || (created ? created.toLocaleDateString() : "");
-
     const displayTime =
       n.time ||
       n.scheduled_time ||
@@ -98,16 +93,13 @@ export default function ViewNotification() {
         ? created.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
         : "");
 
-    // NOTE should default to "non" (as requested)
     const noteText = (n.note ?? "").toString().trim() ? n.note : "non";
-
     const clientText =
       (n.clientName ?? n.client_name ?? n.client ?? "").toString().trim() ||
       "non";
 
     return (
       <div className="view-notification-card">
-        {/* Optional message body (keep if you store one) */}
         {n.message && <p className="view-notification-text">{n.message}</p>}
 
         <div className="view-notification-detail">
@@ -131,18 +123,36 @@ export default function ViewNotification() {
   };
 
   // ===== Assignment (user-specific) renderers =====
-  const renderAssignmentTitle = () => "Assignment";
+  const renderAssignmentTitle = (n) => {
+    if (!n) return "Assignment";
+    const role = n.role ?? "";
+    return role === "Schedule Cancellation"
+      ? "Schedule Cancellation"
+      : "Assignment";
+  };
 
   const renderAssignmentBody = (n) => {
     if (!n) return null;
+
     const date = n.date ?? "";
     const time = n.time ?? "";
     const role = n.role ?? "";
+    const reason = n.reason ?? "No reason provided";
+    const isCancellation = role === "Schedule Cancellation";
+
     return (
       <div className="view-notification-card">
-        <p className="view-notification-text">
-          You are assigned as <strong>{role}</strong>.
-        </p>
+        {!isCancellation && (
+          <p className="view-notification-text">
+            You are assigned as <strong>{role}</strong>.
+          </p>
+        )}
+
+        {isCancellation && (
+          <p className="view-notification-text">
+            A member has cancelled their schedule.
+          </p>
+        )}
 
         <div className="view-notification-detail">
           <span className="label">Date:</span>
@@ -152,9 +162,15 @@ export default function ViewNotification() {
           <span className="label">Time:</span>
           <span className="value">{time}</span>
         </div>
+        {!isCancellation && (
+          <div className="view-notification-detail">
+            <span className="label">Role:</span>
+            <span className="value">{role}</span>
+          </div>
+        )}
         <div className="view-notification-detail">
-          <span className="label">Role:</span>
-          <span className="value">{role}</span>
+          <span className="label">Reason:</span>
+          <span className="value">{reason}</span>
         </div>
       </div>
     );

@@ -1,8 +1,15 @@
-import React, { useEffect } from "react";
-import images from "../../../../helper/images";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import icons from "../../../../helper/icon";
 import { createButtonCard } from "../../../../assets/scripts/member";
 import Footer from "../../../../components/footer";
+
+import {
+  isAltarServerMember,
+  isEucharisticMinisterMember,
+  isChoirMember,
+  isLectorCommentatorMember,
+} from "../../../../assets/scripts/viewScheduleNormal";
 
 import "../../../../assets/styles/schedule.css";
 
@@ -10,8 +17,49 @@ export default function ViewSchedule() {
   useEffect(() => {
     document.title = "OLGP Servers | View Schedule";
   }, []);
+
   const navigate = useNavigate();
-  const buttonCard = createButtonCard(images, navigate);
+  const ButtonCard = createButtonCard(navigate, icons);
+
+  const [isEucharisticMinister, setIsEucharisticMinister] = useState(false);
+  const [isChoir, setIsChoir] = useState(false);
+  const [isAltarServer, setIsAltarServer] = useState(false);
+  const [isLectorCommentator, setIsLectorCommentator] = useState(false);
+
+  const [, setIdNumber] = useState("");
+
+  useEffect(() => {
+    document.title = "OLGP Servers | Make Schedule";
+
+    const initializeGroupData = async () => {
+      const storedIdNumber = localStorage.getItem("idNumber");
+
+      if (storedIdNumber) {
+        setIdNumber(storedIdNumber);
+
+        const eucharisticMinisterStatus = await isEucharisticMinisterMember(
+          storedIdNumber
+        );
+        const choirStatus = await isChoirMember(storedIdNumber);
+        const serverStatus = await isAltarServerMember(storedIdNumber);
+        const lectorStatus = await isLectorCommentatorMember(storedIdNumber);
+
+        setIsEucharisticMinister(eucharisticMinisterStatus);
+        setIsChoir(choirStatus);
+        setIsAltarServer(serverStatus);
+        setIsLectorCommentator(lectorStatus);
+      } else {
+        setIdNumber("No ID found");
+        setIsEucharisticMinister(false);
+        setIsChoir(false);
+        setIsAltarServer(false);
+        setIsLectorCommentator(false);
+      }
+    };
+
+    initializeGroupData();
+  }, []);
+
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">
@@ -22,27 +70,41 @@ export default function ViewSchedule() {
       </div>
       <div className="schedule-content">
         <div className="schedule-cards-container">
-          {buttonCard({
-            department: "Altar Server",
-            parish: "View your schedule in the Altar Server Department.",
-            toPage: "/updateSchedule",
-          })}
-          {buttonCard({
-            department: "Eucharistic Minister",
-            parish:
-              "View your schedule in the Eucharistic Minister Department.",
-            toPage: "/updateSchedule",
-          })}
-          {buttonCard({
-            department: "Choir",
-            parish: "View your schedule in the Choir Department.",
-            toPage: "/updateSchedule",
-          })}
-          {buttonCard({
-            department: "Lector Commentator",
-            parish: "View your schedule in the Lector Commentator Department.",
-            toPage: "/updateSchedule",
-          })}
+          {isAltarServer && (
+            <ButtonCard
+              department="Altar Server"
+              parish="Manage the schedules in the Altar Server Department."
+              toPage="/updateSchedule"
+              icon={icons.altarServerIcon}
+            />
+          )}
+
+          {isEucharisticMinister && (
+            <ButtonCard
+              department="Eucharistic Minister"
+              parish="Manage the schedules in the Eucharistic Minister Department."
+              toPage="/updateSchedule"
+              icon={icons.eucharisticMinisterIcon}
+            />
+          )}
+
+          {isChoir && (
+            <ButtonCard
+              department="Choir"
+              parish="Manage the schedules in the Choir Department."
+              toPage="/updateSchedule"
+              icon={icons.choirIcon}
+            />
+          )}
+
+          {isLectorCommentator && (
+            <ButtonCard
+              department="Lector Commentator"
+              parish="Manage the schedules in the Lector Commentator Department."
+              toPage="/updateSchedule"
+              icon={icons.lectorCommentatorIcon}
+            />
+          )}
         </div>
       </div>
       <div>

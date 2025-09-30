@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Breadcrumb } from "antd";
 import { Link } from "react-router-dom";
 import icon from "../../../../helper/icon";
@@ -12,11 +12,15 @@ export default function SelectTime() {
   useEffect(() => {
     document.title = "OLGP Servers | Open Schedule";
   }, []);
-  const navigate = useNavigate();
-  const [year, setYear] = useState(2025);
 
-  const prevYear = () => setYear(year - 1);
-  const nextYear = () => setYear(year + 1);
+  const location = useLocation();
+  const department = location.state?.department || "Department";
+
+  const navigate = useNavigate();
+  const [year, setYear] = useState(new Date().getFullYear());
+
+  const prevYear = () => setYear((y) => y - 1);
+  const nextYear = () => setYear((y) => y + 1);
 
   const months = [
     "January",
@@ -33,15 +37,17 @@ export default function SelectTime() {
     "December",
   ];
 
-  function handleNavigate() {
-    navigate("/updateStatus");
+  function handleNavigate(monthIndex) {
+    navigate("/updateStatus", {
+      state: { year, monthIndex, department },
+    });
   }
 
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">
         <div className="header-text-with-line">
-          <h3>OPEN SCHEDULE</h3>
+          <h3>OPEN SCHEDULE - {department.toUpperCase()}</h3>
           <div style={{ margin: "10px 0" }}>
             <Breadcrumb
               items={[
@@ -52,16 +58,13 @@ export default function SelectTime() {
                     </Link>
                   ),
                 },
-                {
-                  title: "Select Time",
-                  className: "breadcrumb-item-active",
-                },
+                { title: "Select Time", className: "breadcrumb-item-active" },
               ]}
               separator={
                 <img
                   src={icon.chevronIcon}
                   alt="Chevron Icon"
-                  style={{ width: "15px", height: "15px" }}
+                  style={{ width: 15, height: 15 }}
                 />
               }
               className="customized-breadcrumb"
@@ -86,7 +89,10 @@ export default function SelectTime() {
           <div className="row g-3">
             {months.map((month, index) => (
               <div key={index} className="col-6 col-md-3">
-                <button className="month-card" onClick={handleNavigate}>
+                <button
+                  className="month-card"
+                  onClick={() => handleNavigate(index)}
+                >
                   {month}
                 </button>
               </div>
@@ -94,9 +100,8 @@ export default function SelectTime() {
           </div>
         </div>
       </div>
-      <div>
-        <Footer />
-      </div>
+
+      <Footer />
     </div>
   );
 }

@@ -1,6 +1,18 @@
 import { supabase } from "../../utils/supabase";
 import Swal from "sweetalert2";
 
+import dayjs from "dayjs";
+import {
+  fetchTemplateMassesForDate,
+  getTemplateMassType,
+} from "./fetchSchedule";
+import {
+  fetchAssignmentsGrouped,
+  roleCountsFor,
+  roleVisibilityFor,
+  getTemplateFlags,
+} from "./assignMember";
+
 export const isEucharisticMinisterMember = async (idNumber) => {
   try {
     const { data, error } = await supabase
@@ -367,7 +379,6 @@ export const fetchEucharisticScheduleByDateForUser = async (
   return data || [];
 };
 
-// Map department names to their scheduler column names
 const schedulerColMap = {
   "Altar Server": "altar-server-scheduler",
   "Eucharistic Minister": "eucharistic-minister-scheduler",
@@ -402,9 +413,6 @@ export const getSchedulerIdNumber = async (department) => {
   }
 };
 
-/**
- * Cancel a schedule: remove from placeholder table and notify scheduler
- */
 export async function cancelSchedule({
   department,
   idNumber,
@@ -560,4 +568,100 @@ export async function cancelSchedule({
     await Swal.fire("Error", "Unexpected error while cancelling.", "error");
     return false;
   }
+}
+
+// helper: compute if ALL masses (Sunday + template) are complete for a given date
+export async function altarServerAllMassesCompleteForDate(iso) {
+  const isSunday = dayjs(iso).day() === 0;
+
+  // 1) Build the display card list exactly like SelectMass
+  const sundayMasses = isSunday
+    ? ["1st Mass - 6:00 AM", "2nd Mass - 8:00 AM", "3rd Mass - 5:00 PM"]
+    : [];
+
+  const uses = await fetchTemplateMassesForDate(iso); // [{ id, templateID, time }]
+  // Resolve each template’s mass-type and create the same labels used in SelectMass
+  const entries = await Promise.all(
+    (uses || []).map(async (u) => {
+      const type = (await getTemplateMassType(u.templateID)) || "Mass";
+      const display = `${type} - ${u.time} (No. ${u.id})`;
+      const storage = `Mass - ${u.time} - ${u.id}`; // DB storage label
+      return { display, storage, templateID: u.templateID };
+    })
+  );
+
+  const massLabels = [
+    ...sundayMasses.map((display) => ({
+      display,
+      storage: display,
+      templateID: null,
+    })),
+    ...entries,
+  ];
+
+  // 2) Precompute Sunday and per-template rules, like in SelectMass
+  const sundayCounts = roleCountsFor({ flags: null, isSunday: true });
+  const sundayVisible = roleVisibilityFor({ flags: null, isSunday: true });
+
+  // Cache template flags by templateID for this date
+  const tmplIds = Array.from(new Set(entries.map((e) => e.templateID)));
+  const tmplFlagsById = {};
+  for (const id of tmplIds) {
+    try {
+      tmplFlagsById[id] = await getTemplateFlags(iso, id);
+    } catch {
+      tmplFlagsById[id] = null;
+    }
+  }
+
+  // 3) Evaluate each mass card
+  const statuses = [];
+  for (const m of massLabels) {
+    const grouped = await fetchAssignmentsGrouped({
+      dateISO: iso,
+      massLabel: m.storage,
+    });
+
+    // Decide rule set
+    const isSundayCard = m.templateID == null;
+    const counts = isSundayCard
+      ? sundayCounts
+      : roleCountsFor({ flags: tmplFlagsById[m.templateID], isSunday: false });
+    const visible = isSundayCard
+      ? sundayVisible
+      : roleVisibilityFor({
+          flags: tmplFlagsById[m.templateID],
+          isSunday: false,
+        });
+
+    // If truly nothing assigned to any visible role, treat as "empty"
+    const totalAssigned = Object.values(grouped || {}).reduce(
+      (s, arr) => s + (Array.isArray(arr) ? arr.length : 0),
+      0
+    );
+    if (totalAssigned === 0) {
+      statuses.push("empty");
+      continue;
+    }
+
+    // Check every visible role meets its needed count
+    let complete = true;
+    for (const roleKey of Object.keys(visible || {})) {
+      if (!visible[roleKey]) continue;
+      const need = Number(counts[roleKey] || 0);
+      const have = Array.isArray(grouped?.[roleKey])
+        ? grouped[roleKey].length
+        : 0;
+      if (have < need) {
+        complete = false;
+        break;
+      }
+    }
+    statuses.push(complete ? "complete" : "incomplete");
+  }
+
+  if (statuses.length === 0) return "empty";
+  if (statuses.every((s) => s === "empty")) return "empty";
+  if (statuses.every((s) => s === "complete")) return "complete";
+  return "incomplete";
 }

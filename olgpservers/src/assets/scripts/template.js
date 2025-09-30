@@ -660,7 +660,7 @@ export const createUsedTemplateBroadcast = async ({ clientName, time }) => {
   try {
     const { error } = await supabase.from("user_notifications").insert([
       {
-        title: "Template Used",
+        title: "Special Mass",
         message: `Client: ${clientName || "—"} • Time: ${to12Hour(time)}`,
         level: "info",
       },

@@ -7,13 +7,13 @@ import {
   getTemplateFlags,
   roleCountsFor,
   roleVisibilityFor,
-  fetchAssignmentsGroupedLectorCommentator,
+  //fetchAssignmentsGroupedLectorCommentator,
   getTemplateFlagsLectorCommentator,
   roleCountsForLectorCommentator,
   roleVisibilityForLectorCommentator,
 } from "./assignMember";
 
-async function massStatusFor({ dateISO, massLabel, flags, isSunday }) {
+/*async function massStatusFor({ dateISO, massLabel, flags, isSunday }) {
   const grouped = await fetchAssignmentsGrouped({ dateISO, massLabel });
 
   // choose rules
@@ -37,7 +37,7 @@ async function massStatusFor({ dateISO, massLabel, flags, isSunday }) {
     if (have < need) allComplete = false;
   }
   return allComplete ? "complete" : "incomplete";
-}
+}*/
 
 export const getTemplateMassType = async (templateID) => {
   if (!templateID) return;
@@ -58,7 +58,7 @@ export const getTemplateMassType = async (templateID) => {
   }
 };
 
-export const fetchTemplateMassesForDate = async (isoDate) => {
+/*export const fetchTemplateMassesForDate = async (isoDate) => {
   try {
     // get all uses for that day
     const { data: uses, error: useErr } = await supabase
@@ -90,6 +90,44 @@ export const fetchTemplateMassesForDate = async (isoDate) => {
     return uses
       .filter((u) => allowed.has(u.templateID))
       .map((u) => ({
+        templateID: u.templateID,
+        time: u.time || "",
+      }));
+  } catch {
+    return [];
+  }
+};*/
+
+export const fetchTemplateMassesForDate = async (isoDate) => {
+  try {
+    const { data: uses, error: useErr } = await supabase
+      .from("use-template-table")
+      .select("id,templateID,time") // ← Add 'id' here
+      .eq("date", isoDate)
+      .order("time", { ascending: true });
+
+    if (useErr || !uses?.length) return [];
+
+    const ids = Array.from(
+      new Set(uses.map((u) => u.templateID).filter(Boolean))
+    );
+
+    if (!ids.length) return [];
+
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-altar-server")
+      .select("templateID,isNeeded")
+      .in("templateID", ids)
+      .eq("isNeeded", 1);
+
+    if (tmplErr) return [];
+
+    const allowed = new Set((tmplRows || []).map((t) => t.templateID));
+
+    return uses
+      .filter((u) => allowed.has(u.templateID))
+      .map((u) => ({
+        id: u.id, // ← Include the row ID
         templateID: u.templateID,
         time: u.time || "",
       }));
@@ -408,7 +446,7 @@ export const getLoadingMessage = ({ loading, navigating, loadingStatus }) => {
   return "Loading...";
 };
 
-export async function computeStatusForDate({ dateISO, isSunday }) {
+/*export async function computeStatusForDate({ dateISO, isSunday }) {
   // 1) Build the full list of masses on this date
   const labels = [];
 
@@ -464,6 +502,120 @@ export async function computeStatusForDate({ dateISO, isSunday }) {
 
   const allComplete = massStatuses.every((s) => s === "complete");
   if (allComplete) return "complete";
+
+  return "incomplete";
+}*/
+
+export async function computeStatusForDate({ dateISO, isSunday }) {
+  // Get ALL assignments for this date
+  const { data: allAssignments } = await supabase
+    .from("altar-server-placeholder")
+    .select("mass, role, idNumber")
+    .eq("date", dateISO);
+
+  // Get unique mass labels
+  const actualMassLabels = new Set(
+    (allAssignments || []).map((a) => String(a.mass).trim())
+  );
+
+  // Build expected masses
+  const massesToCheck = [];
+
+  if (isSunday) {
+    massesToCheck.push({ label: "1st Mass - 6:00 AM", isSunday: true });
+    massesToCheck.push({ label: "2nd Mass - 8:00 AM", isSunday: true });
+    massesToCheck.push({ label: "3rd Mass - 5:00 PM", isSunday: true });
+  }
+
+  const uses = await fetchTemplateMassesForDate(dateISO);
+
+  // Check each mass status
+  const results = [];
+
+  // Sunday masses
+  for (const s of massesToCheck) {
+    const massAssignments = (allAssignments || []).filter(
+      (a) => a.mass === s.label
+    );
+    const grouped = await fetchAssignmentsGrouped({
+      dateISO,
+      massLabel: s.label,
+    });
+
+    const counts = roleCountsFor({ flags: null, isSunday: true });
+    const visible = roleVisibilityFor({ flags: null, isSunday: true });
+
+    let allComplete = true;
+    for (const roleKey of Object.keys(visible || {})) {
+      if (!visible[roleKey]) continue;
+      const need = Number(counts[roleKey] || 0);
+      if (need <= 0) continue;
+      const have = Array.isArray(grouped?.[roleKey])
+        ? grouped[roleKey].length
+        : 0;
+      if (have < need) allComplete = false;
+    }
+
+    const status =
+      massAssignments.length === 0
+        ? "empty"
+        : allComplete
+        ? "complete"
+        : "incomplete";
+    results.push(status);
+  }
+
+  // Template masses - check against actual DB labels
+  for (const label of actualMassLabels) {
+    // Skip if it's a Sunday mass (already checked)
+    if (
+      label.includes("1st Mass") ||
+      label.includes("2nd Mass") ||
+      label.includes("3rd Mass")
+    ) {
+      continue;
+    }
+
+    const massAssignments = (allAssignments || []).filter(
+      (a) => a.mass === label
+    );
+
+    // Get the flags for this template
+    const timeMatch = label.match(/Mass - ([^(-]+)/);
+    const time = timeMatch ? timeMatch[1].trim() : "";
+    const use = (uses || []).find((u) => String(u.time).trim() === time);
+    const flags = use ? await getTemplateFlags(dateISO, use.templateID) : null;
+
+    const grouped = await fetchAssignmentsGrouped({
+      dateISO,
+      massLabel: label,
+    });
+    const counts = roleCountsFor({ flags, isSunday: false });
+    const visible = roleVisibilityFor({ flags, isSunday: false });
+
+    let allComplete = true;
+    for (const roleKey of Object.keys(visible || {})) {
+      if (!visible[roleKey]) continue;
+      const need = Number(counts[roleKey] || 0);
+      if (need <= 0) continue;
+      const have = Array.isArray(grouped?.[roleKey])
+        ? grouped[roleKey].length
+        : 0;
+      if (have < need) allComplete = false;
+    }
+
+    const status =
+      massAssignments.length === 0
+        ? "empty"
+        : allComplete
+        ? "complete"
+        : "incomplete";
+    results.push(status);
+  }
+
+  if (results.length === 0) return "empty";
+  if (results.every((s) => s === "empty")) return "empty";
+  if (results.every((s) => s === "complete")) return "complete";
 
   return "incomplete";
 }
@@ -659,7 +811,7 @@ export const getTemplateFlagsForLectorCommentator = async (
   }
 };
 
-export const fetchLectorCommentatorTemplateMassesForDate = async (isoDate) => {
+/*export const fetchLectorCommentatorTemplateMassesForDate = async (isoDate) => {
   try {
     // get all uses for that day
     const { data: uses, error: useErr } = await supabase
@@ -697,9 +849,47 @@ export const fetchLectorCommentatorTemplateMassesForDate = async (isoDate) => {
   } catch {
     return [];
   }
+};*/
+
+export const fetchLectorCommentatorTemplateMassesForDate = async (isoDate) => {
+  try {
+    const { data: uses, error: useErr } = await supabase
+      .from("use-template-table")
+      .select("id,templateID,time") // ← Add 'id' here
+      .eq("date", isoDate)
+      .order("time", { ascending: true });
+
+    if (useErr || !uses?.length) return [];
+
+    const ids = Array.from(
+      new Set(uses.map((u) => u.templateID).filter(Boolean))
+    );
+
+    if (!ids.length) return [];
+
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-lector-commentator")
+      .select("templateID,isNeeded")
+      .in("templateID", ids)
+      .eq("isNeeded", 1);
+
+    if (tmplErr) return [];
+
+    const allowed = new Set((tmplRows || []).map((t) => t.templateID));
+
+    return uses
+      .filter((u) => allowed.has(u.templateID))
+      .map((u) => ({
+        id: u.id, // ← Include the row ID
+        templateID: u.templateID,
+        time: u.time || "",
+      }));
+  } catch {
+    return [];
+  }
 };
 
-export async function computeLectorCommentatorStatusForDate({
+/*export async function computeLectorCommentatorStatusForDate({
   dateISO,
   isSunday,
 }) {
@@ -760,9 +950,151 @@ export async function computeLectorCommentatorStatusForDate({
   if (allComplete) return "complete";
 
   return "incomplete";
+}*/
+
+export async function computeLectorCommentatorStatusForDate({
+  dateISO,
+  isSunday,
+}) {
+  // Get ALL assignments for this date
+  const { data: allAssignments } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("mass, role, idNumber")
+    .eq("date", dateISO);
+
+  // Get unique mass labels
+  const actualMassLabels = new Set(
+    (allAssignments || []).map((a) => String(a.mass).trim())
+  );
+
+  // Build expected masses
+  const massesToCheck = [];
+
+  if (isSunday) {
+    massesToCheck.push({ label: "1st Mass - 6:00 AM", isSunday: true });
+    massesToCheck.push({ label: "2nd Mass - 8:00 AM", isSunday: true });
+    massesToCheck.push({ label: "3rd Mass - 5:00 PM", isSunday: true });
+  }
+
+  const uses = await fetchLectorCommentatorTemplateMassesForDate(dateISO);
+
+  // Check each mass status
+  const results = [];
+
+  // Sunday masses
+  for (const s of massesToCheck) {
+    const massAssignments = (allAssignments || []).filter(
+      (a) => a.mass === s.label
+    );
+
+    if (massAssignments.length === 0) {
+      results.push("empty");
+      continue;
+    }
+
+    // Check if all required roles are filled
+    const grouped = {};
+    massAssignments.forEach((a) => {
+      if (!grouped[a.role]) grouped[a.role] = [];
+      grouped[a.role].push(a.idNumber);
+    });
+
+    const counts = roleCountsForLectorCommentator({
+      flags: null,
+      isSunday: true,
+    });
+    const visible = roleVisibilityForLectorCommentator({
+      flags: null,
+      isSunday: true,
+    });
+
+    let allComplete = true;
+    for (const roleKey of Object.keys(visible || {})) {
+      if (!visible[roleKey]) continue;
+      const need = Number(counts[roleKey] || 0);
+      if (need <= 0) continue;
+      const have = (grouped[roleKey] || []).length;
+      if (have < need) {
+        allComplete = false;
+        break;
+      }
+    }
+
+    results.push(allComplete ? "complete" : "incomplete");
+  }
+
+  // Template masses - check against actual DB labels
+  for (const label of actualMassLabels) {
+    // Skip if it's a Sunday mass (already checked)
+    if (
+      label.includes("1st Mass") ||
+      label.includes("2nd Mass") ||
+      label.includes("3rd Mass")
+    ) {
+      continue;
+    }
+
+    const massAssignments = (allAssignments || []).filter(
+      (a) => a.mass === label
+    );
+
+    if (massAssignments.length === 0) {
+      results.push("empty");
+      continue;
+    }
+
+    // Extract time from label format "Mass - 11:00 - 42"
+    const parts = label.split(" - ");
+    const time = parts.length >= 2 ? parts[1].trim() : "";
+    const templateIDFromLabel = parts.length >= 3 ? parts[2].trim() : "";
+
+    // Find matching template use
+    const use = (uses || []).find(
+      (u) =>
+        String(u.time).trim() === time ||
+        String(u.templateID).trim() === templateIDFromLabel
+    );
+
+    const flags = use
+      ? await getTemplateFlagsLectorCommentator(dateISO, use.templateID)
+      : null;
+
+    // Check if all required roles are filled
+    const grouped = {};
+    massAssignments.forEach((a) => {
+      if (!grouped[a.role]) grouped[a.role] = [];
+      grouped[a.role].push(a.idNumber);
+    });
+
+    const counts = roleCountsForLectorCommentator({ flags, isSunday: false });
+    const visible = roleVisibilityForLectorCommentator({
+      flags,
+      isSunday: false,
+    });
+
+    let allComplete = true;
+    for (const roleKey of Object.keys(visible || {})) {
+      if (!visible[roleKey]) continue;
+      const need = Number(counts[roleKey] || 0);
+      if (need <= 0) continue;
+      const have = (grouped[roleKey] || []).length;
+      if (have < need) {
+        allComplete = false;
+        break;
+      }
+    }
+
+    results.push(allComplete ? "complete" : "incomplete");
+  }
+
+  if (results.length === 0) return "empty";
+  if (results.every((s) => s === "empty")) return "empty";
+  if (results.every((s) => s === "complete")) return "complete";
+
+  return "incomplete";
 }
 
-async function massLectorCommentatorStatusFor({
+/*async function massLectorCommentatorStatusFor({
   dateISO,
   massLabel,
   flags,
@@ -800,7 +1132,7 @@ async function massLectorCommentatorStatusFor({
     if (have < need) allComplete = false;
   }
   return allComplete ? "complete" : "incomplete";
-}
+}*/
 
 /*=========================
  Choir Functions
@@ -917,7 +1249,7 @@ export const checkChoirGroupNeeded = async (templateID) => {
   }
 };
 
-export const fetchChoirTemplateMassesForDate = async (isoDate) => {
+/*export const fetchChoirTemplateMassesForDate = async (isoDate) => {
   try {
     // get all uses for that day
     const { data: uses, error: useErr } = await supabase
@@ -949,6 +1281,44 @@ export const fetchChoirTemplateMassesForDate = async (isoDate) => {
     return uses
       .filter((u) => allowed.has(u.templateID))
       .map((u) => ({
+        templateID: u.templateID,
+        time: u.time || "",
+      }));
+  } catch {
+    return [];
+  }
+};*/
+
+export const fetchChoirTemplateMassesForDate = async (isoDate) => {
+  try {
+    const { data: uses, error: useErr } = await supabase
+      .from("use-template-table")
+      .select("id,templateID,time") // ← Add 'id' here
+      .eq("date", isoDate)
+      .order("time", { ascending: true });
+
+    if (useErr || !uses?.length) return [];
+
+    const ids = Array.from(
+      new Set(uses.map((u) => u.templateID).filter(Boolean))
+    );
+
+    if (!ids.length) return [];
+
+    const { data: tmplRows, error: tmplErr } = await supabase
+      .from("template-choir")
+      .select("templateID,isNeeded")
+      .in("templateID", ids)
+      .eq("isNeeded", 1);
+
+    if (tmplErr) return [];
+
+    const allowed = new Set((tmplRows || []).map((t) => t.templateID));
+
+    return uses
+      .filter((u) => allowed.has(u.templateID))
+      .map((u) => ({
+        id: u.id, // ← Include the row ID
         templateID: u.templateID,
         time: u.time || "",
       }));
@@ -1000,7 +1370,7 @@ export const getTemplateFlagsForChoir = async (selectedISO, templateID) => {
   }
 };
 
-export const computeChoirGroupStatusForDate = async ({
+/*export const computeChoirGroupStatusForDate = async ({
   dateISO,
   isSunday,
   templateID,
@@ -1069,9 +1439,69 @@ export const computeChoirGroupStatusForDate = async ({
   const result = allComplete ? "complete" : "incomplete";
   console.log("Final date status:", result);
   return result;
+};*/
+
+export const computeChoirGroupStatusForDate = async ({ dateISO, isSunday }) => {
+  // Get ALL assignments for this date
+  const { data: allAssignments } = await supabase
+    .from("choir-placeholder")
+    .select("mass, group")
+    .eq("date", dateISO);
+
+  // Get unique mass labels
+  const actualMassLabels = new Set(
+    (allAssignments || []).map((a) => String(a.mass).trim())
+  );
+
+  // Build expected masses
+  const massesToCheck = [];
+
+  if (isSunday) {
+    massesToCheck.push("1st Mass - 6:00 AM");
+    massesToCheck.push("2nd Mass - 8:00 AM");
+    massesToCheck.push("3rd Mass - 5:00 PM");
+  }
+
+  //const uses = await fetchChoirTemplateMassesForDate(dateISO);
+
+  // Check each mass status
+  const results = [];
+
+  // Sunday masses
+  for (const massLabel of massesToCheck) {
+    const assignments = (allAssignments || []).filter(
+      (a) => a.mass === massLabel
+    );
+    const validGroups = assignments.filter((a) => a.group && a.group.trim());
+    const status = validGroups.length > 0 ? "complete" : "empty";
+    results.push(status);
+  }
+
+  // Template masses - check against actual DB labels
+  for (const label of actualMassLabels) {
+    // Skip if it's a Sunday mass (already checked)
+    if (
+      label.includes("1st Mass") ||
+      label.includes("2nd Mass") ||
+      label.includes("3rd Mass")
+    ) {
+      continue;
+    }
+
+    const assignments = (allAssignments || []).filter((a) => a.mass === label);
+    const validGroups = assignments.filter((a) => a.group && a.group.trim());
+    const status = validGroups.length > 0 ? "complete" : "empty";
+    results.push(status);
+  }
+
+  if (results.length === 0) return "empty";
+  if (results.every((s) => s === "empty")) return "empty";
+  if (results.every((s) => s === "complete")) return "complete";
+
+  return "incomplete";
 };
 
-async function massChoirStatusFor({ dateISO, massLabel, isSunday }) {
+/*async function massChoirStatusFor({ dateISO, massLabel, isSunday }) {
   console.log("Checking choir assignments for:", {
     dateISO,
     massLabel,
@@ -1107,7 +1537,7 @@ async function massChoirStatusFor({ dateISO, massLabel, isSunday }) {
     console.error("Error in massChoirStatusFor:", error);
     return "empty";
   }
-}
+}*/
 
 export const getChoirGroupAssignments = async (dateISO, massLabel) => {
   try {
@@ -1199,7 +1629,7 @@ export const fetchEucharisticMinisterTemplateMassesForDate = async (
   try {
     const { data: uses, error: useErr } = await supabase
       .from("use-template-table")
-      .select("templateID,time")
+      .select("id,templateID,time")
       .eq("date", isoDate)
       .order("time", { ascending: true });
 
@@ -1222,6 +1652,7 @@ export const fetchEucharisticMinisterTemplateMassesForDate = async (
     return uses
       .filter((u) => allowed.has(u.templateID))
       .map((u) => ({
+        id: u.id,
         templateID: u.templateID,
         time: u.time || "",
       }));
@@ -1343,7 +1774,7 @@ export const roleVisibilityForEucharisticMinister = ({ flags, isSunday }) => {
 /* ---------- Status (per-mass + per-date) ---------- */
 
 // Exported so SelectMass can compute each card's status if you want
-export const massStatusEucharisticMinister = async ({
+/*export const massStatusEucharisticMinister = async ({
   dateISO,
   massLabel,
   flags, // null for Sunday; template flags for template mass
@@ -1365,63 +1796,132 @@ export const massStatusEucharisticMinister = async ({
   }
   if (assigned === 0) return "empty";
   return assigned >= (counts.minister || 0) ? "complete" : "incomplete";
+};*/
+
+export const massStatusEucharisticMinister = async ({
+  dateISO,
+  massLabel,
+  flags, // null for Sunday; template flags for template mass
+  isSunday, // boolean
+}) => {
+  // normalize the input label
+  const canonical = normalizeMassLabel(massLabel);
+
+  // fetch all assigned rows for that date
+  const { data: rows, error } = await supabase
+    .from("eucharistic-minister-placeholder")
+    .select("mass")
+    .eq("date", dateISO);
+
+  if (error) {
+    console.error("Error counting EM assigned:", error);
+    return "empty";
+  }
+
+  // normalize each DB row and count matches
+  const assigned = (rows || []).filter(
+    (r) => normalizeMassLabel(r.mass) === canonical
+  ).length;
+
+  const counts = roleCountsForEucharisticMinister({
+    flags: flags ?? null,
+    isSunday,
+  });
+  const visible = roleVisibilityForEucharisticMinister({
+    flags: flags ?? null,
+    isSunday,
+  });
+
+  if (!visible.minister || (counts.minister || 0) <= 0) {
+    // role hidden/not needed: treat as complete
+    return "complete";
+  }
+  if (assigned === 0) return "empty";
+  return assigned >= (counts.minister || 0) ? "complete" : "incomplete";
 };
 
-// For SelectSchedule: collapse all masses on the date to a single status
 export const computeEucharisticMinisterStatusForDate = async ({
   dateISO,
   isSunday,
 }) => {
-  // 1) Build masses for this date
-  const labels = [];
+  // Get ALL assignments for this date
+  const { data: allAssignments } = await supabase
+    .from("eucharistic-minister-placeholder")
+    .select("mass, idNumber")
+    .eq("date", dateISO);
+
+  (allAssignments || []).forEach((a) => {
+    console.log(`Mass: "${a.mass}", Member: ${a.idNumber}`);
+  });
+
+  // Get unique mass labels
+  const actualMassLabels = new Set(
+    (allAssignments || []).map((a) => String(a.mass).trim())
+  );
+
+  actualMassLabels.forEach((label) => console.log(`"${label}"`));
+
+  // Build expected masses
+  const massesToCheck = [];
+
   if (isSunday) {
-    labels.push({ label: "1st Mass - 6:00 AM", isSunday: true });
-    labels.push({ label: "2nd Mass - 8:00 AM", isSunday: true });
-    labels.push({ label: "3rd Mass - 5:00 PM", isSunday: true });
+    massesToCheck.push({ label: "1st Mass - 6:00 AM", isSunday: true });
+    massesToCheck.push({ label: "2nd Mass - 8:00 AM", isSunday: true });
+    massesToCheck.push({ label: "3rd Mass - 5:00 PM", isSunday: true });
   }
 
   const uses = await fetchEucharisticMinisterTemplateMassesForDate(dateISO);
-  const tmplWithFlags = await Promise.all(
-    (uses || []).map(async (u) => ({
-      label: `Mass - ${u.time}`,
-      flags: await getTemplateFlagsForEucharisticMinister(
-        dateISO,
-        u.templateID
-      ),
-    }))
-  );
 
-  // 2) Per-mass statuses
+  (uses || []).forEach((u) => {
+    console.log(`templateID: ${u.templateID}, time: ${u.time}, id: ${u.id}`);
+  });
+
+  // Check each mass status
   const results = [];
 
-  // Sunday
-  for (const s of labels) {
-    results.push(
-      await massStatusEucharisticMinister({
-        dateISO,
-        massLabel: s.label,
-        flags: null,
-        isSunday: true,
-      })
-    );
+  // Sunday masses
+  for (const s of massesToCheck) {
+    const count = (allAssignments || []).filter(
+      (a) => a.mass === s.label
+    ).length;
+    console.log(`Sunday mass "${s.label}": ${count} assignments`);
+
+    const status =
+      count === 0 ? "empty" : count >= 6 ? "complete" : "incomplete";
+    results.push(status);
   }
 
-  // Template masses
-  for (const t of tmplWithFlags) {
-    results.push(
-      await massStatusEucharisticMinister({
-        dateISO,
-        massLabel: t.label,
-        flags: t.flags,
-        isSunday: false,
-      })
-    );
+  // Template masses - check against actual DB labels
+  for (const label of actualMassLabels) {
+    // Skip if it's a Sunday mass (already checked)
+    if (
+      label.includes("1st Mass") ||
+      label.includes("2nd Mass") ||
+      label.includes("3rd Mass")
+    ) {
+      continue;
+    }
+
+    const count = (allAssignments || []).filter((a) => a.mass === label).length;
+
+    // Get the flags for this template
+    const timeMatch = label.match(/Mass - ([^(]+)/);
+    const time = timeMatch ? timeMatch[1].trim() : "";
+    const use = (uses || []).find((u) => String(u.time).trim() === time);
+    const flags = use
+      ? await getTemplateFlagsForEucharisticMinister(dateISO, use.templateID)
+      : null;
+    const needed = flags?.roles?.minister || 6;
+
+    const status =
+      count === 0 ? "empty" : count >= needed ? "complete" : "incomplete";
+    results.push(status);
   }
 
-  // 3) Collapse to date status
   if (results.length === 0) return "empty";
   if (results.every((s) => s === "empty")) return "empty";
   if (results.every((s) => s === "complete")) return "complete";
+
   return "incomplete";
 };
 
@@ -1595,3 +2095,9 @@ export const choirGroupCounts = async () => {
     return { total: 0, ids: [], error: err.message };
   }
 };
+
+// Accept both "(No. X)" and "- X" styles
+function normalizeMassLabel(label) {
+  if (!label) return label;
+  return String(label).replace("(No. ", "- ").replace(")", "").trim();
+}

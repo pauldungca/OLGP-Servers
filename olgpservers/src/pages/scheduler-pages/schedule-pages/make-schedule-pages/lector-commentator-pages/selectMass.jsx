@@ -89,17 +89,18 @@ export default function SelectMassLectorCommentator() {
     };
   }, [selectedISO]);
 
-  /** Build the full mass list shown on the page */
   const templateCards = useMemo(() => {
-    // display label -> { storageLabel, templateID, time }
     const map = new Map();
     for (const u of templateUses) {
       const type = massTypes[u.templateID] || "Mass";
-      const display = `${type} - ${u.time}`;
-      const storage = `Mass - ${u.time}`; // DB label
-      map.set(display, {
+      // Use the row ID to make it unique
+      const uniqueKey = `${type} - ${u.time} (No. ${u.id})`;
+      const storage = `Mass - ${u.time} - ${u.id}`;
+
+      map.set(uniqueKey, {
         storageLabel: storage,
         templateID: u.templateID,
+        useId: u.id,
         time: u.time,
       });
     }

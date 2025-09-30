@@ -13,7 +13,29 @@ import {
   fetchUserEucharisticMinisterSchedules,
   groupSchedulesByDate,
   formatRoleName,
+  altarServerAllMassesCompleteForDate,
 } from "../../../../assets/scripts/viewScheduleNormal";
+
+import {
+  computeEucharisticMinisterStatusForDate,
+  computeChoirGroupStatusForDate,
+  computeLectorCommentatorStatusForDate,
+} from "../../../../assets/scripts/fetchSchedule";
+
+import {
+  exportAltarServerSchedulesPDF,
+  exportAltarServerSchedulesPNG,
+  printAltarServerSchedules,
+  exportEucharisticMinisterSchedulesPDF,
+  exportEucharisticMinisterSchedulesPNG,
+  printEucharisticMinisterSchedules,
+  exportChoirSchedulesPDF,
+  exportChoirSchedulesPNG,
+  printChoirSchedules,
+  exportLectorCommentatorSchedulesPDF,
+  exportLectorCommentatorSchedulesPNG,
+  printLectorCommentatorSchedules,
+} from "../../../../assets/scripts/exportSchedule";
 
 import "../../../../assets/styles/schedule.css";
 import "../../../../assets/styles/updateSchedule.css";
@@ -31,6 +53,97 @@ export default function UpdateSchedule() {
   const [schedules, setSchedules] = useState({});
   const [loading, setLoading] = useState(false);
   const [idNumber, setIdNumber] = useState("");
+
+  const [dateStatuses, setDateStatuses] = useState({});
+  const [emDateStatuses, setEmDateStatuses] = useState({});
+  const [choirDateStatuses, setChoirDateStatuses] = useState({});
+  const [lcDateStatuses, setLcDateStatuses] = useState({});
+
+  useEffect(() => {
+    const run = async () => {
+      if (department.toLowerCase() !== "altar server") {
+        setDateStatuses({});
+        return;
+      }
+      const next = {};
+      const dates = Object.keys(schedules || {}); // your existing per-day map
+      for (const iso of dates) {
+        try {
+          next[iso] = await altarServerAllMassesCompleteForDate(iso);
+        } catch {
+          next[iso] = "empty";
+        }
+      }
+      setDateStatuses(next);
+    };
+    run();
+  }, [schedules, department]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (department.toLowerCase() !== "eucharistic minister") {
+        setEmDateStatuses({});
+        return;
+      }
+      const next = {};
+      for (const iso of Object.keys(schedules || {})) {
+        try {
+          next[iso] = await computeEucharisticMinisterStatusForDate({
+            dateISO: iso,
+            isSunday: dayjs(iso).day() === 0,
+          });
+        } catch {
+          next[iso] = "empty";
+        }
+      }
+      setEmDateStatuses(next);
+    };
+    run();
+  }, [schedules, department]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (department.toLowerCase() !== "choir") {
+        setChoirDateStatuses({});
+        return;
+      }
+      const next = {};
+      for (const iso of Object.keys(schedules || {})) {
+        try {
+          next[iso] = await computeChoirGroupStatusForDate({
+            dateISO: iso,
+            isSunday: dayjs(iso).day() === 0,
+          });
+        } catch {
+          next[iso] = "empty";
+        }
+      }
+      setChoirDateStatuses(next);
+    };
+    run();
+  }, [schedules, department]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (department.toLowerCase() !== "lector commentator") {
+        setLcDateStatuses({});
+        return;
+      }
+      const next = {};
+      for (const iso of Object.keys(schedules || {})) {
+        try {
+          next[iso] = await computeLectorCommentatorStatusForDate({
+            dateISO: iso,
+            isSunday: dayjs(iso).day() === 0,
+          });
+        } catch {
+          next[iso] = "empty";
+        }
+      }
+      setLcDateStatuses(next);
+    };
+    run();
+  }, [schedules, department]);
 
   useEffect(() => {
     document.title = `OLGP Servers | View Schedule - ${department}`;
@@ -56,7 +169,7 @@ export default function UpdateSchedule() {
         switch (department.toLowerCase()) {
           case "altar server":
             data = await fetchUserAltarServerSchedules(idNumber, year, month);
-            
+
             break;
           case "lector commentator":
             data = await fetchUserLectorCommentatorSchedules(
@@ -218,6 +331,22 @@ export default function UpdateSchedule() {
                 );
               }
 
+              const disabledForAltar =
+                department.toLowerCase() === "altar server" &&
+                dateStatuses[iso] !== "complete";
+
+              const disabledForEM =
+                department.toLowerCase() === "eucharistic minister" &&
+                emDateStatuses[iso] !== "complete";
+
+              const disabledForChoir =
+                department.toLowerCase() === "choir" &&
+                choirDateStatuses[iso] !== "complete";
+
+              const disabledForLC =
+                department.toLowerCase() === "lector commentator" &&
+                lcDateStatuses[iso] !== "complete";
+
               return (
                 <div
                   key={iso}
@@ -271,17 +400,137 @@ export default function UpdateSchedule() {
                               gap: 12,
                               paddingRight: 16,
                               marginTop: 16,
+                              ...(disabledForAltar ||
+                              disabledForEM ||
+                              disabledForChoir ||
+                              disabledForLC
+                                ? { pointerEvents: "none", opacity: 0.6 }
+                                : {}),
                             }}
                           >
-                            <ScheduleDropdownButton />
+                            <ScheduleDropdownButton
+                              onExportPDF={() => {
+                                if (
+                                  department.toLowerCase() === "altar server"
+                                ) {
+                                  exportAltarServerSchedulesPDF({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                } else if (
+                                  department.toLowerCase() ===
+                                  "eucharistic minister"
+                                ) {
+                                  exportEucharisticMinisterSchedulesPDF({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                } else if (
+                                  department.toLowerCase() === "choir"
+                                ) {
+                                  exportChoirSchedulesPDF({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                } else if (
+                                  department.toLowerCase() ===
+                                  "lector commentator"
+                                ) {
+                                  exportLectorCommentatorSchedulesPDF({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                }
+                              }}
+                              onExportPNG={() => {
+                                if (
+                                  department.toLowerCase() === "altar server"
+                                ) {
+                                  exportAltarServerSchedulesPNG({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                } else if (
+                                  department.toLowerCase() ===
+                                  "eucharistic minister"
+                                ) {
+                                  exportEucharisticMinisterSchedulesPNG({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                } else if (
+                                  department.toLowerCase() === "choir"
+                                ) {
+                                  exportChoirSchedulesPNG({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                } else if (
+                                  department.toLowerCase() ===
+                                  "lector commentator"
+                                ) {
+                                  exportLectorCommentatorSchedulesPNG({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                }
+                              }}
+                            />
 
-                            <button className="btn print-btn flex items-center gap-2">
+                            <button
+                              className="btn print-btn flex items-center gap-2"
+                              onClick={() => {
+                                if (
+                                  department.toLowerCase() === "altar server"
+                                ) {
+                                  printAltarServerSchedules({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                } else if (
+                                  department.toLowerCase() ===
+                                  "eucharistic minister"
+                                ) {
+                                  printEucharisticMinisterSchedules({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                } else if (
+                                  department.toLowerCase() === "choir"
+                                ) {
+                                  printChoirSchedules({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                } else if (
+                                  department.toLowerCase() ===
+                                  "lector commentator"
+                                ) {
+                                  printLectorCommentatorSchedules({
+                                    dateISO: iso,
+                                    isSunday: dayjs(iso).day() === 0,
+                                    department,
+                                  });
+                                }
+                              }}
+                            >
                               <img
                                 src={icon.printIcon}
                                 alt="Print Icon"
                                 className="icon-btn"
                               />
-                              Print
+                              Print Schedule
                             </button>
                           </div>
 

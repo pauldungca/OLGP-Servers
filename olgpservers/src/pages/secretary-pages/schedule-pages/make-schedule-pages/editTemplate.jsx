@@ -403,7 +403,11 @@ export default function EditTemplate() {
                     </label>
                     <select
                       className="form-select form-select-sm w-auto"
-                      disabled={mode.altar === "standard" || !enabled}
+                      disabled={
+                        mode.altar === "standard" ||
+                        mode.altar === "custom" ||
+                        !enabled
+                      }
                       value={
                         mode.altar === "standard"
                           ? role.default
@@ -483,7 +487,6 @@ export default function EditTemplate() {
                     {n}
                   </option>
                 ))}
-                <option value={0}>0</option>
               </select>
             </div>
           </div>
@@ -536,8 +539,6 @@ export default function EditTemplate() {
                     {n}
                   </option>
                 ))}
-
-                <option value={0}>0</option>
               </select>
             </div>
           </div>
@@ -601,7 +602,11 @@ export default function EditTemplate() {
                     <label className="form-check-label">{role.label}:</label>
                     <select
                       className="form-select form-select-sm w-auto"
-                      disabled={mode.lector === "standard" || !enabled}
+                      disabled={
+                        mode.lector === "standard" ||
+                        mode.lector === "custom" ||
+                        !enabled
+                      }
                       value={
                         mode.lector === "standard"
                           ? role.def

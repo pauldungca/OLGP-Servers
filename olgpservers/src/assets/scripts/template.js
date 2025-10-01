@@ -767,7 +767,7 @@ export const handleCancel = async (navigate) => {
   if (ok) navigate("/selectTemplate");
 };
 
-export const getEucharisticMax = async () => {
+/*export const getEucharisticMax = async () => {
   const { count, error } = await supabase
     .from("user-type")
     .select("*", { count: "exact", head: true }) // HEAD request; returns only count
@@ -778,6 +778,37 @@ export const getEucharisticMax = async () => {
     return 0;
   }
   return count ?? 0;
+};*/
+
+export const getEucharisticMax = async () => {
+  try {
+    // Fetch all group assignments
+    const { data, error } = await supabase
+      .from("eucharistic-minister-group")
+      .select("group-name, idNumber");
+
+    if (error) {
+      console.error("getEucharisticMax error:", error);
+      return 0;
+    }
+    if (!data || data.length === 0) return 0;
+
+    // Count members per group
+    const counts = data.reduce((acc, row) => {
+      const group = row["group-name"];
+      if (!acc[group]) acc[group] = 0;
+      acc[group]++;
+      return acc;
+    }, {});
+
+    // Find the highest member count across groups
+    const maxCount = Math.max(...Object.values(counts));
+
+    return maxCount;
+  } catch (err) {
+    console.error("getEucharisticMax unexpected:", err);
+    return 0;
+  }
 };
 
 export const getChoirMax = async () => {

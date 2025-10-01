@@ -8,32 +8,19 @@ import {
   fetchAuthRowByIdNumber,
   setHasAgreeTrue,
   redirectOnExit,
-  countDepartmentHandles,
   countSchedulesAssigned,
+  getDepartmentCardInfo,
 } from "../../assets/scripts/dashboard";
 
 import "../../assets/styles/dashboard.css";
 
 export default function Dashboard() {
   const storedIdNumber = localStorage.getItem("idNumber");
-  const [showTerms, setShowTerms] = useState(false);
 
+  const [showTerms, setShowTerms] = useState(false);
   const [handlesCount, setHandlesCount] = useState(0);
   const [assignedCount, setAssignedCount] = useState(0);
-
-  useEffect(() => {
-    (async () => {
-      const c = await countDepartmentHandles(storedIdNumber);
-      setHandlesCount(c);
-    })();
-  }, [storedIdNumber]);
-
-  useEffect(() => {
-    (async () => {
-      const count = await countSchedulesAssigned(storedIdNumber);
-      setAssignedCount(count);
-    })();
-  }, [storedIdNumber]);
+  const [deptLabel, setDeptLabel] = useState("Department Handled");
 
   useEffect(() => {
     document.title = "OLGP Servers | Dashboard";
@@ -41,14 +28,30 @@ export default function Dashboard() {
 
   useEffect(() => {
     (async () => {
+      if (!storedIdNumber) return;
+
+      const [{ count, label }, assigned] = await Promise.all([
+        getDepartmentCardInfo(storedIdNumber),
+        countSchedulesAssigned(storedIdNumber),
+      ]);
+
+      setHandlesCount(count);
+      setDeptLabel(label);
+      setAssignedCount(assigned);
+    })();
+  }, [storedIdNumber]);
+
+  // Terms modal flow (unchanged)
+  useEffect(() => {
+    (async () => {
+      if (!storedIdNumber) return;
       const { data, error } = await fetchAuthRowByIdNumber(storedIdNumber);
       if (error) {
         console.error("Fetch auth row error:", error);
         return;
       }
-
       if (data && Number(data.hasAgree) === 0) {
-        setShowTerms(true); // show custom modal
+        setShowTerms(true);
       }
     })();
   }, [storedIdNumber]);
@@ -72,6 +75,7 @@ export default function Dashboard() {
           onExit={handleExit}
         />
       )}
+
       <div className="dashboard-header">
         <div className="header-text-with-line">
           <h3>DASHBOARD</h3>
@@ -91,7 +95,7 @@ export default function Dashboard() {
               />
               <div>
                 <h4 className="mb-0 fw-bold fs-3">{handlesCount}</h4>
-                <small>Department Handled</small>
+                <small>{deptLabel}</small>
               </div>
             </div>
           </div>

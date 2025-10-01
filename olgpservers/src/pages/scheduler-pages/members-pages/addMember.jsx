@@ -134,6 +134,16 @@ export default function AddMember() {
   const addMemberHandler = async (e) => {
     e.preventDefault();
 
+    // 🔹 Role check first
+    if (!selectedRole || selectedRole === "") {
+      await Swal.fire({
+        icon: "warning",
+        title: "Role Required",
+        text: "Please select a role before adding the member.",
+      });
+      return; // stop execution
+    }
+
     let url = null;
 
     // 1) Add the member without image
@@ -396,7 +406,7 @@ export default function AddMember() {
                 className="form-control"
                 value={street}
                 onChange={(e) => setStreet(e.target.value)}
-                placeholder="e.g., Mabini St."
+                //placeholder="e.g., Mabini St."
               />
             </div>
             <div className="col-md-3">
@@ -406,7 +416,7 @@ export default function AddMember() {
                 className="form-control"
                 value={houseNumber}
                 onChange={(e) => setHouseNumber(e.target.value)}
-                placeholder="e.g., 123-B"
+                //placeholder="e.g., 123-B"
               />
             </div>
           </div>

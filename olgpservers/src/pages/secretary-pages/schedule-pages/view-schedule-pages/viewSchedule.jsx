@@ -261,7 +261,7 @@ export default function ViewSchedule() {
 
                     {/* Print will be wired next step */}
                     <button
-                      className="btn print-button flex items-center gap-2"
+                      className="btn print-btn flex items-center gap-2"
                       onClick={() => printScheduleDay(iso, dayItems)}
                     >
                       <img

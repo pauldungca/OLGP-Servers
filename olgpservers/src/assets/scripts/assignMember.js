@@ -381,118 +381,7 @@ export const buildFullName = (m) => {
   return finalName || String(m.idNumber || "").trim();
 };
 
-/*export const fetchMembersNormalized = async (dateISO, massLabel, role) => {
-  const { perRoleAllowed } = await buildEligibilityMaps();
-  const allowedSet = perRoleAllowed.get(role) || new Set();
-
-  const { data: allAssignedMembers, error: allAssignedError } = await supabase
-    .from("altar-server-placeholder")
-    .select("idNumber, role, mass")
-    .eq("date", dateISO);
-
-  if (allAssignedError) {
-    console.error("Error fetching assigned members:", allAssignedError);
-    return [];
-  }
-
-  const allAssignedIds = new Set(
-    (allAssignedMembers || []).map((m) => String(m.idNumber).trim())
-  );
-
-  const assignedByRole = new Map();
-  (allAssignedMembers || []).forEach((m) => {
-    const k = m.role;
-    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
-    assignedByRole.get(k).add(String(m.idNumber).trim());
-  });
-
-  // last 6 months history
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-
-  const { data: historicalAssignments } = await supabase
-    .from("altar-server-placeholder")
-    .select("idNumber, role, date, mass")
-    .gte("date", sixMonthsAgoISO)
-    .order("date", { ascending: false });
-
-  const rows = await fetchAltarServerMembersWithRole();
-
-  const normalized = (rows || [])
-    .map((m) => ({
-      idNumber: String(m.idNumber ?? "").trim(),
-      fullName: buildFullName(m),
-      role: m.role || "Non-Flexible",
-      sex: m.sex || "Unknown",
-    }))
-    .filter((m) => {
-      if (!m.idNumber || !m.fullName) return false;
-
-      // keep already-assigned-to-this-role so you can unassign
-      const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
-      if (assignedToCurrentRole) return true;
-
-      // eligibility gate
-      if (!allowedSet.has(m.idNumber)) return false;
-
-      // not available if already in any mass that day
-      if (allAssignedIds.has(m.idNumber)) return false;
-
-      return true;
-    })
-    .map((m) => {
-      const rotationScore = calculateRotationScore(
-        m.idNumber,
-        role,
-        historicalAssignments || [],
-        dateISO
-      );
-
-      // compute roleCount and daysSinceLastRole
-      const memberHistory = (historicalAssignments || []).filter(
-        (a) => String(a.idNumber).trim() === m.idNumber
-      );
-      const roleCount = memberHistory.filter((a) => a.role === role).length;
-
-      const lastRoleAssignment = memberHistory
-        .filter((a) => a.role === role)
-        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-
-      const daysSinceLastRole = lastRoleAssignment
-        ? Math.floor(
-            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
-              (1000 * 60 * 60 * 24)
-          )
-        : Infinity;
-
-      // convenience flag (like you showed)
-      const isPriority =
-        roleCount === 0 ||
-        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
-
-      return {
-        ...m,
-        rotationScore,
-        roleCount,
-        daysSinceLastRole,
-        isPriority,
-      };
-    })
-    .sort((a, b) => {
-      if (a.rotationScore !== b.rotationScore) {
-        return a.rotationScore - b.rotationScore;
-      }
-      return a.fullName.localeCompare(b.fullName);
-    });
-
-  return normalized;
-};*/
-
-// Keep your existing imports and helpers above…
-
-// FULL REPLACEMENT: fetchMembersNormalized
-export const fetchMembersNormalized = async (
+/*export const fetchMembersNormalized = async (
   dateISO,
   massLabel,
   role,
@@ -558,6 +447,144 @@ export const fetchMembersNormalized = async (
 
       // Eligibility gate for target role
       if (!allowedSet.has(m.idNumber)) return false;
+
+      // Default: block double-booking the same DATE (any mass)
+      // Override: allow showing them (so you can complete schedule)
+      if (!includeUnavailable && allAssignedIds.has(m.idNumber)) return false;
+
+      return true;
+    })
+    .map((m) => {
+      const rotationScore = calculateRotationScore(
+        m.idNumber,
+        role,
+        historicalAssignments || [],
+        dateISO
+      );
+
+      // roleCount & daysSinceLastRole
+      const history = (historicalAssignments || []).filter(
+        (a) => String(a.idNumber).trim() === m.idNumber
+      );
+      const roleCount = history.filter((a) => a.role === role).length;
+
+      const lastRoleAssignment = history
+        .filter((a) => a.role === role)
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+      const daysSinceLastRole = lastRoleAssignment
+        ? Math.floor(
+            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
+              (1000 * 60 * 60 * 24)
+          )
+        : Infinity;
+
+      const isPriority =
+        roleCount === 0 ||
+        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
+
+      return {
+        ...m,
+        rotationScore,
+        roleCount,
+        daysSinceLastRole,
+        isPriority,
+      };
+    })
+    .sort((a, b) => {
+      if (a.rotationScore !== b.rotationScore) {
+        return a.rotationScore - b.rotationScore;
+      }
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+  return normalized;
+};*/
+
+export const fetchMembersNormalized = async (
+  dateISO,
+  massLabel,
+  role,
+  options = {}
+) => {
+  const includeUnavailable = !!options.includeUnavailable;
+
+  // 1) Role eligibility
+  const { perRoleAllowed } = await buildEligibilityMaps();
+  const allowedSet = perRoleAllowed.get(role) || new Set();
+
+  // 2) Who is already assigned on this DATE (any mass/role)
+  const { data: allAssignedMembers, error: allAssignedError } = await supabase
+    .from("altar-server-placeholder")
+    .select("idNumber, role, mass")
+    .eq("date", dateISO);
+
+  if (allAssignedError) {
+    console.error("Error fetching assigned members:", allAssignedError);
+    return [];
+  }
+
+  // ⭐ NEW: Fetch unavailable members for this exact date+mass
+  const { data: unavailableMembers, error: unavailableError } = await supabase
+    .from("altar-server-unavailable")
+    .select("idNumber")
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  if (unavailableError) {
+    console.error("Error fetching unavailable members:", unavailableError);
+  }
+
+  const unavailableSet = new Set(
+    (unavailableMembers || []).map((m) => String(m.idNumber).trim())
+  );
+
+  // Sets for fast checks
+  const allAssignedIds = new Set(
+    (allAssignedMembers || []).map((m) => String(m.idNumber).trim())
+  );
+
+  const assignedByRole = new Map();
+  (allAssignedMembers || []).forEach((m) => {
+    const k = m.role;
+    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
+    assignedByRole.get(k).add(String(m.idNumber).trim());
+  });
+
+  // 3) Rotation history (last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+  const { data: historicalAssignments } = await supabase
+    .from("altar-server-placeholder")
+    .select("idNumber, role, date, mass")
+    .gte("date", sixMonthsAgoISO)
+    .order("date", { ascending: false });
+
+  // 4) Department-scoped members
+  const rows = await fetchAltarServerMembersWithRole();
+
+  // 5) Normalize + filter + compute rotation info
+  const normalized = (rows || [])
+    .map((m) => ({
+      idNumber: String(m.idNumber ?? "").trim(),
+      fullName: buildFullName(m),
+      role: m.role || "Non-Flexible",
+      sex: m.sex || "Unknown",
+    }))
+    .filter((m) => {
+      if (!m.idNumber || !m.fullName) return false;
+
+      // Keep members already assigned to THIS role so you can unassign them
+      const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
+      if (assignedToCurrentRole) return true;
+
+      // Eligibility gate for target role
+      if (!allowedSet.has(m.idNumber)) return false;
+
+      // ⭐ NEW: Hide if marked unavailable (unless includeUnavailable override)
+      if (!includeUnavailable && unavailableSet.has(m.idNumber)) return false;
 
       // Default: block double-booking the same DATE (any mass)
       // Override: allow showing them (so you can complete schedule)
@@ -1529,250 +1556,6 @@ export async function buildLectorCommentatorEligibilityMaps() {
 
 /*export const fetchLectorCommentatorMembersNormalized = async (
   dateISO,
-  massLabel,
-  role
-) => {
-  const { perRoleAllowed } = await buildLectorCommentatorEligibilityMaps();
-  const allowedSet = perRoleAllowed.get(role) || new Set();
-
-  // Fetch assigned members for the Lector/Commentator roles
-  const { data: allAssignedMembers, error: allAssignedError } = await supabase
-    .from("lector-commentator-placeholder")
-    .select("idNumber, role, mass")
-    .eq("date", dateISO);
-
-  if (allAssignedError) {
-    console.error(
-      "Error fetching assigned Lector/Commentator members:",
-      allAssignedError
-    );
-
-    return [];
-  }
-
-  const allAssignedIds = new Set(
-    (allAssignedMembers || []).map((m) => String(m.idNumber).trim())
-  );
-
-  const assignedByRole = new Map();
-  (allAssignedMembers || []).forEach((m) => {
-    const k = m.role;
-    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
-    assignedByRole.get(k).add(String(m.idNumber).trim());
-  });
-
-  // Fetch historical assignments for Lector/Commentator roles in the last 6 months
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-
-  const { data: historicalAssignments } = await supabase
-    .from("lector-commentator-placeholder")
-    .select("idNumber, role, date, mass")
-    .gte("date", sixMonthsAgoISO)
-    .order("date", { ascending: false });
-
-  console.log("Fetched Historical Assignments: ", historicalAssignments);
-
-  const rows = await fetchLectorCommentatorMembersWithRole();
-
-  const normalized = (rows || [])
-    .map((m) => ({
-      idNumber: String(m.idNumber ?? "").trim(),
-      fullName: buildFullName(m),
-      role: m.role || "Non-Flexible",
-      sex: m.sex || "Unknown",
-    }))
-    .filter((m) => {
-      console.log("Filtering member: ", m);
-      if (!m.idNumber || !m.fullName) return false;
-
-      // Eligibility check
-      if (!allowedSet.has(m.idNumber)) {
-        console.log("Not eligible: ", m.idNumber);
-        return false;
-      }
-
-      // Already assigned to this role
-      if (allAssignedIds.has(m.idNumber)) {
-        console.log("Already assigned: ", m.idNumber);
-        return false;
-      }
-
-      return true;
-    })
-    .map((m) => {
-      const rotationScore = calculateRotationScore(
-        m.idNumber,
-        role,
-        historicalAssignments || [],
-        dateISO
-      );
-
-      // Compute roleCount and daysSinceLastRole
-      const memberHistory = (historicalAssignments || []).filter(
-        (a) => String(a.idNumber).trim() === m.idNumber
-      );
-      const roleCount = memberHistory.filter((a) => a.role === role).length;
-
-      const lastRoleAssignment = memberHistory
-        .filter((a) => a.role === role)
-        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-
-      const daysSinceLastRole = lastRoleAssignment
-        ? Math.floor(
-            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
-              (1000 * 60 * 60 * 24)
-          )
-        : Infinity;
-
-      const isPriority =
-        roleCount === 0 ||
-        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
-
-      return {
-        ...m,
-        rotationScore,
-        roleCount,
-        daysSinceLastRole,
-        isPriority,
-      };
-    })
-    .sort((a, b) => {
-      if (a.rotationScore !== b.rotationScore) {
-        return a.rotationScore - b.rotationScore;
-      }
-      return a.fullName.localeCompare(b.fullName);
-    });
-
-  return normalized;
-};*/
-
-/*export const fetchLectorCommentatorMembersNormalized = async (
-  dateISO,
-  massLabel,
-  role,
-  options = {} // ADD THIS PARAMETER
-) => {
-  const { includeUnavailable = false } = options; // EXTRACT THE FLAG
-
-  const { perRoleAllowed } = await buildLectorCommentatorEligibilityMaps();
-  const allowedSet = perRoleAllowed.get(role) || new Set();
-
-  // Fetch assigned members for the Lector/Commentator roles
-  const { data: allAssignedMembers, error: allAssignedError } = await supabase
-    .from("lector-commentator-placeholder")
-    .select("idNumber, role, mass")
-    .eq("date", dateISO);
-
-  if (allAssignedError) {
-    console.error(
-      "Error fetching assigned Lector/Commentator members:",
-      allAssignedError
-    );
-    return [];
-  }
-
-  const allAssignedIds = new Set(
-    (allAssignedMembers || []).map((m) => String(m.idNumber).trim())
-  );
-
-  const assignedByRole = new Map();
-  (allAssignedMembers || []).forEach((m) => {
-    const k = m.role;
-    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
-    assignedByRole.get(k).add(String(m.idNumber).trim());
-  });
-
-  // Fetch historical assignments for Lector/Commentator roles in the last 6 months
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-
-  const { data: historicalAssignments } = await supabase
-    .from("lector-commentator-placeholder")
-    .select("idNumber, role, date, mass")
-    .gte("date", sixMonthsAgoISO)
-    .order("date", { ascending: false });
-
-  console.log("Fetched Historical Assignments: ", historicalAssignments);
-
-  const rows = await fetchLectorCommentatorMembersWithRole();
-
-  const normalized = (rows || [])
-    .map((m) => ({
-      idNumber: String(m.idNumber ?? "").trim(),
-      fullName: buildFullName(m),
-      role: m.role || "Non-Flexible",
-      sex: m.sex || "Unknown",
-    }))
-    .filter((m) => {
-      console.log("Filtering member: ", m);
-      if (!m.idNumber || !m.fullName) return false;
-
-      // Eligibility check
-      if (!allowedSet.has(m.idNumber)) {
-        console.log("Not eligible: ", m.idNumber);
-        return false;
-      }
-
-      // ⭐ KEY CHANGE: Skip "already assigned" check if includeUnavailable is true
-      if (!includeUnavailable && allAssignedIds.has(m.idNumber)) {
-        console.log("Already assigned: ", m.idNumber);
-        return false;
-      }
-
-      return true;
-    })
-    .map((m) => {
-      const rotationScore = calculateRotationScore(
-        m.idNumber,
-        role,
-        historicalAssignments || [],
-        dateISO
-      );
-
-      // Compute roleCount and daysSinceLastRole
-      const memberHistory = (historicalAssignments || []).filter(
-        (a) => String(a.idNumber).trim() === m.idNumber
-      );
-      const roleCount = memberHistory.filter((a) => a.role === role).length;
-
-      const lastRoleAssignment = memberHistory
-        .filter((a) => a.role === role)
-        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-
-      const daysSinceLastRole = lastRoleAssignment
-        ? Math.floor(
-            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
-              (1000 * 60 * 60 * 24)
-          )
-        : Infinity;
-
-      const isPriority =
-        roleCount === 0 ||
-        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
-
-      return {
-        ...m,
-        rotationScore,
-        roleCount,
-        daysSinceLastRole,
-        isPriority,
-      };
-    })
-    .sort((a, b) => {
-      if (a.rotationScore !== b.rotationScore) {
-        return a.rotationScore - b.rotationScore;
-      }
-      return a.fullName.localeCompare(b.fullName);
-    });
-
-  return normalized;
-};*/
-
-export const fetchLectorCommentatorMembersNormalized = async (
-  dateISO,
   massLabel, // THIS PARAMETER IS BEING PASSED BUT NOT USED!
   role,
   options = {}
@@ -1881,6 +1664,158 @@ export const fetchLectorCommentatorMembersNormalized = async (
       const roleCount = memberHistory.filter((a) => a.role === role).length;
 
       const lastRoleAssignment = memberHistory
+        .filter((a) => a.role === role)
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+      const daysSinceLastRole = lastRoleAssignment
+        ? Math.floor(
+            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
+              (1000 * 60 * 60 * 24)
+          )
+        : Infinity;
+
+      const isPriority =
+        roleCount === 0 ||
+        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
+
+      return {
+        ...m,
+        rotationScore,
+        roleCount,
+        daysSinceLastRole,
+        isPriority,
+      };
+    })
+    .sort((a, b) => {
+      if (a.rotationScore !== b.rotationScore) {
+        return a.rotationScore - b.rotationScore;
+      }
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+  return normalized;
+};*/
+
+export const fetchLectorCommentatorMembersNormalized = async (
+  dateISO,
+  massLabel,
+  role,
+  options = {}
+) => {
+  const { includeUnavailable = false } = options;
+
+  const { perRoleAllowed } = await buildLectorCommentatorEligibilityMaps();
+  const allowedSet = perRoleAllowed.get(role) || new Set();
+
+  // Fetch assigned members for the Lector/Commentator roles
+  const { data: allAssignedMembers, error: allAssignedError } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, mass")
+    .eq("date", dateISO);
+
+  if (allAssignedError) {
+    console.error(
+      "Error fetching assigned Lector/Commentator members:",
+      allAssignedError
+    );
+    return [];
+  }
+
+  // ⭐ NEW: Fetch unavailable members for this exact date+mass
+  const { data: unavailableMembers, error: unavailableError } = await supabase
+    .from("lector-commentator-unavailable")
+    .select("idNumber")
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  if (unavailableError) {
+    console.error("Error fetching unavailable members:", unavailableError);
+  }
+
+  const unavailableSet = new Set(
+    (unavailableMembers || []).map((m) => String(m.idNumber).trim())
+  );
+
+  // Filter by current mass only (not all masses on this date)
+  const assignedInCurrentMass = new Set(
+    (allAssignedMembers || [])
+      .filter((m) => m.mass === massLabel)
+      .map((m) => String(m.idNumber).trim())
+  );
+
+  // Also track members assigned to OTHER masses on same date
+  const assignedInOtherMasses = new Set(
+    (allAssignedMembers || [])
+      .filter((m) => m.mass !== massLabel)
+      .map((m) => String(m.idNumber).trim())
+  );
+
+  const assignedByRole = new Map();
+  (allAssignedMembers || []).forEach((m) => {
+    const k = m.role;
+    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
+    assignedByRole.get(k).add(String(m.idNumber).trim());
+  });
+
+  // Fetch historical assignments for rotation (last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+  const { data: historicalAssignments } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, date, mass")
+    .gte("date", sixMonthsAgoISO)
+    .order("date", { ascending: false });
+
+  const rows = await fetchLectorCommentatorMembersWithRole();
+
+  const normalized = (rows || [])
+    .map((m) => ({
+      idNumber: String(m.idNumber ?? "").trim(),
+      fullName: buildFullName(m),
+      role: m.role || "Non-Flexible",
+      sex: m.sex || "Unknown",
+    }))
+    .filter((m) => {
+      if (!m.idNumber || !m.fullName) return false;
+
+      // Keep members assigned to THIS role in THIS mass (for unassignment)
+      const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
+      if (assignedToCurrentRole && assignedInCurrentMass.has(m.idNumber)) {
+        return true;
+      }
+
+      // Eligibility check
+      if (!allowedSet.has(m.idNumber)) return false;
+
+      // ⭐ NEW: Hide if marked unavailable (unless override)
+      if (!includeUnavailable && unavailableSet.has(m.idNumber)) return false;
+
+      // Exclude if already assigned in THIS mass (but not current role)
+      if (assignedInCurrentMass.has(m.idNumber)) return false;
+
+      // For non-template masses: also exclude if assigned to OTHER masses
+      if (!includeUnavailable && assignedInOtherMasses.has(m.idNumber)) {
+        return false;
+      }
+
+      return true;
+    })
+    .map((m) => {
+      const rotationScore = calculateRotationScore(
+        m.idNumber,
+        role,
+        historicalAssignments || [],
+        dateISO
+      );
+
+      const history = (historicalAssignments || []).filter(
+        (a) => String(a.idNumber).trim() === m.idNumber
+      );
+      const roleCount = history.filter((a) => a.role === role).length;
+
+      const lastRoleAssignment = history
         .filter((a) => a.role === role)
         .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
@@ -3655,13 +3590,20 @@ export const resetEucharisticMinisterAssignments = async (
   }
 };
 
-/*export const fetchEucharisticMinisterGroupMembers = async (groupName) => {
-  if (!groupName) {
-    return [];
-  }
+export const fetchEucharisticMinisterGroupMembers = async (
+  groupName,
+  options = {}
+) => {
+  if (!groupName) return [];
+
+  const {
+    dateISO = null,
+    massLabel = null,
+    includeUnavailable = false,
+  } = options;
 
   try {
-    // First, get all member IDs from the specified group
+    // Get all member IDs from the specified group
     const { data: groupMembers, error: groupError } = await supabase
       .from("eucharistic-minister-group")
       .select("idNumber")
@@ -3672,14 +3614,35 @@ export const resetEucharisticMinisterAssignments = async (
       return [];
     }
 
-    if (!groupMembers || groupMembers.length === 0) {
-      return [];
+    if (!groupMembers || groupMembers.length === 0) return [];
+
+    const memberIds = groupMembers
+      .map((m) => String(m.idNumber))
+      .filter(Boolean);
+
+    // Fetch unavailable members for this exact date+mass (if provided)
+    let unavailableSet = new Set();
+    if (dateISO && massLabel && !includeUnavailable) {
+      const { data: unavailableMembers, error: unavailableError } =
+        await supabase
+          .from("eucharistic-minister-unavailable")
+          .select("idNumber")
+          .eq("date", dateISO)
+          .eq("mass", massLabel);
+
+      if (unavailableError) {
+        console.error(
+          "Error fetching unavailable EM members:",
+          unavailableError
+        );
+      } else {
+        unavailableSet = new Set(
+          (unavailableMembers || []).map((m) => String(m.idNumber).trim())
+        );
+      }
     }
 
-    // Extract the ID numbers
-    const memberIds = groupMembers.map((member) => member.idNumber);
-
-    // Now fetch the member information for these IDs
+    // Fetch member information
     const { data: memberInfo, error: memberError } = await supabase
       .from("members-information")
       .select("idNumber, firstName, middleName, lastName")
@@ -3690,107 +3653,26 @@ export const resetEucharisticMinisterAssignments = async (
       return [];
     }
 
-    // Format the member data
-    const formattedMembers = (memberInfo || []).map((member) => ({
-      id: member.idNumber,
-      name: [member.firstName, member.middleName, member.lastName]
-        .filter((name) => name && name.trim()) // Remove empty/null names
-        .join(" ")
-        .trim(),
-    }));
+    // Format and filter members
+    const formattedMembers = (memberInfo || [])
+      .map((member) => ({
+        id: String(member.idNumber),
+        name: [member.firstName, member.middleName, member.lastName]
+          .filter((name) => name && name.trim())
+          .join(" ")
+          .trim(),
+      }))
+      .filter((member) => {
+        // Hide if marked unavailable
+        if (unavailableSet.has(member.id)) {
+          return false;
+        }
+        return true;
+      });
 
     return formattedMembers;
   } catch (err) {
     console.error("Failed to fetch group members:", err);
-    return [];
-  }
-};
-
-export const fetchEucharisticMinisterAssignments = async (
-  dateISO,
-  massLabel
-) => {
-  try {
-    // 1) Get saved slots (idNumber per slot)
-    const { data: assignments, error: assignError } = await supabase
-      .from("eucharistic-minister-placeholder")
-      .select("slot, idNumber")
-      .eq("date", dateISO)
-      .eq("mass", massLabel)
-      .order("slot", { ascending: true });
-
-    if (assignError) throw assignError;
-    if (!assignments || assignments.length === 0) return [];
-
-    // 2) Unique IDs (normalize types to avoid .in() mismatches)
-    const memberIds = [...new Set(assignments.map((a) => a.idNumber))].filter(
-      (v) => v !== null && v !== undefined
-    );
-
-    // 3) Fetch names for those IDs
-    const { data: memberInfo, error: memberError } = await supabase
-      .from("members-information")
-      .select("idNumber, firstName, middleName, lastName")
-      .in(
-        "idNumber",
-        memberIds.map((v) => (typeof v === "string" ? v : String(v))) // cast to string for safety
-      );
-
-    if (memberError) throw memberError;
-
-    // 4) Build a fast lookup (try both string and number keys)
-    const nameMap = new Map();
-    (memberInfo || []).forEach((m) => {
-      const fullName = [m.firstName, m.middleName, m.lastName]
-        .filter((n) => n && String(n).trim())
-        .join(" ")
-        .trim();
-      nameMap.set(String(m.idNumber), fullName);
-      nameMap.set(Number(m.idNumber), fullName);
-    });
-
-    // 5) Return slot â†’ {id, name} (name filled if found)
-    return assignments.map((a) => ({
-      slot: a.slot,
-      id: a.idNumber,
-      name: nameMap.get(a.idNumber) || nameMap.get(String(a.idNumber)) || "",
-    }));
-  } catch (err) {
-    console.error("Error fetching EM assignments:", err?.message || err);
-    return [];
-  }
-};*/
-
-// A) Group members â†’ return id as STRING
-export const fetchEucharisticMinisterGroupMembers = async (groupName) => {
-  if (!groupName) return [];
-  try {
-    const { data: groupMembers, error: groupError } = await supabase
-      .from("eucharistic-minister-group")
-      .select("idNumber")
-      .eq("group-name", groupName);
-    if (groupError) return [];
-
-    const memberIds = (groupMembers || [])
-      .map((m) => String(m.idNumber))
-      .filter(Boolean);
-
-    if (memberIds.length === 0) return [];
-
-    const { data: memberInfo, error: memberError } = await supabase
-      .from("members-information")
-      .select("idNumber, firstName, middleName, lastName")
-      .in("idNumber", memberIds);
-    if (memberError) return [];
-
-    return (memberInfo || []).map((m) => ({
-      id: String(m.idNumber),
-      name: [m.firstName, m.middleName, m.lastName]
-        .filter((x) => x && String(x).trim())
-        .join(" ")
-        .trim(),
-    }));
-  } catch (e) {
     return [];
   }
 };
@@ -4052,7 +3934,6 @@ async function buildDynamicEMRotation() {
     .map((g) => g.name || g) // handle both object and string formats
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
-  // Build rotation matrix - each Sunday ordinal cycles through groups
   const rotation = [];
   for (let ordinal = 0; ordinal < 3; ordinal++) {
     const massAssignments = [];
@@ -4080,8 +3961,7 @@ async function getGroupForMass(ordinal1, massIndex0, rotationMatrix) {
   return massAssignments[massIndex0 % massAssignments.length];
 }
 
-// ---- CORE: auto-assign one Sunday mass (group + 6 members)
-async function autoAssignEMForMass({
+/*async function autoAssignEMForMass({
   dateISO,
   massLabel,
   groupName, // "Group 1/2/3"
@@ -4102,6 +3982,7 @@ async function autoAssignEMForMass({
 
   // 2) Fetch group members
   const members = await fetchEucharisticMinisterGroupMembers(groupName);
+
   if (!members.length) return;
 
   // 3) Avoid double-booking on same date
@@ -4172,107 +4053,110 @@ async function autoAssignEMForMass({
   }
 
   if (onAssign) onAssign(pick.length);
-}
+}*/
 
-// ---- PUBLIC: run auto-assign for the month (Sundays only)
-/*export async function autoAssignEucharisticMinisterSchedules(year, month) {
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-  const monthText = `${monthNames[month]} - ${year}`;
+async function autoAssignEMForMass({
+  dateISO,
+  massLabel,
+  groupName, // "Group 1/2/3"
+  onAssign, // optional progress callback
+}) {
+  // 1) Set/overwrite the group for this date+mass
+  await supabase
+    .from("eucharistic-minister-group-placeholder")
+    .delete()
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
 
-  const ok = await Swal.fire({
-    icon: "question",
-    title: "Automate Scheduling?",
-    text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
-    showCancelButton: true,
-    confirmButtonText: "Yes, automate",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
+  await supabase
+    .from("eucharistic-minister-group-placeholder")
+    .insert([
+      { date: dateISO, mass: massLabel, templateID: null, group: groupName },
+    ]);
+
+  // 2) Fetch group members WITH unavailability filtering
+  const members = await fetchEucharisticMinisterGroupMembers(groupName, {
+    dateISO: dateISO,
+    massLabel: massLabel,
+    includeUnavailable: false,
   });
-  if (!ok.isConfirmed) return { success: false };
 
-  const sundays = getSundaysInMonth(year, month);
-  const sTotal = sundays.length;
-  const mTotal = sTotal * SUNDAY_MASSES.length;
+  if (!members.length) {
+    console.warn(
+      `No available members in ${groupName} for ${dateISO} ${massLabel}`
+    );
+    return;
+  }
 
-  EMProgress.mount(monthText);
-  let sDone = 0,
-    mDone = 0,
-    assigned = 0,
-    errors = 0;
+  // 3) Avoid double-booking on same date
+  const { data: sameDayAssignments } = await supabase
+    .from("eucharistic-minister-placeholder")
+    .select("idNumber")
+    .eq("date", dateISO);
+  const takenToday = new Set(
+    (sameDayAssignments || []).map((r) => String(r.idNumber))
+  );
 
-  const onAssign = (n) => {
-    assigned += Number(n || 0);
-    EMProgress.paint({ sDone, sTotal, mDone, mTotal, assigned, errors });
-  };
+  // 4) Build fairness metrics from recent history (last 6 months)
+  const since = new Date(dateISO);
+  since.setMonth(since.getMonth() - 6);
+  const sinceISO = ymdLocal(since);
 
-  try {
-    for (const s of sundays) {
-      const dateISO = ymdLocal(s);
-      const ord = sundayOrdinalInMonth(s);
-      for (let i = 0; i < SUNDAY_MASSES.length; i++) {
-        const massLabel = SUNDAY_MASSES[i];
-        const g = groupFor(ord, i);
-        try {
-          await autoAssignEMForMass({
-            dateISO,
-            massLabel,
-            groupName: g,
-            onAssign,
-          });
-        } catch (e) {
-          console.error(`EM auto-assign failed ${dateISO} ${massLabel}`, e);
-          errors += 1;
-        } finally {
-          mDone += 1;
-          EMProgress.paint({ sDone, sTotal, mDone, mTotal, assigned, errors });
-        }
-      }
-      sDone += 1;
-      EMProgress.paint({ sDone, sTotal, mDone, mTotal, assigned, errors });
-    }
-    EMProgress.unmount();
+  const { data: history } = await supabase
+    .from("eucharistic-minister-placeholder")
+    .select("idNumber, date")
+    .gte("date", sinceISO)
+    .order("date", { ascending: true });
 
-    const msg =
-      `Successfully auto-assigned schedules!\n\n` +
-      `Sundays processed: ${sDone}/${sTotal}\n` +
-      `Masses processed: ${mDone}/${mTotal}\n` +
-      `Members assigned: ${assigned}\n` +
-      (errors ? `Errors: ${errors}` : `Errors: 0`);
+  const countPer = new Map();
+  const lastDatePer = new Map();
+  (history || []).forEach((h) => {
+    const id = String(h.idNumber);
+    countPer.set(id, (countPer.get(id) || 0) + 1);
+    lastDatePer.set(id, h.date);
+  });
 
-    await Swal.fire({
-      icon: errors ? "warning" : "success",
-      title: errors ? "Partial Success" : "Auto-Assignment Complete",
-      text: msg,
+  // 5) Rank candidates: least assigned first; if tie → oldest last assignment first; then name
+  const ranked = members
+    .filter((m) => !takenToday.has(String(m.id)))
+    .map((m) => {
+      const id = String(m.id);
+      const cnt = countPer.get(id) || 0;
+      const last = lastDatePer.get(id) || null;
+      return {
+        ...m,
+        _count: cnt,
+        _last: last ? new Date(last) : new Date(0),
+      };
+    })
+    .sort((a, b) => {
+      if (a._count !== b._count) return a._count - b._count;
+      if (a._last.getTime() !== b._last.getTime()) return a._last - b._last; // older first
+      return (a.name || "").localeCompare(b.name || "");
     });
 
-    // optional: refresh
-    try {
-      window.location.reload();
-    } catch {}
-    return {
-      success: true,
-      stats: { sDone, sTotal, mDone, mTotal, assigned, errors },
-    };
-  } catch (e) {
-    console.error("autoAssignEucharisticMinisterSchedules fatal:", e);
-    EMProgress.unmount();
-    await Swal.fire("Error", e.message || "Auto-assignment failed.", "error");
-    return { success: false, error: e?.message || "Unknown error" };
+  const pick = ranked.slice(0, 6); // default 6 ministers
+
+  // 6) Write assignments (slots 1..6)
+  await supabase
+    .from("eucharistic-minister-placeholder")
+    .delete()
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  if (pick.length) {
+    const rows = pick.map((m, i) => ({
+      date: dateISO,
+      mass: massLabel,
+      templateID: null,
+      slot: i + 1,
+      idNumber: String(m.id),
+    }));
+    await supabase.from("eucharistic-minister-placeholder").insert(rows);
   }
-}*/
+
+  if (onAssign) onAssign(pick.length);
+}
 
 export async function autoAssignEucharisticMinisterSchedules(year, month) {
   const monthNames = [

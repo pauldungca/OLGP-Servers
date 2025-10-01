@@ -21,7 +21,7 @@ export const fetchUserRoles = async (userId, setUserRoles, setUserRoleType) => {
       .single();
 
     if (error) {
-      alert("Supabase error:", error);
+      //alert("Supabase error:", error);
       setUserRoleType("Error Hello");
       return;
     }
@@ -54,9 +54,8 @@ export const fetchUserRoles = async (userId, setUserRoles, setUserRoleType) => {
 };
 
 export const determineUserRole = (roles) => {
-  const activeRoles = [];
+  let activeRoles = [];
 
-  // ✅ Universal checks
   const allSchedulers =
     roles.isAltarServerScheduler &&
     roles.isEucharisticMinisterScheduler &&
@@ -69,65 +68,66 @@ export const determineUserRole = (roles) => {
     roles.isLectorCommentatorMember &&
     roles.isChoirMember;
 
-  if (allSchedulers && allMembers) {
-    // Both universal → show only these two
+  const bothUniversals = allSchedulers && allMembers;
+
+  // Parish Secretary (independent)
+  if (roles.isParishSecretary) activeRoles.push("Parish Secretary");
+
+  if (bothUniversals) {
     activeRoles.push("Universal Scheduler", "Universal Member");
   } else {
-    if (allSchedulers) {
-      activeRoles.push("Universal Scheduler");
-    } else if (allMembers) {
-      activeRoles.push("Universal Member");
-    }
+    if (allSchedulers) activeRoles.push("Universal Scheduler");
+    if (allMembers) activeRoles.push("Universal Member");
 
-    // Parish Secretary
-    if (roles.isParishSecretary) {
-      activeRoles.push("Parish Secretary");
-    }
-
-    // 🔹 Department-specific only if not "both universals"
-    if (!allSchedulers && !allMembers) {
-      if (roles.isAltarServerScheduler && roles.isAltarServerMember) {
-        activeRoles.push("Altar Server Coordinator");
+    const pushDept = (sched, mem, names) => {
+      if (sched && mem) {
+        activeRoles.push(names.coord);
       } else {
-        if (roles.isAltarServerScheduler)
-          activeRoles.push("Altar Server Scheduler");
-        if (roles.isAltarServerMember) activeRoles.push("Altar Server Member");
+        if (sched) activeRoles.push(names.sched);
+        if (mem) activeRoles.push(names.mem);
       }
+    };
 
-      if (
-        roles.isEucharisticMinisterScheduler &&
-        roles.isEucharisticMinisterMember
-      ) {
-        activeRoles.push("Eucharistic Minister Coordinator");
-      } else {
-        if (roles.isEucharisticMinisterScheduler)
-          activeRoles.push("Eucharistic Minister Scheduler");
-        if (roles.isEucharisticMinisterMember)
-          activeRoles.push("Eucharistic Minister Member");
-      }
+    pushDept(roles.isAltarServerScheduler, roles.isAltarServerMember, {
+      coord: "Altar Server Coordinator",
+      sched: "Altar Server Scheduler",
+      mem: "Altar Server Member",
+    });
 
-      if (
-        roles.isLectorCommentatorScheduler &&
-        roles.isLectorCommentatorMember
-      ) {
-        activeRoles.push("Lector Commentator Coordinator");
-      } else {
-        if (roles.isLectorCommentatorScheduler)
-          activeRoles.push("Lector Commentator Scheduler");
-        if (roles.isLectorCommentatorMember)
-          activeRoles.push("Lector Commentator Member");
+    pushDept(
+      roles.isEucharisticMinisterScheduler,
+      roles.isEucharisticMinisterMember,
+      {
+        coord: "Eucharistic Minister Coordinator",
+        sched: "Eucharistic Minister Scheduler",
+        mem: "Eucharistic Minister Member",
       }
+    );
 
-      if (roles.isChoirScheduler && roles.isChoirMember) {
-        activeRoles.push("Choir Coordinator");
-      } else {
-        if (roles.isChoirScheduler) activeRoles.push("Choir Scheduler");
-        if (roles.isChoirMember) activeRoles.push("Choir Member");
+    pushDept(
+      roles.isLectorCommentatorScheduler,
+      roles.isLectorCommentatorMember,
+      {
+        coord: "Lector Commentator Coordinator",
+        sched: "Lector Commentator Scheduler",
+        mem: "Lector Commentator Member",
       }
-    }
+    );
+
+    pushDept(roles.isChoirScheduler, roles.isChoirMember, {
+      coord: "Choir Coordinator",
+      sched: "Choir Scheduler",
+      mem: "Choir Member",
+    });
   }
 
-  // Return string
+  // 🚨 Filter rule: if Universal Member exists, strip out individual “X Member”
+  if (activeRoles.includes("Universal Member")) {
+    activeRoles = activeRoles.filter(
+      (r) => !r.endsWith("Member") || r === "Universal Member" // keep universal, drop per-dept members
+    );
+  }
+
   if (activeRoles.length === 0) return "None";
   if (activeRoles.length === 1) return activeRoles[0];
   return activeRoles.join(" | ");

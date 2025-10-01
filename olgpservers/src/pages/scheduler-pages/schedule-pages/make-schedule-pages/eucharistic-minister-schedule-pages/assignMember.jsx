@@ -75,7 +75,12 @@ export default function AssignMemberEucharistic() {
       try {
         setLoadingMembers(true);
         const groupMembers = await fetchEucharisticMinisterGroupMembers(
-          group.name
+          group.name,
+          {
+            dateISO: selectedISO,
+            massLabel: selectedMassDisplay,
+            includeUnavailable: false,
+          }
         );
 
         if (!cancelled) {
@@ -97,8 +102,7 @@ export default function AssignMemberEucharistic() {
     return () => {
       cancelled = true;
     };
-  }, [group?.name]);
-
+  }, [group?.name, selectedISO, selectedMassDisplay]); // ⭐ Added dependencies
   // Load existing assignments (pre-check boxes)
   useEffect(() => {
     let cancelled = false;

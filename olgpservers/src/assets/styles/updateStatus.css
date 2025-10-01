@@ -62,7 +62,7 @@
   transition: all 0.3s ease;
   cursor: pointer;
   padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
 .cancel-btn-icon {
@@ -76,4 +76,65 @@
   background-color: #ffffff !important;
   color: #ff5252 !important;
   border: 2px solid #ff5252;
+}
+
+.cancel-btn:disabled {
+  background-color: #ccc !important; /* greyed out */
+  color: #666 !important;
+  border: 2px solid #999 !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.cancel-btn:disabled:hover {
+  background-color: #ccc !important;
+  color: #666 !important;
+  border: 2px solid #999 !important;
+}
+
+.action-buttons {
+  gap: 50px;
+  width: 100%;
+}
+
+.submit-button {
+  width: 50%;
+  height: 45px;
+  border-radius: 5px;
+  background-color: #213571;
+  color: white;
+  border: 2px solid #213571;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.submit-button:hover {
+  color: #213571;
+  background-color: white;
+}
+
+.reset-button {
+  width: 50%;
+  height: 45px;
+  border-radius: 5px;
+  background-color: #ff5252;
+  color: white;
+  border: 2px solid #ff5252;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.reset-button:hover {
+  color: #ff5252;
+  background-color: white;
+}
+
+.reset-button:disabled,
+.submit-button:disabled {
+  background-color: #cccccc !important;
+  color: #666666 !important;
+  border-color: #999999 !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+  pointer-events: none;
 }

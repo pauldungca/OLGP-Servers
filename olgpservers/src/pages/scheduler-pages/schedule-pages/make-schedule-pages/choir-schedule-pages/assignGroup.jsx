@@ -1,4 +1,3 @@
-// src/pages/scheduler-pages/choir/assignGroup.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -10,13 +9,15 @@ import Footer from "../../../../../components/footer";
 import "../../../../../assets/styles/schedule.css";
 import "../../../../../assets/styles/assignGroup.css";
 
-// === Helpers (keep DB logic outside JSX) ===
+// Keep DB in .js helpers
 import {
   getChoirGroupAssignments,
   saveChoirGroupAssignments,
   clearChoirGroupAssignments,
   fetchAvailableChoirGroupsForMass,
 } from "../../../../../assets/scripts/assignMember";
+
+import { getTemplateChoirGroupCount } from "../../../../../assets/scripts/fetchSchedule"; // NEW
 
 // Label sniffers
 const isSundayMassLabel = (label = "") =>
@@ -49,7 +50,7 @@ export default function AssignGroupChoir() {
   const time = location.state?.time || null;
   const passedMassKind = location.state?.massKind || null; // "sunday" | "template"
 
-  const massKind = useMemo(() => {
+  const massKind = React.useMemo(() => {
     if (passedMassKind) return passedMassKind;
     if (isSundayMassLabel(selectedMass)) return "sunday";
     if (isTemplateMassLabel(selectedMass)) return "template";
@@ -58,7 +59,28 @@ export default function AssignGroupChoir() {
 
   const isTemplate = massKind === "template";
 
-  // ---- Data: Choir groups ----
+  // ---- Required slots from template-choir ("group-count") ----
+  // Start at 0 so we don't flash 1 slot before real value arrives
+  const [requiredCount, setRequiredCount] = useState(0);
+  useEffect(() => {
+    let stopped = false;
+    (async () => {
+      if (!isTemplate) {
+        if (!stopped) setRequiredCount(1);
+        return;
+      }
+      const c = await getTemplateChoirGroupCount({
+        templateID,
+        dateISO: selectedISO,
+      });
+      if (!stopped) setRequiredCount(Math.max(1, Number(c) || 1));
+    })();
+    return () => {
+      stopped = true;
+    };
+  }, [isTemplate, selectedISO, templateID]);
+
+  // ---- Available groups ----
   const [availableGroups, setAvailableGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
 
@@ -72,13 +94,11 @@ export default function AssignGroupChoir() {
           massLabel: selectedMass,
           isTemplate,
         });
-
         if (!cancelled) setAvailableGroups(groups);
       } catch (e) {
         console.error("fetchAvailableChoirGroupsForMass error:", e);
-        if (!cancelled) {
+        if (!cancelled)
           setAvailableGroups([{ id: "knm-local", name: "Koro Ni Maria" }]);
-        }
       } finally {
         if (!cancelled) setLoadingGroups(false);
       }
@@ -88,10 +108,27 @@ export default function AssignGroupChoir() {
     };
   }, [dateISOForDB, selectedMass, isTemplate]);
 
-  // ---- Preselect already-assigned group (if any) ----
+  // ---- Selection state ----
   const [preloading, setPreloading] = useState(true);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null); // Sunday (single)
+  const [selectedGroupNames, setSelectedGroupNames] = useState([]); // Template (fixed slots)
 
+  // Keep slots array length == requiredCount (like Thurifer 1..N)
+  useEffect(() => {
+    if (isTemplate) {
+      setSelectedGroupNames((prev) => {
+        const next = Array.from(
+          { length: Math.max(1, requiredCount) },
+          (_, i) => prev[i] ?? null
+        );
+        return next;
+      });
+    } else {
+      setSelectedGroupNames([]);
+    }
+  }, [isTemplate, requiredCount]);
+
+  // ---- Preload existing assignments (AFTER we know requiredCount) ----
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -99,21 +136,41 @@ export default function AssignGroupChoir() {
         setPreloading(false);
         return;
       }
+      // Wait until requiredCount resolved to avoid locking to 1
+      if (isTemplate && requiredCount < 1) return;
+
       setPreloading(true);
       try {
-        // expects a mapping keyed by group name (e.g., { "Koro Ni Maria": true })
         const grouped = await getChoirGroupAssignments(
           dateISOForDB,
           selectedMass
         );
-        const current = Object.keys(grouped || {})[0];
-        if (!cancelled && current) {
-          const found =
-            availableGroups.find(
-              (g) =>
-                (g.name || "").trim().toLowerCase() === current.toLowerCase()
-            ) || null;
-          setSelectedGroup(found);
+        if (cancelled) return;
+
+        const keys = Object.keys(grouped || {});
+        if (isTemplate) {
+          setSelectedGroup(null);
+          setSelectedGroupNames((prev) => {
+            const slots = Array.from(
+              { length: requiredCount },
+              (_, i) => keys[i] ?? prev[i] ?? null
+            );
+            return slots.slice(0, requiredCount);
+          });
+        } else {
+          const current = keys[0];
+          if (current) {
+            const found =
+              availableGroups.find(
+                (g) =>
+                  (g.name || "").trim().toLowerCase() ===
+                  String(current).trim().toLowerCase()
+              ) || null;
+            setSelectedGroup(found);
+          } else {
+            setSelectedGroup(null);
+          }
+          setSelectedGroupNames([]);
         }
       } catch (e) {
         console.error("getChoirGroupAssignments error:", e);
@@ -121,14 +178,11 @@ export default function AssignGroupChoir() {
         if (!cancelled) setPreloading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [availableGroups, dateISOForDB, selectedMass]);
+    // IMPORTANT: depend on requiredCount so it reruns when the real count arrives
+  }, [availableGroups, dateISOForDB, selectedMass, isTemplate, requiredCount]);
 
-  // ---- Search + visibility ----
+  // ---- Search ----
   const [search, setSearch] = useState("");
-
   const visibleGroups = useMemo(() => {
     const term = search.trim().toLowerCase();
     return (availableGroups || []).filter((g) =>
@@ -136,21 +190,59 @@ export default function AssignGroupChoir() {
     );
   }, [availableGroups, search]);
 
+  // ---- Template selection toggle (checkboxes fill first empty slot; clicking again clears) ----
+  const toggleCheckbox = (g) => {
+    const name = String(g?.name || "").trim();
+    setSelectedGroupNames((prev) => {
+      const slots = [...prev];
+      const takenIdx = slots.findIndex((s) => s === name);
+      if (takenIdx !== -1) {
+        // unassign
+        slots[takenIdx] = null;
+        return slots;
+      }
+      // choose first empty slot
+      const emptyIdx = slots.findIndex((s) => s == null);
+      if (emptyIdx !== -1) {
+        slots[emptyIdx] = name;
+      }
+      return slots;
+    });
+  };
+
   // ---- Actions ----
   const [saving, setSaving] = useState(false);
 
   const handleAssign = async () => {
-    if (!selectedGroup) return;
     setSaving(true);
     try {
-      await saveChoirGroupAssignments({
-        dateISO: dateISOForDB,
-        massLabel: selectedMass, // DB label
-        templateID,
-        assignedGroups: [selectedGroup], // 1 group per mass
-      });
+      if (isTemplate) {
+        const assignedGroups = selectedGroupNames
+          .filter(Boolean)
+          .map((n) => ({ name: n }));
+        if (assignedGroups.length === 0) {
+          setSaving(false);
+          return;
+        }
+        await saveChoirGroupAssignments({
+          dateISO: dateISOForDB,
+          massLabel: selectedMass,
+          templateID,
+          assignedGroups,
+        });
+      } else {
+        if (!selectedGroup) {
+          setSaving(false);
+          return;
+        }
+        await saveChoirGroupAssignments({
+          dateISO: dateISOForDB,
+          massLabel: selectedMass,
+          templateID,
+          assignedGroups: [selectedGroup],
+        });
+      }
 
-      // Return to Select Mass page
       navigate("/selectMassChoir", {
         state: {
           selectedDate,
@@ -173,9 +265,13 @@ export default function AssignGroupChoir() {
   const handleReset = async () => {
     try {
       await clearChoirGroupAssignments(dateISOForDB, selectedMass);
-      setSelectedGroup(null);
     } catch (e) {
       console.error("clearChoirGroupAssignments error:", e);
+    } finally {
+      setSelectedGroup(null);
+      setSelectedGroupNames(
+        Array.from({ length: Math.max(1, requiredCount) }, () => null)
+      );
     }
   };
 
@@ -249,10 +345,9 @@ export default function AssignGroupChoir() {
         </h4>
 
         <div className="assign-container row">
-          {/* Left: list of groups */}
+          {/* Left: group list */}
           <div className="col-md-6 assign-left">
             <h5 className="assign-title">Assign Choir Group</h5>
-
             <div className="input-group mb-3">
               <input
                 type="text"
@@ -272,45 +367,87 @@ export default function AssignGroupChoir() {
             <ul className="list-group assign-member-list">
               <li className="list-group-item active">Available Groups</li>
 
-              {loadingGroups || preloading ? (
+              {loadingGroups ||
+              preloading ||
+              (isTemplate && requiredCount === 0) ? (
                 <li className="list-group-item text-muted">
                   {loadingGroups ? "Fetching groups…" : "Loading assignment…"}
                 </li>
               ) : visibleGroups.length ? (
-                visibleGroups.map((g) => (
-                  <li
-                    key={g.id ?? g.name}
-                    className={`list-group-item d-flex align-items-center ${
-                      selectedGroup?.name === g.name ? "selected" : ""
-                    }`}
-                    onClick={() => setSelectedGroup(g)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <input
-                      type="radio"
-                      className="form-check-input me-2"
-                      checked={selectedGroup?.name === g.name}
-                      onChange={() => setSelectedGroup(g)}
-                    />
-                    {g.name}
-                  </li>
-                ))
+                visibleGroups.map((g) => {
+                  const picked = isTemplate
+                    ? selectedGroupNames.includes(g.name)
+                    : selectedGroup?.name === g.name;
+
+                  return (
+                    <li
+                      key={g.id ?? g.name}
+                      className={`list-group-item d-flex align-items-center ${
+                        picked ? "selected" : ""
+                      }`}
+                      style={{ cursor: "pointer" }}
+                      onClick={() =>
+                        isTemplate ? toggleCheckbox(g) : setSelectedGroup(g)
+                      }
+                    >
+                      {isTemplate ? (
+                        <input
+                          type="checkbox"
+                          className="form-check-input me-2"
+                          checked={selectedGroupNames.includes(g.name)}
+                          onChange={() => toggleCheckbox(g)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <input
+                          type="radio"
+                          className="form-check-input me-2"
+                          checked={selectedGroup?.name === g.name}
+                          onChange={() => setSelectedGroup(g)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
+                      {g.name}
+                    </li>
+                  );
+                })
               ) : (
                 <li className="list-group-item text-muted">No groups found</li>
               )}
             </ul>
           </div>
 
-          {/* Right: chosen + actions */}
+          {/* Right: selected slots */}
           <div className="col-md-6 assign-right">
             <div className="mb-4">
-              <label className="form-label">Selected Group:</label>
-              <div className="assigned-name">
-                {selectedGroup?.name || (
-                  <span className="text-muted">None selected</span>
-                )}
-              </div>
-              <div className="assign-line"></div>
+              {isTemplate ? (
+                <div className="assigned-name">
+                  {Array.from(
+                    { length: Math.max(1, requiredCount) },
+                    (_, i) => (
+                      <div key={i} style={{ marginBottom: 12 }}>
+                        <strong>Group {i + 1}</strong>
+                        <div>
+                          {selectedGroupNames[i] || (
+                            <span className="text-muted">Empty</span>
+                          )}
+                        </div>
+                        <div className="assign-line"></div>
+                      </div>
+                    )
+                  )}
+                </div>
+              ) : (
+                <>
+                  <label className="form-label">Selected Group:</label>
+                  <div className="assigned-name">
+                    {selectedGroup?.name || (
+                      <span className="text-muted">None selected</span>
+                    )}
+                  </div>
+                  <div className="assign-line"></div>
+                </>
+              )}
             </div>
 
             <div className="bottom-buttons">
@@ -330,7 +467,12 @@ export default function AssignGroupChoir() {
               <button
                 className="btn action-buttons assign-btn d-flex align-items-center"
                 onClick={handleAssign}
-                disabled={!selectedGroup || saving}
+                disabled={
+                  saving ||
+                  (isTemplate
+                    ? selectedGroupNames.filter(Boolean).length === 0
+                    : !selectedGroup)
+                }
               >
                 <img src={image.assignImage} alt="Assign" className="img-btn" />
                 {saving ? "Assigning..." : "Assign"}

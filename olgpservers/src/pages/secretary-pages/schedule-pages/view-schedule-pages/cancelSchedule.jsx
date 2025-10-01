@@ -1,4 +1,3 @@
-// pages/.../cancelSchedule.jsx
 import React, { useEffect } from "react";
 import { Breadcrumb } from "antd";
 import { Link, useLocation, useNavigate } from "react-router-dom";

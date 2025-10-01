@@ -133,7 +133,7 @@ export default function SelectMassChoir() {
   }, [selectedISO, templateUses]);
 
   /** Compute status per mass (displayLabel) */
-  const computeStatusForMass = useCallback(
+  /*const computeStatusForMass = useCallback(
     async (displayLabel) => {
       const tmplMeta = templateCards.get(displayLabel); // undefined for Sunday cards
       const labelToRead = tmplMeta ? tmplMeta.storageLabel : displayLabel;
@@ -149,6 +149,43 @@ export default function SelectMassChoir() {
 
         // For choir, consider it complete if at least one group is assigned
         return totalAssigned > 0 ? "complete" : "incomplete";
+      } catch (error) {
+        console.error("Error computing status for mass:", error);
+        return "empty";
+      }
+    },
+    [selectedISO, templateCards]
+  );*/
+
+  const computeStatusForMass = useCallback(
+    async (displayLabel) => {
+      // For template cards, we stored meta when we built templateCards
+      const tmplMeta = templateCards.get(displayLabel); // undefined for Sundays
+      const labelToRead = tmplMeta ? tmplMeta.storageLabel : displayLabel;
+
+      try {
+        // how many rows currently assigned for this mass
+        const grouped = await getChoirGroupAssignments(
+          selectedISO,
+          labelToRead
+        );
+        const assigned = Object.keys(grouped || {}).length;
+
+        if (!tmplMeta) {
+          // Sunday logic (single group needed)
+          if (assigned === 0) return "empty";
+          return assigned > 0 ? "complete" : "incomplete";
+        }
+
+        // Template logic — fetch required group-count for THIS template
+        const flags = await getTemplateFlagsChoir(
+          selectedISO,
+          tmplMeta.templateID
+        );
+        const required = Number(flags?.groups?.choirGroup ?? 1) || 1; // fallback to 1
+
+        if (assigned === 0) return "empty";
+        return assigned >= required ? "complete" : "incomplete";
       } catch (error) {
         console.error("Error computing status for mass:", error);
         return "empty";

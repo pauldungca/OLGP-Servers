@@ -6,7 +6,6 @@ import { saveAs } from "file-saver";
 import jsPDF from "jspdf"; // ✅ PDF
 import image from "../../helper/images";
 
-/* ===================== Dates / UI helpers ===================== */
 export const NOW = dayjs();
 export const CURRENT_YEAR = NOW.year();
 export const CURRENT_MONTH = NOW.month();
@@ -61,7 +60,6 @@ export const groupByDate = (rows) =>
 export const formatDateHeading = (isoDate) =>
   dayjs(isoDate).format("MMMM D, YYYY");
 
-/* ===================== Data fetches ===================== */
 export const fetchMonthSchedules = async (monthValue) => {
   const startDate = monthValue.startOf("month").format("YYYY-MM-DD");
   const endDate = monthValue.endOf("month").format("YYYY-MM-DD");
@@ -120,6 +118,68 @@ export const cancelScheduleByScheduleID = async (scheduleID) => {
   return { error };
 };
 
+export const fetchScheduleBasicByScheduleID = async (scheduleID) => {
+  if (!scheduleID)
+    return { data: null, error: new Error("Missing scheduleID") };
+  const { data, error } = await supabase
+    .from("use-template-table")
+    .select("clientName,time,scheduleID")
+    .eq("scheduleID", scheduleID)
+    .single();
+  return { data, error };
+};
+
+export const deleteUserNotificationsForSchedule = async (args) => {
+  try {
+    const { scheduleID, basic } = args || {};
+    let info = basic && basic.data ? basic.data : basic;
+
+    if (!info) {
+      const fetched = await fetchScheduleBasicByScheduleID(scheduleID);
+      info = fetched?.data || null;
+    }
+    if (!info) return { deleted: 0 };
+
+    const client = (info.clientName || "").trim();
+    const t12 = to12Hour(info.time || "");
+    const exactMsg = `Client: ${client} • Time: ${t12}`;
+
+    let ids = [];
+    const { data, error } = await supabase
+      .from("user_notifications")
+      .select("id")
+      .eq("message", exactMsg);
+
+    if (!error && Array.isArray(data)) {
+      ids = data.map((r) => r.id);
+    } else if (error) {
+      console.warn("[user_notifications] select error:", error);
+    }
+
+    if (ids.length === 0) return { deleted: 0 };
+
+    await supabase
+      .from("user_notification_receipts")
+      .delete()
+      .in("notification_id", ids);
+
+    const { error: delErr } = await supabase
+      .from("user_notifications")
+      .delete()
+      .in("id", ids);
+
+    if (delErr) {
+      console.error("user_notifications delete error:", delErr);
+      return { deleted: 0, error: delErr };
+    }
+
+    return { deleted: ids.length };
+  } catch (e) {
+    console.error("deleteUserNotificationsForSchedule exception:", e);
+    return { deleted: 0, error: e };
+  }
+};
+
 export const confirmAndCancelSchedule = async (scheduleID, navigate) => {
   if (!scheduleID) {
     await Swal.fire("Missing Info", "No scheduleID was provided.", "warning");
@@ -139,11 +199,28 @@ export const confirmAndCancelSchedule = async (scheduleID, navigate) => {
 
   if (!result.isConfirmed) return;
 
+  const preBasic = await fetchScheduleBasicByScheduleID(scheduleID);
+
   const { error } = await cancelScheduleByScheduleID(scheduleID);
   if (error) {
     console.error(error);
     await Swal.fire("Error", "Failed to cancel schedule.", "error");
     return;
+  }
+
+  try {
+    const { deleted, error: nErr } = await deleteUserNotificationsForSchedule({
+      scheduleID,
+      basic: preBasic,
+    });
+    if (nErr) console.warn("Notification cleanup error:", nErr);
+    if (deleted > 0) {
+      console.log(
+        `Removed ${deleted} notification(s) for schedule ${scheduleID}.`
+      );
+    }
+  } catch (e) {
+    console.warn("Notification cleanup exception:", e);
   }
 
   await Swal.fire({
@@ -160,11 +237,6 @@ export const confirmAndCancelSchedule = async (scheduleID, navigate) => {
   navigate("/viewScheduleSecretary");
 };
 
-/* =========================================================
-   =============== Shared time formatter ===================
-   ========================================================= */
-
-/** Convert "HH:mm" or "HH:mm:ss" -> "h:mm AM/PM" without dayjs plugins */
 export const to12Hour = (time24) => {
   if (!time24) return "";
   const parts = time24.split(":");
@@ -176,11 +248,6 @@ export const to12Hour = (time24) => {
   return `${h}:${String(mm).padStart(2, "0")} ${ampm}`;
 };
 
-/* =========================================================
-   ========== EXPORT TO PNG (exact layout replica) =========
-   ========================================================= */
-
-/** Draw ONE page on canvas. Returns the canvas. */
 const drawSchedulePage = async ({
   dateLabel,
   items, // [{ time, clientName }]
@@ -307,11 +374,6 @@ const drawSchedulePage = async ({
   return canvas;
 };
 
-/**
- * Export one day's schedules to PNG.
- * - Exactly 3 items per page to preserve the layout.
- * - If more than 3, creates a ZIP of PNG pages.
- */
 export const exportScheduleDayAsPNG = async (isoDate, dayItemsRaw = []) => {
   try {
     // Normalize & sort by time
@@ -377,11 +439,6 @@ export const exportScheduleDayAsPNG = async (isoDate, dayItemsRaw = []) => {
   }
 };
 
-/* =========================================================
-   =============== EXPORT TO PDF (new) =====================
-   ========================================================= */
-
-/** Draw one PDF page in the same layout as PNG. */
 const drawSchedulePagePDF = async ({
   pdf,
   dateLabel,
@@ -497,7 +554,6 @@ const drawSchedulePagePDF = async ({
   }
 };
 
-/** Export one day's schedules to a paginated PDF (3 per page). */
 export const exportScheduleDayAsPDF = async (isoDate, dayItemsRaw = []) => {
   try {
     const items = [...dayItemsRaw].sort((a, b) => {
@@ -537,8 +593,6 @@ export const exportScheduleDayAsPDF = async (isoDate, dayItemsRaw = []) => {
     await Swal.fire("Error", "Failed to export PDF.", "error");
   }
 };
-
-/* ===================== PRINT (new) ===================== */
 
 const getSchedulePrintStyles = () => `
   @page { size: 8.5in 11in; margin: 0; }

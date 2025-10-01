@@ -1,6 +1,4 @@
-// assets/scripts/notification.js
 import { supabase } from "../../utils/supabase";
-import React from "react";
 import Swal from "sweetalert2";
 
 import {
@@ -556,7 +554,7 @@ export const dismissGlobalNotification = async (
       title: "Delete Notification?",
       text: "Are you sure you want to delete this notification?",
       showCancelButton: true,
-      confirmButtonText: "Hide",
+      confirmButtonText: "Delete",
       cancelButtonText: "Cancel",
       reverseButtons: true,
     });

@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { Breadcrumb, DatePicker } from "antd";
+import { useNavigate } from "react-router-dom";
+import { DatePicker } from "antd";
 import icon from "../../../../helper/icon";
 import Footer from "../../../../components/footer";
 import ScheduleDropdownButton from "../../../../components/scheduleDropdownButton";
@@ -71,28 +71,7 @@ export default function ViewSchedule() {
         <div className="header-text-with-line">
           <h3>VIEW SCHEDULE</h3>
 
-          <div style={{ margin: "10px 0" }}>
-            <Breadcrumb
-              items={[
-                {
-                  title: (
-                    <Link to="/viewSchedule" className="breadcrumb-item">
-                      Department
-                    </Link>
-                  ),
-                },
-                { title: "View Schedule", className: "breadcrumb-item-active" },
-              ]}
-              separator={
-                <img
-                  src={icon.chevronIcon}
-                  alt="Chevron Icon"
-                  style={{ width: 15, height: 15 }}
-                />
-              }
-              className="customized-breadcrumb"
-            />
-          </div>
+          <div style={{ margin: "10px 0" }}></div>
 
           <div className="header-line"></div>
         </div>
@@ -261,7 +240,7 @@ export default function ViewSchedule() {
 
                     {/* Print will be wired next step */}
                     <button
-                      className="btn print-button flex items-center gap-2"
+                      className="btn print-btn flex items-center gap-2"
                       onClick={() => printScheduleDay(iso, dayItems)}
                     >
                       <img

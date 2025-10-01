@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Breadcrumb } from "antd";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import images from "../../../helper/images";
-import icon from "../../../helper/icon";
 import Footer from "../../../components/footer";
 import Swal from "sweetalert2";
 
@@ -72,38 +70,7 @@ export default function ChangePasswordAccount() {
       <div className="account-header">
         <div className="header-text-with-line">
           <h3>ACCOUNT</h3>
-          <div style={{ margin: "10px 0" }}>
-            <Breadcrumb
-              items={[
-                {
-                  title: (
-                    <Link to="/account" className="breadcrumb-item">
-                      Account
-                    </Link>
-                  ),
-                },
-                {
-                  title: (
-                    <Link to="/verifyOTPAccount" className="breadcrumb-item">
-                      Verify OTP
-                    </Link>
-                  ),
-                },
-                {
-                  title: "Change Password",
-                  className: "breadcrumb-item-active",
-                },
-              ]}
-              separator={
-                <img
-                  src={icon.chevronIcon}
-                  alt="Chevron Icon"
-                  style={{ width: "15px", height: "15px" }}
-                />
-              }
-              className="customized-breadcrumb"
-            />
-          </div>
+          <div style={{ margin: "10px 0" }}></div>
           <div className="header-line"></div>
         </div>
       </div>

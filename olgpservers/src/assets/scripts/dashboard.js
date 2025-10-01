@@ -3,6 +3,13 @@ import { supabase } from "../../utils/supabase";
 import { isAltarServerScheduler, isLectorCommentatorScheduler } from "./member";
 import { isEucharisticMinisterScheduler, isChoirScheduler } from "./group";
 
+import {
+  isAltarServerMember,
+  isEucharisticMinisterMember,
+  isChoirMember,
+  isLectorCommentatorMember,
+} from "./viewScheduleNormal";
+
 export const fetchAuthRowByIdNumber = async (id) => {
   const { data, error } = await supabase
     .from("authentication")
@@ -26,6 +33,26 @@ export const redirectOnExit = () => {
   window.location.href = "/logout";
 };
 
+export async function isAnyMember(idNumber) {
+  try {
+    const [altar, lector, euch, choir] = await Promise.all([
+      isAltarServerMember(idNumber),
+      isLectorCommentatorMember(idNumber),
+      isEucharisticMinisterMember(idNumber),
+      isChoirMember(idNumber),
+    ]);
+    return !!(altar || lector || euch || choir);
+  } catch {
+    return false;
+  }
+}
+
+export async function isAnyScheduler(idNumber) {
+  // you already count this, so reuse the logic
+  const n = await countDepartmentHandles(idNumber); // returns # of scheduler depts
+  return n > 0;
+}
+
 export async function countDepartmentHandles(idNumber) {
   let count = 0;
 
@@ -46,6 +73,43 @@ export async function countDepartmentHandles(idNumber) {
   }
 
   return count;
+}
+
+export async function getDepartmentCardInfo(idNumber) {
+  if (!idNumber) return { count: 0, label: "Department Assigned" };
+
+  // --- check schedulers in parallel
+  const [altarSched, lectorSched, euchSched, choirSched] = await Promise.all([
+    isAltarServerScheduler(idNumber),
+    isLectorCommentatorScheduler(idNumber),
+    isEucharisticMinisterScheduler(idNumber),
+    isChoirScheduler(idNumber),
+  ]);
+
+  const schedulerCount = [
+    altarSched,
+    lectorSched,
+    euchSched,
+    choirSched,
+  ].filter(Boolean).length;
+
+  if (schedulerCount > 0) {
+    return { count: schedulerCount, label: "Department Handled" };
+  }
+
+  // --- if not scheduler, check members
+  const [altarMem, lectorMem, euchMem, choirMem] = await Promise.all([
+    isAltarServerMember(idNumber),
+    isLectorCommentatorMember(idNumber),
+    isEucharisticMinisterMember(idNumber),
+    isChoirMember(idNumber),
+  ]);
+
+  const memberCount = [altarMem, lectorMem, euchMem, choirMem].filter(
+    Boolean
+  ).length;
+
+  return { count: memberCount, label: "Department Assigned" };
 }
 
 export async function countSchedulesAssigned(idNumber) {
@@ -73,20 +137,43 @@ export async function countSchedulesAssigned(idNumber) {
       .eq("idNumber", idNumber);
     if (!euchErr) total += euch?.length || 0;
 
-    // Choir (via groups)
+    // Choir (via groups; member table uses abbreviations, placeholder uses full names)
     const { data: memberGroups, error: mgErr } = await supabase
       .from("choir-member-group")
       .select("choir-group-name")
       .eq("idNumber", idNumber);
 
     if (!mgErr && memberGroups?.length) {
-      const groupNames = memberGroups.map((r) => r["choir-group-name"]);
-      const { data: choir, error: choirErr } = await supabase
-        .from("choir-placeholder")
-        .select("group")
-        .in("group", groupNames);
+      // 1) unique abbreviations from member-group
+      const abbrevs = [
+        ...new Set(
+          memberGroups.map((r) => r["choir-group-name"]).filter(Boolean)
+        ),
+      ];
 
-      if (!choirErr) total += choir?.length || 0;
+      if (abbrevs.length) {
+        // 2) map abbreviations -> full group names via choir-groups
+        const { data: groups, error: cgErr } = await supabase
+          .from("choir-groups")
+          .select("group-name, abbreviation")
+          .in("abbreviation", abbrevs);
+
+        if (!cgErr && groups?.length) {
+          const fullNames = [
+            ...new Set(groups.map((g) => g["group-name"]).filter(Boolean)),
+          ];
+
+          if (fullNames.length) {
+            // 3) count choir placeholders for those full group names
+            const { data: choir, error: choirErr } = await supabase
+              .from("choir-placeholder")
+              .select("group")
+              .in("group", fullNames);
+
+            if (!choirErr) total += choir?.length || 0;
+          }
+        }
+      }
     }
   } catch (err) {
     console.error("Error counting schedules assigned:", err);

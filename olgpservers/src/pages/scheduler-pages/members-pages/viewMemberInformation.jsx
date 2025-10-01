@@ -187,6 +187,15 @@ export default function ViewMemberInformation() {
 
   // 2) handleSaveChanges (save info/roles first, then image; bust cache in UI)
   const handleSaveChanges = async () => {
+    if (!selectedRole || selectedRole === "") {
+      await Swal.fire({
+        icon: "warning",
+        title: "Role Required",
+        text: "Please select a role before adding the member.",
+      });
+      return;
+    }
+
     try {
       const infoSuccess = await editMemberInfo(
         idNumber,

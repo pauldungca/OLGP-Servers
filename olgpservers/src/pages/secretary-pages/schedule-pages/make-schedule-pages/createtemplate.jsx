@@ -389,7 +389,7 @@ export default function Createtemplate() {
                     </label>
                     <select
                       className="form-select form-select-sm w-auto"
-                      disabled={isStd || !enabled}
+                      disabled={isStd || mode.altar === "custom" || !enabled}
                       value={value}
                       onChange={(e) =>
                         setAltarCounts((c) => ({
@@ -460,7 +460,6 @@ export default function Createtemplate() {
                     {n}
                   </option>
                 ))}
-                <option value={0}>0</option>
               </select>
             </div>
           </div>
@@ -508,7 +507,6 @@ export default function Createtemplate() {
                     {n}
                   </option>
                 ))}
-                <option value={0}>0</option>
               </select>
             </div>
           </div>
@@ -561,7 +559,7 @@ export default function Createtemplate() {
                     <label className="form-check-label">{role.label}:</label>
                     <select
                       className="form-select form-select-sm w-auto"
-                      disabled={isStd || !enabled}
+                      disabled={isStd || mode.lector === "custom" || !enabled}
                       value={value}
                       onChange={(e) =>
                         setLectorCounts((c) => ({

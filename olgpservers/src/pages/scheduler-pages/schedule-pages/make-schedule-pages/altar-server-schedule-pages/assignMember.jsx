@@ -76,6 +76,7 @@ export default function AssignMember() {
         selectedRoleKey,
         {
           includeUnavailable: includeUnavailable || isTemplateMass, // Template masses always include all
+          massLabel: selectedMass, // ⭐ PASS MASS LABEL to check same-mass assignments
         }
       );
       if (!cancelled) {

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Breadcrumb, DatePicker, TimePicker } from "antd";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { DatePicker, TimePicker } from "antd";
+import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import image from "../../../../helper/images";
-import icon from "../../../../helper/icon";
 import Footer from "../../../../components/footer";
 
 import {
@@ -63,31 +62,7 @@ export default function UseTemplate() {
       <div className="schedule-header">
         <div className="header-text-with-line">
           <h3>MAKE SCHEDULE</h3>
-          <div style={{ margin: "10px 0" }}>
-            <Breadcrumb
-              items={[
-                {
-                  title: (
-                    <Link to="/selectTemplate" className="breadcrumb-item">
-                      Select Template
-                    </Link>
-                  ),
-                },
-                {
-                  title: "Use Mass Schedule Template",
-                  className: "breadcrumb-item-active",
-                },
-              ]}
-              separator={
-                <img
-                  src={icon.chevronIcon}
-                  alt="Chevron Icon"
-                  style={{ width: 15, height: 15 }}
-                />
-              }
-              className="customized-breadcrumb"
-            />
-          </div>
+          <div style={{ margin: "10px 0" }}></div>
           <div className="header-line"></div>
         </div>
       </div>

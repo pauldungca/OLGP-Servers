@@ -206,15 +206,18 @@ export function Sidebar({ collapsed, mobileOpen }) {
                 userRoles.isAltarServerMember ||
                 userRoles.isEucharisticMinisterMember ||
                 userRoles.isLectorCommentatorMember ||
-                userRoles.isChoirMember
+                userRoles.isChoirMember ||
+                userRoles.isAltarServerScheduler ||
+                userRoles.isEucharisticMinisterScheduler ||
+                userRoles.isLectorCommentatorScheduler ||
+                userRoles.isChoirScheduler
               );
             }
             if (option.title === "Open Schedule") {
               return (
                 userRoles.isAltarServerMember ||
                 userRoles.isEucharisticMinisterMember ||
-                userRoles.isLectorCommentatorMember ||
-                userRoles.isChoirMember
+                userRoles.isLectorCommentatorMember
               );
             }
             return true;

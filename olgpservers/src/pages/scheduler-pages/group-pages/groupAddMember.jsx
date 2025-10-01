@@ -415,7 +415,6 @@ export default function GroupAddMember() {
                 className="form-control"
                 value={street}
                 onChange={(e) => setStreet(e.target.value)}
-                placeholder="e.g., Mabini St."
               />
             </div>
 
@@ -426,7 +425,6 @@ export default function GroupAddMember() {
                 className="form-control"
                 value={houseNumber}
                 onChange={(e) => setHouseNumber(e.target.value)}
-                placeholder="e.g., 123-B"
               />
             </div>
           </div>

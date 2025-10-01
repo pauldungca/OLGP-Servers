@@ -10,6 +10,8 @@ import {
   getTemplateFlagsForChoir,
 } from "./fetchSchedule";
 
+import { fetchCrossDepartmentConflicts } from "./cross-department-conflict-prevention";
+
 import { fetchChoirGroups, fetchEucharisticMinisterGroups } from "./group";
 
 export const ROLE_COLUMN_MAP = {
@@ -393,7 +395,7 @@ export const buildFullName = (m) => {
   const { perRoleAllowed } = await buildEligibilityMaps();
   const allowedSet = perRoleAllowed.get(role) || new Set();
 
-  // 2) Who is already assigned on this DATE (any mass/role) — KEEP THIS
+  // 2) Who is already assigned on this DATE (any mass/role)
   const { data: allAssignedMembers, error: allAssignedError } = await supabase
     .from("altar-server-placeholder")
     .select("idNumber, role, mass")
@@ -403,6 +405,29 @@ export const buildFullName = (m) => {
     console.error("Error fetching assigned members:", allAssignedError);
     return [];
   }
+
+  // ⭐ NEW: Fetch unavailable members for this exact date+mass
+  const { data: unavailableMembers, error: unavailableError } = await supabase
+    .from("altar-server-unavailable")
+    .select("idNumber")
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  if (unavailableError) {
+    console.error("Error fetching unavailable members:", unavailableError);
+  }
+
+  const unavailableSet = new Set(
+    (unavailableMembers || []).map((m) => String(m.idNumber).trim())
+  );
+
+  // Helper: Check if a mass label is a Sunday mass
+  const isSundayMass = (mass) => {
+    return /^(1st|2nd|3rd)\s+Mass\s+-\s+\d{1,2}:\d{2}\s+(AM|PM)$/i.test(mass);
+  };
+
+  // Determine if current mass is Sunday or Template
+  const currentIsSunday = isSundayMass(massLabel);
 
   // Sets for fast checks
   const allAssignedIds = new Set(
@@ -441,16 +466,44 @@ export const buildFullName = (m) => {
     .filter((m) => {
       if (!m.idNumber || !m.fullName) return false;
 
-      // Keep members already assigned to THIS role so you can unassign them
-      const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
-      if (assignedToCurrentRole) return true;
+      // ⭐ RULE 1: One role per mass (any mass type)
+      const assignedInCurrentMass = (allAssignedMembers || []).some(
+        (a) => String(a.idNumber).trim() === m.idNumber && a.mass === massLabel
+      );
+
+      if (assignedInCurrentMass) {
+        const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
+        if (!assignedToCurrentRole) {
+          return false; // Hide: already serving another role in this same mass
+        }
+        return true; // Keep: assigned to current role (for unassignment)
+      }
 
       // Eligibility gate for target role
       if (!allowedSet.has(m.idNumber)) return false;
 
-      // Default: block double-booking the same DATE (any mass)
-      // Override: allow showing them (so you can complete schedule)
-      if (!includeUnavailable && allAssignedIds.has(m.idNumber)) return false;
+      // ⭐ Hide if marked unavailable (unless includeUnavailable override)
+      if (!includeUnavailable && unavailableSet.has(m.idNumber)) return false;
+
+      // ⭐ RULE 2: Block double-booking within same mass TYPE on same date
+      // - Sunday masses: can't serve in multiple Sunday masses
+      // - Template masses: can't serve in multiple template masses
+      // - But CAN serve in both a Sunday AND a template mass on same day
+      if (!includeUnavailable && allAssignedIds.has(m.idNumber)) {
+        const memberAssignments = (allAssignedMembers || []).filter(
+          (a) => String(a.idNumber).trim() === m.idNumber
+        );
+
+        // Check if assigned to any mass of the SAME TYPE
+        const assignedToSameType = memberAssignments.some((a) => {
+          const assignedIsSunday = isSundayMass(a.mass);
+          return assignedIsSunday === currentIsSunday;
+        });
+
+        if (assignedToSameType) {
+          return false; // Block: already assigned to another mass of same type
+        }
+      }
 
       return true;
     })
@@ -524,7 +577,14 @@ export const fetchMembersNormalized = async (
     return [];
   }
 
-  // ⭐ NEW: Fetch unavailable members for this exact date+mass
+  // ✅ NEW: Fetch cross-department conflicts
+  const crossDeptConflicts = await fetchCrossDepartmentConflicts(
+    dateISO,
+    massLabel,
+    "altar-server"
+  );
+
+  // Fetch unavailable members for this exact date+mass
   const { data: unavailableMembers, error: unavailableError } = await supabase
     .from("altar-server-unavailable")
     .select("idNumber")
@@ -539,7 +599,13 @@ export const fetchMembersNormalized = async (
     (unavailableMembers || []).map((m) => String(m.idNumber).trim())
   );
 
-  // Sets for fast checks
+  // Helper: Check if a mass label is a Sunday mass
+  const isSundayMass = (mass) => {
+    return /^(1st|2nd|3rd)\s+Mass\s+-\s+\d{1,2}:\d{2}\s+(AM|PM)$/i.test(mass);
+  };
+
+  const currentIsSunday = isSundayMass(massLabel);
+
   const allAssignedIds = new Set(
     (allAssignedMembers || []).map((m) => String(m.idNumber).trim())
   );
@@ -576,19 +642,45 @@ export const fetchMembersNormalized = async (
     .filter((m) => {
       if (!m.idNumber || !m.fullName) return false;
 
-      // Keep members already assigned to THIS role so you can unassign them
-      const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
-      if (assignedToCurrentRole) return true;
+      // ✅ NEW: Filter out cross-department conflicts
+      if (!includeUnavailable && crossDeptConflicts.has(m.idNumber)) {
+        return false;
+      }
+
+      // RULE 1: One role per mass (any mass type)
+      const assignedInCurrentMass = (allAssignedMembers || []).some(
+        (a) => String(a.idNumber).trim() === m.idNumber && a.mass === massLabel
+      );
+
+      if (assignedInCurrentMass) {
+        const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
+        if (!assignedToCurrentRole) {
+          return false;
+        }
+        return true;
+      }
 
       // Eligibility gate for target role
       if (!allowedSet.has(m.idNumber)) return false;
 
-      // ⭐ NEW: Hide if marked unavailable (unless includeUnavailable override)
+      // Hide if marked unavailable
       if (!includeUnavailable && unavailableSet.has(m.idNumber)) return false;
 
-      // Default: block double-booking the same DATE (any mass)
-      // Override: allow showing them (so you can complete schedule)
-      if (!includeUnavailable && allAssignedIds.has(m.idNumber)) return false;
+      // RULE 2: Block double-booking within same mass TYPE on same date
+      if (!includeUnavailable && allAssignedIds.has(m.idNumber)) {
+        const memberAssignments = (allAssignedMembers || []).filter(
+          (a) => String(a.idNumber).trim() === m.idNumber
+        );
+
+        const assignedToSameType = memberAssignments.some((a) => {
+          const assignedIsSunday = isSundayMass(a.mass);
+          return assignedIsSunday === currentIsSunday;
+        });
+
+        if (assignedToSameType) {
+          return false;
+        }
+      }
 
       return true;
     })
@@ -600,7 +692,6 @@ export const fetchMembersNormalized = async (
         dateISO
       );
 
-      // roleCount & daysSinceLastRole
       const history = (historicalAssignments || []).filter(
         (a) => String(a.idNumber).trim() === m.idNumber
       );
@@ -1142,7 +1233,7 @@ export const autoAssignSundaySchedules = async (year, month) => {
   }
 };
 
-const autoAssignSingleMass = async ({
+/*const autoAssignSingleMass = async ({
   dateISO,
   massLabel,
   availableMembers,
@@ -1194,6 +1285,143 @@ const autoAssignSingleMass = async ({
 
           // eligibility from altar-server-roles
           if (!allowedSet.has(id)) return false;
+
+          // not already assigned this Sunday
+          if (sundayAssignments.has(id)) return false;
+
+          // not already in this mass
+          const inMass = (existingAssignments || []).some(
+            (a) => String(a.idNumber).trim() === id
+          );
+          if (inMass) return false;
+
+          return true;
+        })
+        .map((member) => ({
+          ...member,
+          rotationScore: calculateRotationScore(
+            member.idNumber,
+            roleKey,
+            historicalAssignments || [],
+            dateISO
+          ),
+        }))
+        .sort((a, b) => a.rotationScore - b.rotationScore);
+
+      let filteredCandidates = candidatesForRole;
+
+      if (roleKey === "candleBearer" || roleKey === "beller") {
+        if (existing.length > 0) {
+          const existingMember = availableMembers.find(
+            (m) =>
+              String(m.idNumber).trim() === String(existing[0].idNumber).trim()
+          );
+          if (existingMember?.sex) {
+            filteredCandidates = candidatesForRole.filter(
+              (c) => c.sex === existingMember.sex
+            );
+          }
+        }
+      }
+
+      const selectedMembers = filteredCandidates.slice(0, needToAssign);
+      if (selectedMembers.length === 0) continue;
+
+      const assignments = selectedMembers.map((member, index) => ({
+        date: dateISO,
+        mass: massLabel,
+        templateID: templateID,
+        role: roleKey,
+        slot: existing.length + index + 1,
+        idNumber: String(member.idNumber).trim(),
+      }));
+
+      const { data: inserted, error } = await supabase
+        .from("altar-server-placeholder")
+        .insert(assignments)
+        .select("idNumber");
+
+      if (error)
+        throw new Error(`Failed to assign ${roleKey}: ${error.message}`);
+
+      (inserted || []).forEach((row) => {
+        const id = String(row.idNumber).trim();
+        sundayAssignments.add(id);
+        if (typeof onAssign === "function") onAssign(id);
+      });
+
+      totalNewAssignments += selectedMembers.length;
+    } catch (roleError) {
+      console.error(`Error assigning role ${roleKey}:`, roleError);
+      throw roleError;
+    }
+  }
+
+  return totalNewAssignments;
+};*/
+
+const autoAssignSingleMass = async ({
+  dateISO,
+  massLabel,
+  availableMembers,
+  historicalAssignments,
+  sundayAssignments,
+  templateID,
+  perRoleAllowed,
+  onAssign,
+}) => {
+  const { data: existingAssignments } = await supabase
+    .from("altar-server-placeholder")
+    .select("role, slot, idNumber")
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  const existingByRole = {};
+  (existingAssignments || []).forEach((assignment) => {
+    const k = assignment.role;
+    if (!existingByRole[k]) existingByRole[k] = [];
+    existingByRole[k].push({
+      slot: assignment.slot,
+      idNumber: assignment.idNumber,
+    });
+  });
+
+  // ✅ NEW: Fetch cross-department conflicts
+  const crossDeptConflicts = await fetchCrossDepartmentConflicts(
+    dateISO,
+    massLabel,
+    "altar-server"
+  );
+
+  const roleRequirements = {
+    thurifer: 1,
+    beller: 2,
+    mainServer: 2,
+    candleBearer: 2,
+    incenseBearer: 1,
+    crossBearer: 1,
+    plate: 10,
+  };
+
+  let totalNewAssignments = 0;
+
+  for (const [roleKey, requiredCount] of Object.entries(roleRequirements)) {
+    const existing = existingByRole[roleKey] || [];
+    const needToAssign = requiredCount - existing.length;
+    if (needToAssign <= 0) continue;
+
+    try {
+      const allowedSet = perRoleAllowed.get(roleKey) || new Set();
+
+      const candidatesForRole = availableMembers
+        .filter((member) => {
+          const id = String(member.idNumber).trim();
+
+          // eligibility from altar-server-roles
+          if (!allowedSet.has(id)) return false;
+
+          // ✅ NEW: Skip if scheduled in other departments
+          if (crossDeptConflicts.has(id)) return false;
 
           // not already assigned this Sunday
           if (sundayAssignments.has(id)) return false;
@@ -1556,148 +1784,6 @@ export async function buildLectorCommentatorEligibilityMaps() {
 
 /*export const fetchLectorCommentatorMembersNormalized = async (
   dateISO,
-  massLabel, // THIS PARAMETER IS BEING PASSED BUT NOT USED!
-  role,
-  options = {}
-) => {
-  const { includeUnavailable = false } = options;
-
-  const { perRoleAllowed } = await buildLectorCommentatorEligibilityMaps();
-  const allowedSet = perRoleAllowed.get(role) || new Set();
-
-  // Fetch assigned members for the Lector/Commentator roles
-  const { data: allAssignedMembers, error: allAssignedError } = await supabase
-    .from("lector-commentator-placeholder")
-    .select("idNumber, role, mass")
-    .eq("date", dateISO);
-
-  if (allAssignedError) {
-    console.error(
-      "Error fetching assigned Lector/Commentator members:",
-      allAssignedError
-    );
-    return [];
-  }
-
-  // ⭐ FILTER BY CURRENT MASS ONLY (not all masses on this date)
-  const assignedInCurrentMass = new Set(
-    (allAssignedMembers || [])
-      .filter((m) => m.mass === massLabel) // ONLY this mass
-      .map((m) => String(m.idNumber).trim())
-  );
-
-  // ⭐ ALSO track members assigned to OTHER masses on same date
-  const assignedInOtherMasses = new Set(
-    (allAssignedMembers || [])
-      .filter((m) => m.mass !== massLabel) // OTHER masses
-      .map((m) => String(m.idNumber).trim())
-  );
-
-  const assignedByRole = new Map();
-  (allAssignedMembers || []).forEach((m) => {
-    const k = m.role;
-    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
-    assignedByRole.get(k).add(String(m.idNumber).trim());
-  });
-
-  // Fetch historical assignments for Lector/Commentator roles in the last 6 months
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
-
-  const { data: historicalAssignments } = await supabase
-    .from("lector-commentator-placeholder")
-    .select("idNumber, role, date, mass")
-    .gte("date", sixMonthsAgoISO)
-    .order("date", { ascending: false });
-
-  console.log("Fetched Historical Assignments: ", historicalAssignments);
-
-  const rows = await fetchLectorCommentatorMembersWithRole();
-
-  const normalized = (rows || [])
-    .map((m) => ({
-      idNumber: String(m.idNumber ?? "").trim(),
-      fullName: buildFullName(m),
-      role: m.role || "Non-Flexible",
-      sex: m.sex || "Unknown",
-    }))
-    .filter((m) => {
-      console.log("Filtering member: ", m);
-      if (!m.idNumber || !m.fullName) return false;
-
-      // Eligibility check
-      if (!allowedSet.has(m.idNumber)) {
-        console.log("Not eligible: ", m.idNumber);
-        return false;
-      }
-
-      // ⭐ ALWAYS exclude if already assigned in THIS mass
-      if (assignedInCurrentMass.has(m.idNumber)) {
-        console.log("Already assigned in this mass: ", m.idNumber);
-        return false;
-      }
-
-      // ⭐ For non-template masses: also exclude if assigned to OTHER masses
-      if (!includeUnavailable && assignedInOtherMasses.has(m.idNumber)) {
-        console.log(
-          "Already assigned to another mass on same date: ",
-          m.idNumber
-        );
-        return false;
-      }
-
-      return true;
-    })
-    .map((m) => {
-      const rotationScore = calculateRotationScore(
-        m.idNumber,
-        role,
-        historicalAssignments || [],
-        dateISO
-      );
-
-      // Compute roleCount and daysSinceLastRole
-      const memberHistory = (historicalAssignments || []).filter(
-        (a) => String(a.idNumber).trim() === m.idNumber
-      );
-      const roleCount = memberHistory.filter((a) => a.role === role).length;
-
-      const lastRoleAssignment = memberHistory
-        .filter((a) => a.role === role)
-        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-
-      const daysSinceLastRole = lastRoleAssignment
-        ? Math.floor(
-            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
-              (1000 * 60 * 60 * 24)
-          )
-        : Infinity;
-
-      const isPriority =
-        roleCount === 0 ||
-        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
-
-      return {
-        ...m,
-        rotationScore,
-        roleCount,
-        daysSinceLastRole,
-        isPriority,
-      };
-    })
-    .sort((a, b) => {
-      if (a.rotationScore !== b.rotationScore) {
-        return a.rotationScore - b.rotationScore;
-      }
-      return a.fullName.localeCompare(b.fullName);
-    });
-
-  return normalized;
-};*/
-
-export const fetchLectorCommentatorMembersNormalized = async (
-  dateISO,
   massLabel,
   role,
   options = {}
@@ -1796,6 +1882,163 @@ export const fetchLectorCommentatorMembersNormalized = async (
       if (assignedInCurrentMass.has(m.idNumber)) return false;
 
       // For non-template masses: also exclude if assigned to OTHER masses
+      if (!includeUnavailable && assignedInOtherMasses.has(m.idNumber)) {
+        return false;
+      }
+
+      return true;
+    })
+    .map((m) => {
+      const rotationScore = calculateRotationScore(
+        m.idNumber,
+        role,
+        historicalAssignments || [],
+        dateISO
+      );
+
+      const history = (historicalAssignments || []).filter(
+        (a) => String(a.idNumber).trim() === m.idNumber
+      );
+      const roleCount = history.filter((a) => a.role === role).length;
+
+      const lastRoleAssignment = history
+        .filter((a) => a.role === role)
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+      const daysSinceLastRole = lastRoleAssignment
+        ? Math.floor(
+            (new Date(dateISO) - new Date(lastRoleAssignment.date)) /
+              (1000 * 60 * 60 * 24)
+          )
+        : Infinity;
+
+      const isPriority =
+        roleCount === 0 ||
+        (Number.isFinite(daysSinceLastRole) && daysSinceLastRole > 30);
+
+      return {
+        ...m,
+        rotationScore,
+        roleCount,
+        daysSinceLastRole,
+        isPriority,
+      };
+    })
+    .sort((a, b) => {
+      if (a.rotationScore !== b.rotationScore) {
+        return a.rotationScore - b.rotationScore;
+      }
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+  return normalized;
+};*/
+
+export const fetchLectorCommentatorMembersNormalized = async (
+  dateISO,
+  massLabel,
+  role,
+  options = {}
+) => {
+  const { includeUnavailable = false } = options;
+
+  const { perRoleAllowed } = await buildLectorCommentatorEligibilityMaps();
+  const allowedSet = perRoleAllowed.get(role) || new Set();
+
+  // Fetch assigned members
+  const { data: allAssignedMembers, error: allAssignedError } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, mass")
+    .eq("date", dateISO);
+
+  if (allAssignedError) {
+    console.error(
+      "Error fetching assigned Lector/Commentator members:",
+      allAssignedError
+    );
+    return [];
+  }
+
+  // ✅ NEW: Fetch cross-department conflicts
+  const crossDeptConflicts = await fetchCrossDepartmentConflicts(
+    dateISO,
+    massLabel,
+    "lector-commentator"
+  );
+
+  // Fetch unavailable members
+  const { data: unavailableMembers, error: unavailableError } = await supabase
+    .from("lector-commentator-unavailable")
+    .select("idNumber")
+    .eq("date", dateISO)
+    .eq("mass", massLabel);
+
+  if (unavailableError) {
+    console.error("Error fetching unavailable members:", unavailableError);
+  }
+
+  const unavailableSet = new Set(
+    (unavailableMembers || []).map((m) => String(m.idNumber).trim())
+  );
+
+  const assignedInCurrentMass = new Set(
+    (allAssignedMembers || [])
+      .filter((m) => m.mass === massLabel)
+      .map((m) => String(m.idNumber).trim())
+  );
+
+  const assignedInOtherMasses = new Set(
+    (allAssignedMembers || [])
+      .filter((m) => m.mass !== massLabel)
+      .map((m) => String(m.idNumber).trim())
+  );
+
+  const assignedByRole = new Map();
+  (allAssignedMembers || []).forEach((m) => {
+    const k = m.role;
+    if (!assignedByRole.has(k)) assignedByRole.set(k, new Set());
+    assignedByRole.get(k).add(String(m.idNumber).trim());
+  });
+
+  // Fetch historical assignments
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split("T")[0];
+
+  const { data: historicalAssignments } = await supabase
+    .from("lector-commentator-placeholder")
+    .select("idNumber, role, date, mass")
+    .gte("date", sixMonthsAgoISO)
+    .order("date", { ascending: false });
+
+  const rows = await fetchLectorCommentatorMembersWithRole();
+
+  const normalized = (rows || [])
+    .map((m) => ({
+      idNumber: String(m.idNumber ?? "").trim(),
+      fullName: buildFullName(m),
+      role: m.role || "Non-Flexible",
+      sex: m.sex || "Unknown",
+    }))
+    .filter((m) => {
+      if (!m.idNumber || !m.fullName) return false;
+
+      // ✅ NEW: Filter out cross-department conflicts
+      if (!includeUnavailable && crossDeptConflicts.has(m.idNumber)) {
+        return false;
+      }
+
+      const assignedToCurrentRole = assignedByRole.get(role)?.has(m.idNumber);
+      if (assignedToCurrentRole && assignedInCurrentMass.has(m.idNumber)) {
+        return true;
+      }
+
+      if (!allowedSet.has(m.idNumber)) return false;
+
+      if (!includeUnavailable && unavailableSet.has(m.idNumber)) return false;
+
+      if (assignedInCurrentMass.has(m.idNumber)) return false;
+
       if (!includeUnavailable && assignedInOtherMasses.has(m.idNumber)) {
         return false;
       }
@@ -2491,7 +2734,7 @@ async function lcAssignOneSunday2({
 }
 
 /** PUBLIC: month auto-assign (rotation + anti-trio).  */
-export async function autoAssignLectorCommentatorSchedules(year, month) {
+/*export async function autoAssignLectorCommentatorSchedules(year, month) {
   const monthNames = [
     "January",
     "February",
@@ -2592,6 +2835,131 @@ export async function autoAssignLectorCommentatorSchedules(year, month) {
     await Swal.fire("Error", e?.message || "Auto-assignment failed.", "error");
     return { success: false, error: e?.message || "Unknown error" };
   }
+}*/
+
+export async function autoAssignLectorCommentatorSchedules(year, month) {
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const monthText = `${monthNames[month]} - ${year}`;
+
+  const ok = await Swal.fire({
+    icon: "question",
+    title: "Automate Scheduling?",
+    text: `Do you want to automate the process of scheduling on all Sunday schedules for ${monthText}?`,
+    showCancelButton: true,
+    confirmButtonText: "Yes, automate",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+  });
+  if (!ok.isConfirmed) return { success: false };
+
+  // ✅ Uses LCPaint
+  LCPaint.mount(monthText);
+
+  try {
+    // ✅ Uses getSundaysInMonth2
+    const sundays = getSundaysInMonth2(year, month);
+    const totalMasses = sundays.length * LC_SUNDAY_MASSES.length;
+
+    if (!sundays.length) {
+      LCPaint.done();
+      await Swal.fire("No Sundays", "No Sundays in this month.", "info");
+      return { success: true };
+    }
+    LCPaint.totals(sundays.length, totalMasses);
+
+    // Month counters for fairness (pre-existing rows included)
+    const monthAssignCount = new Map();
+    const startISO = ymdLocal2(new Date(year, month, 1));
+    const endISO = ymdLocal2(new Date(year, month + 1, 0));
+    const { data: monthRows } = await supabase
+      .from("lector-commentator-placeholder")
+      .select("idNumber, date")
+      .gte("date", startISO)
+      .lte("date", endISO);
+
+    (monthRows || []).forEach((r) => {
+      const id = String(r.idNumber).trim();
+      monthAssignCount.set(id, (monthAssignCount.get(id) || 0) + 1);
+    });
+
+    // ✅ Uses lcEligibilitySets2 and lcNameMap2
+    const eligible = await lcEligibilitySets2();
+    const nameMap = await lcNameMap2();
+
+    let assignedTotal = 0;
+    let sundaysProcessed = 0;
+
+    for (const s of sundays) {
+      const dateISO = ymdLocal2(s);
+
+      // 🚫 Per-mass cross-dept conflicts (exclude LC itself)
+      const conflictsArr = await Promise.all(
+        LC_SUNDAY_MASSES.map((massLabel) =>
+          fetchCrossDepartmentConflicts(
+            dateISO,
+            massLabel,
+            "lector-commentator"
+          )
+        )
+      );
+      const crossDeptConflictsByMass = {};
+      LC_SUNDAY_MASSES.forEach((massLabel, i) => {
+        crossDeptConflictsByMass[massLabel] = conflictsArr[i] || new Set();
+      });
+
+      // ✅ Uses lcAssignOneSunday2 (accept the extra param in its signature)
+      const n = await lcAssignOneSunday2({
+        dateISO,
+        monthAssignCount,
+        nameMap,
+        eligible,
+        crossDeptConflictsByMass, // <- filter candidates by this in lcAssignOneSunday2
+      });
+
+      assignedTotal += n;
+      sundaysProcessed += 1;
+
+      // 3 masses → 3 ticks
+      LCPaint.mTick();
+      LCPaint.mTick();
+      LCPaint.mTick();
+      LCPaint.sTick();
+      LCPaint.add(n);
+    }
+
+    LCPaint.done();
+
+    await Swal.fire({
+      icon: "success",
+      title: "Auto-Assignment Complete!",
+      text: `Successfully auto-assigned schedules! Sundays processed: ${sundaysProcessed}\n Masses processed: ${totalMasses}\nMembers assigned: ${assignedTotal}`,
+    });
+
+    try {
+      window.location.reload();
+    } catch {}
+
+    return { success: true, stats: { assignedTotal, totalMasses } };
+  } catch (e) {
+    console.error("LC auto-assign fatal:", e);
+    LCPaint.err();
+    LCPaint.done();
+    await Swal.fire("Error", e?.message || "Auto-assignment failed.", "error");
+    return { success: false, error: e?.message || "Unknown error" };
+  }
 }
 
 /*----------------------------------
@@ -2600,8 +2968,11 @@ CHOIR FUNCTIONS
 
 ------------------------------------*/
 
-export const getTemplateFlagsChoir = async (selectedISO) =>
-  getTemplateFlagsForChoir(selectedISO);
+/*export const getTemplateFlagsChoir = async (selectedISO) =>
+  getTemplateFlagsForChoir(selectedISO);*/
+
+export const getTemplateFlagsChoir = async (selectedISO, templateID) =>
+  getTemplateFlagsForChoir(selectedISO, templateID);
 
 export const fetchAssignmentsGroupedChoir = async ({ dateISO, massLabel }) =>
   getAssignmentsForCardsLectorCommentator(dateISO, massLabel);
@@ -3317,12 +3688,8 @@ export const fetchAvailableChoirGroupsForMass = async ({
     const allGroups = await fetchChoirGroups();
 
     // Ensure "Koro Ni Maria" exists as fallback
-    const hasKNM = allGroups.some(
-      (g) => (g?.name || "").trim().toLowerCase() === "koro ni maria"
-    );
-    const withFallback = hasKNM
-      ? allGroups
-      : [...allGroups, { id: "knm-local", name: "Koro Ni Maria" }];
+
+    const withFallback = [...allGroups];
 
     // For template masses: show all groups (no filtering)
     if (isTemplate) {
@@ -3426,7 +3793,7 @@ export const fetchAvailableChoirGroupsForMass = async ({
     return eligibleGroups;
   } catch (err) {
     console.error("fetchAvailableChoirGroupsForMass error:", err);
-    return [{ id: "knm-local", name: "Koro Ni Maria" }];
+    return;
   }
 };
 
@@ -3590,7 +3957,7 @@ export const resetEucharisticMinisterAssignments = async (
   }
 };
 
-export const fetchEucharisticMinisterGroupMembers = async (
+/*export const fetchEucharisticMinisterGroupMembers = async (
   groupName,
   options = {}
 ) => {
@@ -3667,6 +4034,109 @@ export const fetchEucharisticMinisterGroupMembers = async (
         if (unavailableSet.has(member.id)) {
           return false;
         }
+        return true;
+      });
+
+    return formattedMembers;
+  } catch (err) {
+    console.error("Failed to fetch group members:", err);
+    return [];
+  }
+};*/
+
+export const fetchEucharisticMinisterGroupMembers = async (
+  groupName,
+  options = {}
+) => {
+  if (!groupName) return [];
+
+  const {
+    dateISO = null,
+    massLabel = null,
+    includeUnavailable = false,
+  } = options;
+
+  try {
+    // Get all member IDs from the specified group
+    const { data: groupMembers, error: groupError } = await supabase
+      .from("eucharistic-minister-group")
+      .select("idNumber")
+      .eq("group-name", groupName);
+
+    if (groupError) {
+      console.error("Error fetching group members:", groupError);
+      return [];
+    }
+
+    if (!groupMembers || groupMembers.length === 0) return [];
+
+    const memberIds = groupMembers
+      .map((m) => String(m.idNumber))
+      .filter(Boolean);
+
+    // ✅ NEW: Fetch cross-department conflicts (only if date+mass provided)
+    let crossDeptConflicts = new Set();
+    if (dateISO && massLabel && !includeUnavailable) {
+      crossDeptConflicts = await fetchCrossDepartmentConflicts(
+        dateISO,
+        massLabel,
+        "eucharistic-minister"
+      );
+    }
+
+    // Fetch unavailable members
+    let unavailableSet = new Set();
+    if (dateISO && massLabel && !includeUnavailable) {
+      const { data: unavailableMembers, error: unavailableError } =
+        await supabase
+          .from("eucharistic-minister-unavailable")
+          .select("idNumber")
+          .eq("date", dateISO)
+          .eq("mass", massLabel);
+
+      if (unavailableError) {
+        console.error(
+          "Error fetching unavailable EM members:",
+          unavailableError
+        );
+      } else {
+        unavailableSet = new Set(
+          (unavailableMembers || []).map((m) => String(m.idNumber).trim())
+        );
+      }
+    }
+
+    // Fetch member information
+    const { data: memberInfo, error: memberError } = await supabase
+      .from("members-information")
+      .select("idNumber, firstName, middleName, lastName")
+      .in("idNumber", memberIds);
+
+    if (memberError) {
+      console.error("Error fetching member information:", memberError);
+      return [];
+    }
+
+    // Format and filter members
+    const formattedMembers = (memberInfo || [])
+      .map((member) => ({
+        id: String(member.idNumber),
+        name: [member.firstName, member.middleName, member.lastName]
+          .filter((name) => name && name.trim())
+          .join(" ")
+          .trim(),
+      }))
+      .filter((member) => {
+        // Hide if marked unavailable
+        if (unavailableSet.has(member.id)) {
+          return false;
+        }
+
+        // ✅ NEW: Hide if scheduled in other departments
+        if (crossDeptConflicts.has(member.id)) {
+          return false;
+        }
+
         return true;
       });
 
@@ -3961,107 +4431,13 @@ async function getGroupForMass(ordinal1, massIndex0, rotationMatrix) {
   return massAssignments[massIndex0 % massAssignments.length];
 }
 
-/*async function autoAssignEMForMass({
-  dateISO,
-  massLabel,
-  groupName, // "Group 1/2/3"
-  onAssign, // optional progress callback
-}) {
-  // 1) Set/overwrite the group for this date+mass
-  await supabase
-    .from("eucharistic-minister-group-placeholder")
-    .delete()
-    .eq("date", dateISO)
-    .eq("mass", massLabel);
-
-  await supabase
-    .from("eucharistic-minister-group-placeholder")
-    .insert([
-      { date: dateISO, mass: massLabel, templateID: null, group: groupName },
-    ]);
-
-  // 2) Fetch group members
-  const members = await fetchEucharisticMinisterGroupMembers(groupName);
-
-  if (!members.length) return;
-
-  // 3) Avoid double-booking on same date
-  const { data: sameDayAssignments } = await supabase
-    .from("eucharistic-minister-placeholder")
-    .select("idNumber")
-    .eq("date", dateISO);
-  const takenToday = new Set(
-    (sameDayAssignments || []).map((r) => String(r.idNumber))
-  );
-
-  // 4) Build fairness metrics from recent history (last 6 months)
-  const since = new Date(dateISO);
-  since.setMonth(since.getMonth() - 6);
-  const sinceISO = ymdLocal(since);
-
-  const { data: history } = await supabase
-    .from("eucharistic-minister-placeholder")
-    .select("idNumber, date")
-    .gte("date", sinceISO)
-    .order("date", { ascending: true });
-
-  const countPer = new Map();
-  const lastDatePer = new Map();
-  (history || []).forEach((h) => {
-    const id = String(h.idNumber);
-    countPer.set(id, (countPer.get(id) || 0) + 1);
-    lastDatePer.set(id, h.date);
-  });
-
-  // 5) Rank candidates: least assigned first; if tie → oldest last assignment first; then name
-  const ranked = members
-    .filter((m) => !takenToday.has(String(m.id)))
-    .map((m) => {
-      const id = String(m.id);
-      const cnt = countPer.get(id) || 0;
-      const last = lastDatePer.get(id) || null;
-      return {
-        ...m,
-        _count: cnt,
-        _last: last ? new Date(last) : new Date(0),
-      };
-    })
-    .sort((a, b) => {
-      if (a._count !== b._count) return a._count - b._count;
-      if (a._last.getTime() !== b._last.getTime()) return a._last - b._last; // older first
-      return (a.name || "").localeCompare(b.name || "");
-    });
-
-  const pick = ranked.slice(0, 6); // default 6 ministers
-
-  // 6) Write assignments (slots 1..6)
-  await supabase
-    .from("eucharistic-minister-placeholder")
-    .delete()
-    .eq("date", dateISO)
-    .eq("mass", massLabel);
-
-  if (pick.length) {
-    const rows = pick.map((m, i) => ({
-      date: dateISO,
-      mass: massLabel,
-      templateID: null,
-      slot: i + 1,
-      idNumber: String(m.id),
-    }));
-    await supabase.from("eucharistic-minister-placeholder").insert(rows);
-  }
-
-  if (onAssign) onAssign(pick.length);
-}*/
-
 async function autoAssignEMForMass({
   dateISO,
   massLabel,
-  groupName, // "Group 1/2/3"
-  onAssign, // optional progress callback
+  groupName,
+  onAssign,
 }) {
-  // 1) Set/overwrite the group for this date+mass
+  // 1) Set/overwrite the group
   await supabase
     .from("eucharistic-minister-group-placeholder")
     .delete()
@@ -4088,6 +4464,13 @@ async function autoAssignEMForMass({
     return;
   }
 
+  // ✅ NEW: Fetch cross-department conflicts
+  const crossDeptConflicts = await fetchCrossDepartmentConflicts(
+    dateISO,
+    massLabel,
+    "eucharistic-minister"
+  );
+
   // 3) Avoid double-booking on same date
   const { data: sameDayAssignments } = await supabase
     .from("eucharistic-minister-placeholder")
@@ -4097,7 +4480,7 @@ async function autoAssignEMForMass({
     (sameDayAssignments || []).map((r) => String(r.idNumber))
   );
 
-  // 4) Build fairness metrics from recent history (last 6 months)
+  // 4) Build fairness metrics
   const since = new Date(dateISO);
   since.setMonth(since.getMonth() - 6);
   const sinceISO = ymdLocal(since);
@@ -4116,9 +4499,18 @@ async function autoAssignEMForMass({
     lastDatePer.set(id, h.date);
   });
 
-  // 5) Rank candidates: least assigned first; if tie → oldest last assignment first; then name
+  // 5) Rank candidates
   const ranked = members
-    .filter((m) => !takenToday.has(String(m.id)))
+    .filter((m) => {
+      const id = String(m.id);
+
+      // ✅ NEW: Skip if in other departments
+      if (crossDeptConflicts.has(id)) return false;
+
+      // Skip if already taken today
+      if (takenToday.has(id)) return false;
+      return true;
+    })
     .map((m) => {
       const id = String(m.id);
       const cnt = countPer.get(id) || 0;
@@ -4131,13 +4523,13 @@ async function autoAssignEMForMass({
     })
     .sort((a, b) => {
       if (a._count !== b._count) return a._count - b._count;
-      if (a._last.getTime() !== b._last.getTime()) return a._last - b._last; // older first
+      if (a._last.getTime() !== b._last.getTime()) return a._last - b._last;
       return (a.name || "").localeCompare(b.name || "");
     });
 
-  const pick = ranked.slice(0, 6); // default 6 ministers
+  const pick = ranked.slice(0, 6);
 
-  // 6) Write assignments (slots 1..6)
+  // 6) Write assignments
   await supabase
     .from("eucharistic-minister-placeholder")
     .delete()

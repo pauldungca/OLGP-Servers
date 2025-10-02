@@ -1,3 +1,8 @@
+/* =========================
+   Notifications — FULL CSS
+   Full-bleed on desktop
+   ========================= */
+
 .notification-page-container {
   display: flex;
   flex-direction: column;
@@ -39,8 +44,11 @@
   padding-bottom: 3%;
 }
 
+/* Row */
 .notification-row {
   display: flex;
+  width: 100%;
+  box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.25rem;
@@ -93,28 +101,20 @@
 .arrow-btn {
   color: #0a2471;
 }
-
 .delete-btn {
   color: #d9534f;
 }
 
 /* =========================================================
    Responsive Add-On for Notifications (non-destructive)
-   Breakpoints:
-     - Mobile:  <= 640px
-     - Tablet:  641–1024px
-     - Desktop: >= 1025px
    ========================================================= */
 
-/* Keep media fluid without touching your base */
 :where(img, svg, video, canvas) {
   max-width: 100%;
   height: auto;
 }
 
-/* ----------------------------
-   MOBILE (<= 640px)
-   ---------------------------- */
+/* MOBILE (<=640px) */
 @media (max-width: 640px) {
   html {
     font-size: clamp(14px, 3.6vw, 16px);
@@ -134,10 +134,9 @@
 
   .notification-content {
     padding: 0.75rem 1rem;
-    padding-bottom: 1rem; /* tighter than 3% for small screens */
+    padding-bottom: 1rem;
   }
 
-  /* Each row becomes a stacked card */
   .notification-row {
     display: grid;
     grid-template-columns: 1fr;
@@ -147,7 +146,6 @@
     border-radius: 10px;
   }
 
-  /* Let the message wrap instead of single-line truncation */
   .notification-message {
     white-space: normal !important;
     overflow: visible;
@@ -157,24 +155,20 @@
     line-height: 1.35;
   }
 
-  /* Actions go to a second line and fill width */
   .notification-actions {
     justify-content: space-between;
     gap: 0.75rem;
   }
-
   .notification-time {
     font-size: 0.95rem;
   }
 
-  /* Bigger tap targets */
   .notification-btn {
     min-width: 44px;
     min-height: 44px;
     padding: 0.25rem 0.5rem;
   }
 
-  /* Ensure links/rows don’t cause horizontal scroll */
   .notification-page-container,
   .notification-content,
   .notification-row {
@@ -183,9 +177,7 @@
   }
 }
 
-/* ----------------------------
-   TABLET (641–1024px)
-   ---------------------------- */
+/* TABLET (641–1024px) */
 @media (min-width: 641px) and (max-width: 1024px) {
   html {
     font-size: clamp(15px, 1.6vw, 17px);
@@ -200,37 +192,47 @@
     padding-bottom: 1.25rem;
   }
 
-  /* Keep rows inline, but give more breathing room */
   .notification-row {
     padding: 1rem 1.25rem;
     border-radius: 8px;
   }
-
   .notification-message {
     font-size: 1.05rem;
   }
   .notification-time {
     font-size: 1rem;
   }
-
   .notification-actions {
     gap: 0.75rem;
   }
 }
 
-/* ----------------------------
-   DESKTOP niceties (>= 1025px)
-   ---------------------------- */
+/* DESKTOP (>=1025px) — FULL BLEED */
 @media (min-width: 1025px) {
+  /* Remove any container cap and side padding so content touches edges */
   .notification-content {
-    max-width: 1100px;
-    margin-inline: auto;
+    max-width: none;
+    width: 100%;
+    margin-inline: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Flatten cards so they span edge-to-edge */
+  .notification-row {
+    border-radius: 0;
+    margin-bottom: 0;
+    padding-left: 1.25rem; /* keep inner breathing room */
+    padding-right: 1.25rem; /* keep inner breathing room */
+  }
+
+  /* Optional: keep alternating rows visible as full bands */
+  .notification-row:nth-child(even) {
+    background-color: #efefef;
   }
 }
 
-/* ----------------------------
-   Accessibility
-   ---------------------------- */
+/* Accessibility */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

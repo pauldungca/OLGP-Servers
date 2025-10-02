@@ -138,3 +138,142 @@
   opacity: 0.7;
   pointer-events: none;
 }
+
+/* =========================================================
+   Responsive Add-On for Update Status (non-destructive)
+   Desktop: unchanged. Mobile/Tablet only.
+   ========================================================= */
+
+/* Media elements scale safely everywhere */
+:where(img, svg, video, canvas) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ----------------------------
+   MOBILE (<= 640px)
+   ---------------------------- */
+@media (max-width: 640px) {
+  /* Card spacing */
+  .update-schedule-wrapper {
+    padding: 14px !important;
+    margin-bottom: 16px !important;
+    border-radius: 10px;
+  }
+
+  .update-schedule-header {
+    font-size: 1rem;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+
+  /* Body → 1 column stack */
+  .update-schedule-body {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    text-align: center;
+  }
+
+  /* Remove vertical dividers, add gentle separators */
+  .schedule-col {
+    padding: 12px !important;
+    border-right: none !important;
+    border-bottom: 1px solid #00000022;
+  }
+  .schedule-col:last-child {
+    border-bottom: none;
+  }
+
+  /* Image scales within column */
+  .img-no-schedule {
+    width: 60% !important;
+    height: auto !important;
+    margin: 8px auto 10px;
+    display: block;
+  }
+
+  /* Cancel (Not Available) button: full width & comfy tap size */
+  .cancel-btn {
+    width: 100% !important;
+    min-height: 46px;
+    padding: 10px 14px !important;
+    border-radius: 10px;
+    font-weight: 700;
+  }
+
+  /* Make the small icon readable on phones */
+  .cancel-btn-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+  }
+
+  /* Footer actions: stack full width */
+  .action-buttons {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 10px !important;
+    width: 100%;
+    padding: 0 12px;
+    margin: 16px 0 8px;
+  }
+  .reset-button,
+  .submit-button {
+    width: 100% !important;
+    min-height: 46px;
+    font-size: 16px;
+  }
+}
+
+/* ----------------------------
+   TABLET (641–1024px)
+   ---------------------------- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Two columns look better than three at this width */
+  .update-schedule-body {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    text-align: center;
+  }
+  .schedule-col {
+    border-right: none !important;
+  }
+
+  /* Image slightly smaller; keep proportions */
+  .img-no-schedule {
+    width: 50% !important;
+    height: auto !important;
+  }
+
+  /* Footer actions: two equal columns */
+  .action-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px !important;
+    width: 100%;
+    padding: 0 16px;
+    margin: 20px auto 10px;
+  }
+  .reset-button,
+  .submit-button {
+    width: 100% !important;
+    min-height: 46px;
+    font-size: 16px;
+  }
+}
+
+/* ----------------------------
+   Accessibility
+   ---------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

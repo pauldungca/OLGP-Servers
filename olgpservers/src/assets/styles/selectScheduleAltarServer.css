@@ -248,3 +248,264 @@
   color: #666;
   font-size: 16px;
 }
+
+/* =========================================================
+   Responsive Add-On for Select Schedule (non-destructive)
+   Desktop: unchanged. Tablet/Mobile only.
+   Breakpoints:
+     - Mobile: <= 640px
+     - Tablet: 641–1024px
+   ========================================================= */
+
+/* Safety: media scales without touching base sizes */
+:where(img, svg, video, canvas) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Keep card hover nice on touch devices */
+@media (hover: none) {
+  .schedule-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* =========================
+   MOBILE (<= 640px)
+   ========================= */
+@media (max-width: 640px) {
+  /* Tighten month header and avoid horizontal scroll */
+  .month-header {
+    padding: 0 16px !important;
+    margin-bottom: 14px;
+    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Center the month title; arrows stay tappable and never overlap title */
+  .month-nav {
+    max-width: none;
+    width: 100%;
+    padding: 0 48px !important; /* keeps buffer for arrows */
+    min-height: 44px;
+  }
+  .month-title {
+    font-size: clamp(18px, 5vw, 20px);
+    line-height: 1.2;
+    text-align: center;
+  }
+  .month-nav .arrow-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* Automatic button full-width under the nav on mobile */
+  .auto-btn-container {
+    width: 100%;
+  }
+  .auto-btn {
+    width: 100%;
+    min-height: 46px;
+    padding: 12px 16px;
+    font-size: 16px;
+    border-radius: 10px;
+  }
+  .btn-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  /* Grid becomes single column */
+  .schedule-grid {
+    padding: 0 16px !important;
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Cards fill width; keep elevation subtle on small screens */
+  .schedule-card {
+    max-width: none !important;
+    min-height: 240px;
+    padding: 18px 16px;
+    border-radius: 12px;
+  }
+
+  .schedule-icon {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 12px;
+  }
+  .schedule-text {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .date-divider {
+    height: 3px;
+    width: 85%;
+    margin: 10px auto;
+  }
+  .schedule-date {
+    font-size: 15px;
+  }
+
+  /* Utility: prevent horizontal overflow */
+  .schedule-page-container,
+  .schedule-content,
+  .month-header,
+  .schedule-grid,
+  .schedule-card {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* No-schedule state spacing */
+  .no-schedule {
+    min-height: 160px;
+    font-size: 15px;
+    padding: 8px 0;
+  }
+}
+
+/* =========================
+   TABLET (641–1024px)
+   ========================= */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Keep desktop look, just massage spacing */
+  .month-header {
+    padding: 0 24px; /* lighter than 50px */
+    margin-bottom: 18px;
+    gap: 12px;
+  }
+  .month-nav {
+    max-width: 560px; /* a little more breathing room */
+    padding: 0 56px; /* preserve arrow buffer */
+  }
+  .month-title {
+    font-size: 20px;
+  }
+
+  .auto-btn {
+    min-height: 46px;
+  }
+
+  /* Grid: two columns commonly looks best on tablet */
+  .schedule-grid {
+    padding: 0 24px;
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    gap: 22px;
+  }
+  .schedule-card {
+    max-width: none;
+  }
+}
+
+/* =========================
+   ACCESSIBILITY
+   ========================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =========================================================
+   Responsive Add-On: Export / Print actions (SelectMass/SelectRole)
+   Desktop: unchanged. Tablet/Mobile only.
+   Targets the footer .action-buttons area and its children.
+   ========================================================= */
+
+/* Touch devices: don't apply hover elevation */
+@media (hover: none) {
+  .action-buttons :where(button) {
+    transform: none !important;
+  }
+}
+
+/* ----------------------------
+   MOBILE (<= 640px)
+   ---------------------------- */
+@media (max-width: 640px) {
+  /* Stack actions and make them full-width */
+  .action-buttons {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 10px !important;
+    padding: 10px !important;
+    border-radius: 12px;
+  }
+
+  /* Any direct child (dropdown trigger, buttons) fills width */
+  .action-buttons > * {
+    width: 100% !important;
+  }
+
+  /* Common button comfort */
+  .action-buttons :where(button, .btn) {
+    min-height: 46px;
+    font-size: 16px;
+    justify-content: center;
+  }
+
+  /* AntD dropdown trigger (ScheduleDropdownButton) */
+  .action-buttons :where(.ant-btn, .ant-dropdown-trigger) {
+    width: 100% !important;
+  }
+
+  /* Ensure dropdown menu doesn't overflow viewport width */
+  .action-buttons :where(.ant-dropdown) {
+    max-width: 100vw;
+  }
+
+  /* Icon sizing inside buttons */
+  .icon-btn {
+    width: 22px;
+    height: 22px;
+    margin-right: 8px;
+  }
+}
+
+/* ----------------------------
+   TABLET (641–1024px)
+   ---------------------------- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Two equal columns, wraps nicely if more actions appear */
+  .action-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px !important;
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .action-buttons > * {
+    width: 100% !important;
+  }
+
+  .action-buttons :where(button, .btn, .ant-btn) {
+    min-height: 46px;
+    font-size: 16px;
+    justify-content: center;
+  }
+}
+
+/* ----------------------------
+   ACCESSIBILITY
+   ---------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

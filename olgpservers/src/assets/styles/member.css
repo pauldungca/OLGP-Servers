@@ -1,4 +1,3 @@
-/* Header Styles */
 .member-header {
   color: #0a2471;
   padding: 1rem;
@@ -71,6 +70,43 @@
   border-radius: 10px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
+}
+
+/* Custom Table Wrapper */
+.table-container {
+  width: 90%;
+  min-width: 600px;
+  margin: 2rem auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow-x: auto; /* Enable horizontal scroll if needed */
+}
+
+/* Ensure table inside container can expand */
+.table-container table {
+  min-width: 600px; /* Prevent table from squishing too much */
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+  .table-container {
+    width: 100%;
+    margin: 1rem auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .table-container {
+    width: 100%;
+    min-width: unset; /* Remove the 600px limit */
+    overflow-x: auto; /* Allow horizontal scroll */
+  }
+
+  .table-container table {
+    min-width: 500px; /* force scrollbar instead of text breaking */
+  }
 }
 
 /* Hover & Focus States */
@@ -346,4 +382,147 @@
 .ant-table-body::-webkit-scrollbar-thumb {
   background-color: #4169e1;
   border-radius: 3px;
+}
+
+/* =========================================================
+   Responsive Add-On: Members List (non-destructive)
+   Desktop: unchanged. Tablet/Mobile only.
+   ========================================================= */
+
+/* Let the table wrapper scroll horizontally on small screens */
+.table-container {
+  overflow-x: auto;
+}
+
+/* ----------------------------
+   MOBILE (<= 640px)
+   ---------------------------- */
+@media (max-width: 640px) {
+  /* Page padding tighter */
+  .member-content {
+    padding: 0.75rem 1rem;
+    padding-bottom: 1rem;
+  }
+
+  /* Search bar → stacked, full-width controls */
+  .search-bar-container {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 10px !important;
+    justify-content: stretch !important;
+  }
+
+  .search-bar-container .form-control {
+    width: 100% !important;
+    min-height: 44px;
+    order: 1;
+  }
+
+  .search-bar-container button,
+  .search-bar-container .btn-blue {
+    width: 100% !important;
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  /* Table wrapper fits viewport; remove min-width */
+  .table-container {
+    width: 100% !important;
+    min-width: unset !important;
+    margin: 1rem 0 !important;
+    border-radius: 10px;
+  }
+
+  /* Slightly denser table padding on phones */
+  .ant-table-thead .ant-table-cell,
+  .ant-table-tbody .ant-table-cell {
+    padding: 8px 12px;
+  }
+
+  /* Footer actions → stacked full-width */
+  .action-buttons {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 10px !important;
+    margin: 1rem 0 0 0 !important;
+  }
+
+  .action-buttons .btn-blue,
+  .action-buttons .ant-btn,
+  .action-buttons > * {
+    width: 100% !important;
+    min-height: 46px;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  /* Avoid horizontal overflow anywhere */
+  .member-page-container,
+  .member-content,
+  .table-container {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
+/* ----------------------------
+   TABLET (641–1024px)
+   ---------------------------- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Search bar → 2fr / 1fr / 1fr grid */
+  .search-bar-container {
+    display: grid !important;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 12px !important;
+    justify-content: center;
+    align-items: stretch;
+  }
+
+  .search-bar-container .form-control {
+    width: 100% !important;
+    min-height: 44px;
+  }
+
+  .search-bar-container button,
+  .search-bar-container .btn-blue {
+    width: 100% !important;
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  /* Table wrapper room, but no forced min-width */
+  .table-container {
+    width: 95%;
+    min-width: unset !important;
+    margin: 1.25rem auto;
+  }
+
+  /* Footer actions → two equal columns */
+  .action-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px !important;
+    margin-left: 0 !important;
+  }
+
+  .action-buttons .btn-blue,
+  .action-buttons .ant-btn {
+    width: 100% !important;
+    min-height: 46px;
+    justify-content: center;
+  }
+}
+
+/* ----------------------------
+   ACCESSIBILITY
+   ---------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

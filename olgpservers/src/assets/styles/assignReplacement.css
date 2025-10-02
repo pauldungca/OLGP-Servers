@@ -74,3 +74,71 @@
   background-color: #ccc;
   cursor: not-allowed;
 }*/
+
+/* =========================================
+   Responsive Add-On for Assign Replacement
+   ========================================= */
+
+/* ----- Mobile (<= 640px) ----- */
+@media (max-width: 640px) {
+  .department-settings-content h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  .department-settings-content p {
+    font-size: 1rem;
+    padding: 0 1rem;
+    text-align: center;
+  }
+
+  /* Stack role buttons full-width */
+  .assign-replacement-role-container {
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    align-items: stretch;
+  }
+
+  .assign-replacement-role-btn {
+    width: 100% !important;
+    font-size: 1rem;
+    padding: 0.75rem;
+  }
+
+  /* Confirm button: bigger tap target */
+  .assign-replacement-confirm-btn {
+    font-size: 1.1rem;
+    padding: 0.9rem;
+    border-radius: 8px;
+    margin-top: 1.5rem;
+  }
+}
+
+/* ----- Tablet (641px–1024px) ----- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .assign-replacement-role-container {
+    gap: 1rem;
+    justify-content: center;
+  }
+
+  .assign-replacement-role-btn {
+    width: 45% !important; /* 2 per row */
+    font-size: 1.05rem;
+  }
+
+  .assign-replacement-confirm-btn {
+    font-size: 1.15rem;
+    padding: 1rem;
+  }
+}
+
+/* Accessibility: motion reduction */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -9,6 +9,7 @@ import Footer from "../../components/footer";
 import {
   fetchMemberInformation,
   editMemberInfo,
+  handleBackupSchedulersMonthDialog,
 } from "../../assets/scripts/account";
 
 import {
@@ -691,9 +692,26 @@ export default function Account() {
                 >
                   Edit Information
                 </button>
-                <button type="button" className="btn btn-action">
-                  Backup Data
-                </button>
+
+                {isAnyScheduler && (
+                  <button
+                    type="button"
+                    className="btn btn-action"
+                    onClick={() =>
+                      handleBackupSchedulersMonthDialog({
+                        idNumber: localStorage.getItem("idNumber"),
+                        available: [
+                          isAltarServer ? "altar" : null,
+                          isLectorCommentator ? "lector" : null,
+                          isChoir ? "choir" : null,
+                          isEucharisticMinister ? "em" : null,
+                        ].filter(Boolean),
+                      })
+                    }
+                  >
+                    Backup Data
+                  </button>
+                )}
               </>
             ) : (
               <>

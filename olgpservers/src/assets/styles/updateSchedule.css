@@ -231,3 +231,211 @@
   background: #213571;
   color: #fff;
 }
+
+/* =========================================================
+   Responsive Add-On for View Schedule (non-destructive)
+   Breakpoints:
+     - Mobile:  <= 640px
+     - Tablet:  641–1024px
+     - Desktop: >= 1025px
+   ========================================================= */
+
+/* Fluid media without touching your base */
+:where(img, svg, canvas, video) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Toolbar month picker keeps readable width unless constrained later */
+.month-select.ant-picker {
+  width: auto;
+}
+
+/* ----------------------------
+   MOBILE (<= 640px)
+   ---------------------------- */
+@media (max-width: 640px) {
+  html {
+    font-size: clamp(14px, 3.6vw, 16px);
+  }
+
+  /* Wrapper spacing */
+  .update-schedule-wrapper {
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+    border-radius: 10px;
+  }
+
+  .update-schedule-header {
+    font-size: 1rem;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+  }
+
+  /* Body becomes single-column grid */
+  .update-schedule-body {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    text-align: left;
+  }
+
+  .schedule-col {
+    padding: 10px !important;
+    border-right: none !important; /* remove column dividers on mobile */
+    border-bottom: 1px solid #00000022;
+  }
+  .schedule-col:last-child {
+    border-bottom: none;
+  }
+
+  /* The inline minWidth:300 on the first info box would overflow on mobile.
+     Relax it defensively here. */
+  .schedule-col .col-inner > div:first-child {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* No-schedule visuals */
+  .no-schedule img {
+    width: 60% !important;
+    height: auto !important;
+  }
+  .no-schedule p {
+    font-size: 0.9rem;
+  }
+
+  /* Assigned group box should fill width nicely */
+  .assigned-group .assigned-box {
+    width: 100% !important;
+  }
+
+  .group-name {
+    font-size: 1.125rem;
+  }
+  .mass-time {
+    font-size: 0.95rem;
+  }
+
+  /* Action buttons: stack & fill */
+  .action-buttons {
+    width: 100%;
+    justify-content: stretch !important;
+    padding: 0.5rem 0 !important;
+    gap: 8px !important;
+    display: grid !important;
+    grid-template-columns: 1fr;
+  }
+
+  /* Print/Cancel buttons become full-width with comfy tap size */
+  .print-btn,
+  .cancel-btn {
+    width: 100% !important;
+    min-height: 44px;
+    padding: 10px 14px !important;
+    font-size: 1rem !important;
+  }
+
+  /* Icon spacing tighter on small screens */
+  .icon-btn {
+    width: 18px;
+    margin-right: 8px;
+  }
+
+  /* Toolbar: month picker fits viewport */
+  .schedule-toolbar {
+    flex-wrap: wrap;
+    gap: 8px !important;
+    margin: 8px 0 12px 0 !important;
+  }
+  .month-select.ant-picker {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 46px !important;
+    border-radius: 8px !important;
+  }
+  .month-select .ant-picker-input > input {
+    font-size: 1rem;
+  }
+
+  /* Prevent accidental horizontal scroll */
+  .update-schedule-wrapper,
+  .update-schedule-body {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
+/* ----------------------------
+   TABLET (641–1024px)
+   ---------------------------- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  html {
+    font-size: clamp(15px, 1.6vw, 17px);
+  }
+
+  .update-schedule-wrapper {
+    padding: 16px !important;
+    border-radius: 10px;
+  }
+
+  /* Two columns per row for schedule items */
+  .update-schedule-body {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    text-align: left;
+  }
+
+  .schedule-col {
+    padding: 12px !important;
+    border-right: none !important;
+  }
+
+  /* Loosen the inline min-width constraint for nicer fit */
+  .schedule-col .col-inner > div:first-child {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Assigned boxes a bit wider but not too wide */
+  .assigned-group .assigned-box {
+    width: 70%;
+  }
+
+  /* Toolbar spacing and picker width */
+  .schedule-toolbar {
+    gap: 10px;
+  }
+  .month-select.ant-picker {
+    width: 60%;
+    min-width: 320px;
+  }
+}
+
+/* ----------------------------
+   DESKTOP niceties (>= 1025px)
+   ---------------------------- */
+@media (min-width: 1025px) {
+  /* Keep your original flex layout, but ensure equal heights look tidy */
+  .update-schedule-body {
+    align-items: stretch;
+  }
+  .assigned-group .assigned-box {
+    width: 50%;
+  }
+}
+
+/* ----------------------------
+   Accessibility
+   ---------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

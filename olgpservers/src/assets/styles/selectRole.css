@@ -217,3 +217,117 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* =========================================================
+   Responsive Add-On for Select Role (non-destructive)
+   Desktop: unchanged. Mobile/Tablet only.
+   Targets: .role-cards-grid, .role-card, .big-role-card,
+            .assigned-member, .assigned-grid-plate, .role-card-actions
+   ========================================================= */
+
+/* Touch devices: neutralize hover lift so it doesn't feel sticky */
+@media (hover: none) {
+  .role-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* ----------------------------
+   MOBILE (<= 640px)
+   ---------------------------- */
+@media (max-width: 640px) {
+  /* Grid → 1 column */
+  .role-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    margin-top: 14px;
+  }
+
+  /* Card padding & radius for small screens */
+  .role-card,
+  .big-role-card {
+    padding: 18px 14px !important;
+    border-radius: 12px !important;
+    min-height: 200px;
+  }
+
+  /* Assigned chips fill the width comfortably */
+  .assigned-member {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    font-size: 0.95rem;
+    padding: 10px 8px;
+  }
+
+  /* Plate grid → 2 columns on small screens to avoid super tall lists */
+  .assigned-grid-plate {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .role-card-title {
+    font-size: 15px;
+  }
+  .role-card-divider {
+    width: 85% !important;
+  }
+
+  /* Action buttons: stack full-width with comfy tap targets */
+  .role-card-actions {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 10px !important;
+    margin-top: 12px;
+  }
+  .role-card-actions .btn-reset-schedule,
+  .role-card-actions .btn-submit-schedule {
+    width: 100% !important;
+    min-height: 46px;
+    font-size: 16px;
+  }
+}
+
+/* ----------------------------
+   TABLET (641–1024px)
+   ---------------------------- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Grid → 2 columns feels right here */
+  .role-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 20px !important;
+  }
+
+  /* Plate grid: 3 columns on tablet to balance density */
+  .assigned-grid-plate {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  /* Buttons: two equal columns */
+  .role-card-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px !important;
+  }
+  .role-card-actions .btn-reset-schedule,
+  .role-card-actions .btn-submit-schedule {
+    width: 100% !important;
+    min-height: 46px;
+  }
+}
+
+/* ----------------------------
+   Accessibility
+   ---------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

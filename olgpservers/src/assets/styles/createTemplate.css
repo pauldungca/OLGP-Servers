@@ -115,3 +115,223 @@
   background-color: #162656;
   color: white;
 }
+
+/* =========================================================
+   Responsive Add-On for Create/Edit Template pages
+   Breakpoints:
+     - Mobile:  <= 640px
+     - Tablet:  641px–1024px
+     - Desktop: >= 1025px
+   NOTE: Include AFTER your existing schedule/createTemplate CSS
+   ========================================================= */
+
+/* Safety: fluid form controls without touching your base widths */
+.schedule-content .form-control,
+.schedule-content .form-select {
+  max-width: 100%;
+}
+
+/* Keep big buttons from overflowing on narrower screens */
+.btn-cancelButton,
+.btn-create {
+  max-width: 100%;
+}
+
+/* Make “w-auto” selects behave on tiny screens */
+.schedule-content .form-select.w-auto {
+  min-width: 120px;
+}
+
+/* =========================================================
+   MOBILE (<= 640px)
+   ========================================================= */
+@media (max-width: 640px) {
+  /* So text remains comfy without overriding your declared sizes elsewhere */
+  html {
+    font-size: clamp(14px, 3.6vw, 16px);
+  }
+
+  /* Header spacing */
+  .schedule-header {
+    padding: 0.75rem 1rem;
+  }
+  .header-text-with-line h3 {
+    font-size: clamp(1.125rem, 5.2vw, 1.5rem);
+    line-height: 1.2;
+  }
+
+  /* Page padding */
+  .schedule-content.container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Top row (Template Name + Mass Type) stacks */
+  .schedule-content .row.mb-4 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  .template-name-input {
+    width: 100%;
+  }
+  .mass-type-dropdown {
+    width: 100%;
+  }
+
+  /* Department buttons: single column, full width */
+  .schedule-content .d-flex.gap-3.mb-4.flex-wrap.w-100 {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .department-btn {
+    width: 100%;
+    min-width: 0; /* allow shrinking below 150px on mobile */
+    padding: 0.75rem 1rem; /* better tap target */
+  }
+
+  /* Sections: comfortable spacing and rounded corners */
+  .department-section {
+    padding: 0.75rem !important;
+    border-radius: 12px;
+  }
+  .section-title {
+    margin-bottom: 0.5rem;
+  }
+
+  /* Role grids collapse to single column */
+  .department-section .row.g-3 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  /* Each role row wraps nicely (checkbox + label + select) */
+  .department-section .d-flex.align-items-center.gap-2,
+  .department-section .d-flex.align-items-center.gap-3 {
+    flex-wrap: wrap;
+    gap: 0.5rem !important;
+  }
+  .department-section .form-select.form-select-sm.w-auto {
+    width: 100% !important; /* prevent overflow */
+  }
+  .department-section .form-check-label {
+    flex: 1 1 auto; /* let label take available width */
+  }
+
+  /* Eucharistic / Choir: the inline selector row wraps cleanly */
+  .department-section .d-flex.align-items-center.gap-3 > label {
+    margin-bottom: 0.25rem;
+  }
+  .department-section .d-flex.align-items-center.gap-3 {
+    flex-wrap: wrap;
+  }
+  .department-section .d-flex.align-items-center.gap-3 .form-select {
+    width: 100%;
+  }
+
+  /* Action buttons: stack, full width */
+  .d-flex.justify-content-end.gap-3.mt-5.mb-4 {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .btn-cancelButton,
+  .btn-create {
+    width: 100%;
+    height: 48px; /* keep your comfy tap size */
+  }
+
+  /* Prevent accidental horizontal scrolling on nested .row blocks */
+  .schedule-content .row {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  /* Long words/IDs won’t blow up the layout */
+  .schedule-page-container,
+  .schedule-content,
+  .department-section {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
+/* =========================================================
+   TABLET (641px–1024px)
+   ========================================================= */
+@media (min-width: 641px) and (max-width: 1024px) {
+  html {
+    font-size: clamp(15px, 1.6vw, 17px);
+  }
+
+  /* Top row uses a 2:1 grid for better balance */
+  .schedule-content .row.mb-4 {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  /* Department buttons in 2 columns */
+  .schedule-content .d-flex.gap-3.mb-4.flex-wrap.w-100 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .department-btn {
+    min-width: 0; /* allow natural grid shrinking */
+    padding: 0.75rem 1rem;
+  }
+
+  /* Role grids: 2 columns */
+  .department-section .row.g-3 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  /* Keep inline selector rows tidy */
+  .department-section .d-flex.align-items-center.gap-3 {
+    flex-wrap: wrap;
+  }
+  .department-section .d-flex.align-items-center.gap-3 .form-select.w-auto {
+    min-width: 140px;
+  }
+
+  /* Action buttons stay inline but won’t overflow */
+  .d-flex.justify-content-end.gap-3.mt-5.mb-4 {
+    gap: 0.75rem !important;
+    flex-wrap: wrap;
+  }
+  .btn-cancelButton,
+  .btn-create {
+    width: auto;
+  }
+}
+
+/* =========================================================
+   DESKTOP niceties (>= 1025px)
+   ========================================================= */
+@media (min-width: 1025px) {
+  /* Center the content column if you like; doesn’t change your base */
+  .schedule-content.container {
+    max-width: 1200px;
+    margin-inline: auto;
+  }
+}
+
+/* =========================================================
+   Accessibility
+   ========================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

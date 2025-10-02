@@ -79,3 +79,189 @@
 .ant-picker-calendar-date {
   border: 1px solid #e5e5e5 !important;
 }
+
+/* =========================================
+   Responsive Add-On for Dashboard
+   Include AFTER assets/styles/dashboard.css
+   Breakpoints:
+   - Mobile:  <= 640px
+   - Tablet:  641–1024px
+   - Desktop: >= 1025px
+   ========================================= */
+
+/* Make images fluid without touching your base sizes */
+.img-people,
+.img-checkIcon {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Desktop container nicety (optional centering) */
+@media (min-width: 1025px) {
+  .dashboard-page-container {
+    min-height: 100vh;
+  }
+  .dashboard-content {
+    max-width: 1200px;
+    margin-inline: auto;
+  }
+}
+
+/* =========================================
+   MOBILE (<= 640px)
+   ========================================= */
+@media (max-width: 640px) {
+  /* Comfortable base type without overriding your declared sizes */
+  html {
+    font-size: clamp(14px, 3.6vw, 16px);
+  }
+
+  /* Header stacks and breathes */
+  .dashboard-header {
+    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-text-with-line h3 {
+    font-size: clamp(1.125rem, 5.2vw, 1.5rem);
+    line-height: 1.2;
+  }
+
+  .header-line {
+    height: 2px;
+    width: 100%;
+    margin-top: 0.4rem;
+  }
+
+  /* Page padding/panels */
+  .dashboard-content {
+    padding: 0.75rem;
+    padding-bottom: 1rem; /* was 3%, keep things tight on small screens */
+  }
+
+  /* Cards (if you use .card-style anywhere on the page) */
+  .card-style {
+    border-radius: 12px;
+  }
+
+  /* Images scale down for tight headers/cards */
+  .img-people {
+    width: 56px;
+    height: auto;
+    margin-right: 0.75rem;
+  }
+  .img-checkIcon {
+    width: 48px;
+    height: auto;
+    margin-right: 0.75rem;
+  }
+
+  /* Calendar container fills width and is easy to scroll if needed */
+  .calendar-container {
+    padding: 0.75rem !important;
+    border-radius: 10px;
+  }
+
+  /* Ant Design Calendar tweaks for small screens */
+  .ant-picker-calendar {
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  /* Reduce calendar chrome density */
+  .ant-picker-cell-inner {
+    padding: 4px; /* from 6px base */
+  }
+
+  /* Keep borders but make them visually lighter on small screens */
+  .ant-picker-cell,
+  .ant-picker-calendar-date {
+    border-width: 1px !important;
+  }
+
+  /* Prevent horizontal scroll on Bootstrap rows within dashboard content */
+  .dashboard-content .row {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  /* Make columns naturally stack if any custom fixed widths were set elsewhere */
+  .dashboard-content [class*="col-"] {
+    max-width: 100%;
+    flex: 0 0 100%;
+  }
+}
+
+/* =========================================
+   TABLET (641px – 1024px)
+   ========================================= */
+@media (min-width: 641px) and (max-width: 1024px) {
+  html {
+    font-size: clamp(15px, 1.6vw, 17px);
+  }
+
+  .dashboard-header {
+    padding: 0.85rem 1.25rem;
+  }
+
+  .header-text-with-line h3 {
+    font-size: clamp(1.25rem, 2.2vw, 1.6rem);
+  }
+
+  .dashboard-content {
+    padding: 1rem 1.25rem;
+    padding-bottom: 1.25rem;
+  }
+
+  .calendar-container {
+    padding: 1rem !important;
+    border-radius: 12px;
+  }
+
+  .ant-picker-cell-inner {
+    padding: 6px; /* keep your base padding for tablet */
+  }
+
+  /* Help wide month views breathe without forcing overflow */
+  .ant-picker-calendar {
+    overflow: hidden;
+  }
+}
+
+/* =========================================
+   OPTIONAL DESKTOP FINESSE (>= 1025px)
+   ========================================= */
+@media (min-width: 1025px) {
+  .dashboard-header {
+    padding: 1rem 1.25rem;
+  }
+  .calendar-container {
+    padding: 1.25rem !important;
+  }
+}
+
+/* =========================================
+   ACCESSIBILITY & SAFETY NETS
+   ========================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Ensure long labels/URLs don’t blow up the layout */
+@media (max-width: 640px) {
+  .dashboard-page-container,
+  .dashboard-content,
+  .calendar-container {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+}

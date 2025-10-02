@@ -92,3 +92,150 @@
   gap: 15px;
   padding-top: 20px;
 }
+
+/* =========================================================
+   Responsive Add-On: Assign Member (non-destructive)
+   Desktop unchanged; Tablet/Mobile only.
+   ========================================================= */
+
+/* Let the right pane behave like a column: scrollable content + footer */
+.assign-right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* enables child overflow sizing */
+}
+
+/* Make the scroll area flexible so buttons don't get pushed off */
+.assign-right-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding-right: 10px;
+}
+
+/* Give the left list more headroom universally */
+.assign-member-list {
+  max-height: 52vh;
+  overflow: auto;
+}
+
+/* ----------------------------
+   MOBILE (<= 640px)
+   ---------------------------- */
+@media (max-width: 640px) {
+  /* Stack left/right columns */
+  .assign-container.row {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .assign-container {
+    padding: 0.75rem !important;
+    border-radius: 10px;
+  }
+
+  /* Remove the vertical divider on small screens */
+  .assign-right {
+    border-left: none !important;
+    padding-left: 0 !important;
+  }
+
+  /* Search input/button height */
+  .assign-left .input-group .form-control,
+  .assign-left .input-group .btn {
+    min-height: 44px;
+  }
+
+  /* Lists scale to viewport height */
+  .assign-member-list {
+    max-height: 48vh !important;
+  }
+
+  /* Thin underline spacing */
+  .assign-line {
+    margin-top: 0.25rem;
+  }
+
+  /* Footer buttons: sticky, stacked, full-width */
+  .bottom-buttons {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 10px !important;
+    padding-top: 12px !important; /* override base 20px if needed */
+    padding-bottom: 12px;
+    background: #fff;
+  }
+
+  /* Neutralize the fixed 50% width from .action-buttons on small screens */
+  .action-buttons {
+    width: 100% !important;
+    padding: 12px 16px !important;
+    font-size: 16px !important;
+    border-radius: 10px !important;
+  }
+
+  .bottom-buttons .btn {
+    width: 100% !important;
+    min-height: 46px;
+    justify-content: center;
+  }
+
+  .img-btn {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+  }
+}
+
+/* ----------------------------
+   TABLET (641–1024px)
+   ---------------------------- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Two equal columns layout */
+  .assign-container.row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  .assign-right {
+    border-left: none !important;
+    padding-left: 0.5rem;
+  }
+
+  /* Taller lists on tablet */
+  .assign-member-list {
+    max-height: 56vh;
+  }
+
+  /* Footer buttons: 2 columns */
+  .bottom-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px !important;
+    padding-top: 12px !important;
+  }
+
+  .action-buttons {
+    width: 100% !important; /* override 50% so they fill grid cells */
+    min-height: 46px;
+    justify-content: center;
+  }
+}
+
+/* ----------------------------
+   Accessibility
+   ---------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

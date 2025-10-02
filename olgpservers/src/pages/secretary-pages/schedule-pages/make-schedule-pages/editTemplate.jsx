@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Breadcrumb } from "antd";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import icon from "../../../../helper/icon";
+import { useLocation, useNavigate } from "react-router-dom";
 import image from "../../../../helper/images";
 import Footer from "../../../../components/footer";
 
@@ -286,31 +284,7 @@ export default function EditTemplate() {
       <div className="schedule-header">
         <div className="header-text-with-line">
           <h3>MAKE SCHEDULE</h3>
-          <div style={{ margin: "10px 0" }}>
-            <Breadcrumb
-              items={[
-                {
-                  title: (
-                    <Link to="/selectTemplate" className="breadcrumb-item">
-                      Select Template
-                    </Link>
-                  ),
-                },
-                {
-                  title: "Edit Mass Schedule Template",
-                  className: "breadcrumb-item-active",
-                },
-              ]}
-              separator={
-                <img
-                  src={icon.chevronIcon}
-                  alt="Chevron Icon"
-                  style={{ width: "15px", height: "15px" }}
-                />
-              }
-              className="customized-breadcrumb"
-            />
-          </div>
+          <div style={{ margin: "10px 0" }}></div>
           <div className="header-line"></div>
         </div>
       </div>

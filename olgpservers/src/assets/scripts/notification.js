@@ -684,7 +684,7 @@ export const insertUserSpecificNotifications = async ({
 
     await Swal.fire({
       icon: "success",
-      title: "Inserted",
+      title: "Sent!",
       text: `Added ${data?.length || rows.length} notification record(s).`,
       timer: 1400,
       showConfirmButton: false,

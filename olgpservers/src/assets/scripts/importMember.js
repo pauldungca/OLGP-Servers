@@ -14,15 +14,14 @@ export const importToAltarServerDepartment = async (idNumber) => {
     // Step 2: Insert a new row into altar-server-roles → all roles set to 0
     const resetRoles = {
       idNumber: idNumber,
-      CandleBearer: 0,
-      Beller: 0,
-      CrossBearer: 0,
-      Thurifer: 0,
-      IncenseBearer: 0,
-      MainServers: 0,
-      Plates: 0,
+      "candle-bearer": 0,
+      beller: 0,
+      "cross-bearer": 0,
+      thurifer: 0,
+      "incense-bearer": 0,
+      "main-server": 0,
+      plate: 0,
     };
-
     const { error: roleError } = await supabase
       .from("altar-server-roles")
       .insert([resetRoles]);

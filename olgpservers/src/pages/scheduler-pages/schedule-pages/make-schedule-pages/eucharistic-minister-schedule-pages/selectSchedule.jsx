@@ -22,6 +22,7 @@ import {
   computeEucharisticMinisterStatusForDate,
   eucharisticMinisterMemberCounts,
   eucharisticMinisterGroupCounts,
+  canGoToPreviousMonth,
 } from "../../../../../assets/scripts/fetchSchedule";
 
 import {
@@ -327,15 +328,15 @@ export default function SelectSchedule() {
       <div className="schedule-content">
         <div className="month-header">
           <div className="month-nav">
-            <button
-              type="button"
-              className="arrow-btn"
-              onClick={handlePrev}
-              disabled={isLoading || autoAssigning}
-              title="Previous month"
-            >
-              ←
-            </button>
+            {canGoToPreviousMonth(year, month) && (
+              <button
+                className="arrow-btn"
+                onClick={handlePrev}
+                disabled={isLoading || autoAssigning}
+              >
+                ←
+              </button>
+            )}
             <h5 className="month-title">{formatHeader(year, month)}</h5>
             <button
               type="button"

@@ -976,7 +976,6 @@ const AssignProgress = (() => {
           <div><strong>Sundays:</strong> <span id="ap-sun">0</span>/<span id="ap-sunTotal">0</span></div>
           <div><strong>Masses:</strong> <span id="ap-mass">0</span>/<span id="ap-massTotal">0</span></div>
           <div><strong>Assignments:</strong> <span id="ap-assign">0</span></div>
-          <div><strong>Errors:</strong> <span id="ap-err">0</span></div>
         </div>
         <div style="margin-top:10px;height:10px;background:#e9ecef;border-radius:6px;overflow:hidden;">
           <div id="ap-bar" style="height:100%;width:0%;background:#4e79ff;transition:width .15s ease"></div>
@@ -1011,7 +1010,7 @@ const AssignProgress = (() => {
     nodes.mass.textContent = String(ui.massesProcessed);
     nodes.massTotal.textContent = String(ui.totalMasses);
     nodes.assign.textContent = String(ui.membersAssigned);
-    nodes.err.textContent = String(ui.errors);
+    //nodes.err.textContent = String(ui.errors);
     const pct = ui.totalMasses
       ? Math.round((ui.massesProcessed / ui.totalMasses) * 100)
       : 0;
@@ -1232,133 +1231,6 @@ export const autoAssignSundaySchedules = async (year, month) => {
     };
   }
 };
-
-/*const autoAssignSingleMass = async ({
-  dateISO,
-  massLabel,
-  availableMembers,
-  historicalAssignments,
-  sundayAssignments,
-  templateID,
-  perRoleAllowed, // eligibility map from altar-server-roles
-  onAssign, // optional per-member callback
-}) => {
-  const { data: existingAssignments } = await supabase
-    .from("altar-server-placeholder")
-    .select("role, slot, idNumber")
-    .eq("date", dateISO)
-    .eq("mass", massLabel);
-
-  const existingByRole = {};
-  (existingAssignments || []).forEach((assignment) => {
-    const k = assignment.role;
-    if (!existingByRole[k]) existingByRole[k] = [];
-    existingByRole[k].push({
-      slot: assignment.slot,
-      idNumber: assignment.idNumber,
-    });
-  });
-
-  const roleRequirements = {
-    thurifer: 1,
-    beller: 2,
-    mainServer: 2,
-    candleBearer: 2,
-    incenseBearer: 1,
-    crossBearer: 1,
-    plate: 10,
-  };
-
-  let totalNewAssignments = 0;
-
-  for (const [roleKey, requiredCount] of Object.entries(roleRequirements)) {
-    const existing = existingByRole[roleKey] || [];
-    const needToAssign = requiredCount - existing.length;
-    if (needToAssign <= 0) continue;
-
-    try {
-      const allowedSet = perRoleAllowed.get(roleKey) || new Set();
-
-      const candidatesForRole = availableMembers
-        .filter((member) => {
-          const id = String(member.idNumber).trim();
-
-          // eligibility from altar-server-roles
-          if (!allowedSet.has(id)) return false;
-
-          // not already assigned this Sunday
-          if (sundayAssignments.has(id)) return false;
-
-          // not already in this mass
-          const inMass = (existingAssignments || []).some(
-            (a) => String(a.idNumber).trim() === id
-          );
-          if (inMass) return false;
-
-          return true;
-        })
-        .map((member) => ({
-          ...member,
-          rotationScore: calculateRotationScore(
-            member.idNumber,
-            roleKey,
-            historicalAssignments || [],
-            dateISO
-          ),
-        }))
-        .sort((a, b) => a.rotationScore - b.rotationScore);
-
-      let filteredCandidates = candidatesForRole;
-
-      if (roleKey === "candleBearer" || roleKey === "beller") {
-        if (existing.length > 0) {
-          const existingMember = availableMembers.find(
-            (m) =>
-              String(m.idNumber).trim() === String(existing[0].idNumber).trim()
-          );
-          if (existingMember?.sex) {
-            filteredCandidates = candidatesForRole.filter(
-              (c) => c.sex === existingMember.sex
-            );
-          }
-        }
-      }
-
-      const selectedMembers = filteredCandidates.slice(0, needToAssign);
-      if (selectedMembers.length === 0) continue;
-
-      const assignments = selectedMembers.map((member, index) => ({
-        date: dateISO,
-        mass: massLabel,
-        templateID: templateID,
-        role: roleKey,
-        slot: existing.length + index + 1,
-        idNumber: String(member.idNumber).trim(),
-      }));
-
-      const { data: inserted, error } = await supabase
-        .from("altar-server-placeholder")
-        .insert(assignments)
-        .select("idNumber");
-
-      if (error)
-        throw new Error(`Failed to assign ${roleKey}: ${error.message}`);
-
-      (inserted || []).forEach((row) => {
-        const id = String(row.idNumber).trim();
-        sundayAssignments.add(id);
-        if (typeof onAssign === "function") onAssign(id);
-      });
-
-      totalNewAssignments += selectedMembers.length;
-    } catch (roleError) {
-      console.error(`Error assigning role ${roleKey}:`, roleError);
-      throw roleError;
-    }
-  }
-
-  return totalNewAssignments;
-};*/
 
 const autoAssignSingleMass = async ({
   dateISO,
@@ -3216,7 +3088,6 @@ const AssignProgressChoir = (() => {
           <div><strong>Sundays:</strong> <span id="ap-sun">0</span>/<span id="ap-sunTotal">0</span></div>
           <div><strong>Masses:</strong> <span id="ap-mass">0</span>/<span id="ap-massTotal">0</span></div>
           <div><strong>Assignments:</strong> <span id="ap-assign">0</span></div>
-          <div><strong>Errors:</strong> <span id="ap-err">0</span></div>
         </div>
         <div style="margin-top:10px;height:10px;background:#e9ecef;border-radius:6px;overflow:hidden;">
           <div id="ap-bar" style="height:100%;width:0%;background:#4e79ff;transition:width .15s ease"></div>

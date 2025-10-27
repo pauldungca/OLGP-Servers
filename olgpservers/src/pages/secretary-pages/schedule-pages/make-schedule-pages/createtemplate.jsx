@@ -361,24 +361,7 @@ export default function Createtemplate() {
                     <label className="form-check-label flex-grow-1">
                       {role.label}
                     </label>
-                    <select
-                      className="form-select form-select-sm w-auto"
-                      disabled={isStd || mode.altar === "custom" || !enabled}
-                      value={value}
-                      onChange={(e) =>
-                        setAltarCounts((c) => ({
-                          ...c,
-                          [role.label]: Number(e.target.value),
-                        }))
-                      }
-                    >
-                      {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                      <option value={0}>0</option>
-                    </select>
+                    <span className="ms-2">{value}</span>
                   </div>
                 );
               })}
@@ -531,24 +514,7 @@ export default function Createtemplate() {
                       }
                     />
                     <label className="form-check-label">{role.label}:</label>
-                    <select
-                      className="form-select form-select-sm w-auto"
-                      disabled={isStd || mode.lector === "custom" || !enabled}
-                      value={value}
-                      onChange={(e) =>
-                        setLectorCounts((c) => ({
-                          ...c,
-                          [role.label]: Number(e.target.value),
-                        }))
-                      }
-                    >
-                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                      <option value={0}>0</option>
-                    </select>
+                    <span className="ms-2">{value}</span>
                   </div>
                 );
               })}

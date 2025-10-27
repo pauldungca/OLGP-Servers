@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../utils/supabase.js";
-import bcrypt from "bcryptjs";
 import images from "../../helper/images";
-import Swal from "sweetalert2";
-
 import "../../assets/styles/indexLogin.css";
+import {
+  validateLoginFields,
+  performLogin,
+  fetchUserType,
+  showLoginSuccess,
+  showLoginError,
+  goToForgotPassword,
+} from "../../assets/scripts/login";
 
 export default function Login() {
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -18,95 +22,39 @@ export default function Login() {
   }, []);
 
   const handleIdChange = (e) => {
-    // Only allow numbers
     setIdNumber(e.target.value.replace(/[^0-9]/g, ""));
   };
 
   const handlePasswordChange = (e) => {
-    setPassword(e.target.value); // Update password state
+    setPassword(e.target.value);
   };
 
   const togglePasswordVisibility = () => {
-    setPasswordVisible((v) => !v); // Toggle password visibility
-  };
-
-  const login = async (idNumber, plainPassword) => {
-    try {
-      // 1) Get the auth row by idNumber only
-      const { data, error } = await supabase
-        .from("authentication")
-        .select("idNumber, password")
-        .eq("idNumber", idNumber)
-        .single();
-
-      if (error || !data) {
-        return { error: "Invalid ID number or password." };
-      }
-
-      // 2) Compare plaintext vs bcrypt hash
-      const isMatch = await bcrypt.compare(plainPassword, data.password);
-      if (!isMatch) {
-        return { error: "Invalid ID number or password." };
-      }
-
-      return { user: { idNumber: data.idNumber }, token: data.token };
-    } catch (err) {
-      return { error: "Error during login: " + err.message };
-    }
+    setPasswordVisible((v) => !v);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!idNumber || !password) {
-      await Swal.fire({
-        icon: "warning",
-        title: "Missing fields",
-        text: "Please enter both ID number and password.",
-      });
-      return;
-    }
+    const valid = await validateLoginFields(idNumber, password);
+    if (!valid) return;
 
-    const result = await login(idNumber, password);
+    const result = await performLogin(idNumber, password);
     if (result.error) {
-      await Swal.fire({
-        icon: "error",
-        title: "Login failed",
-        text: result.error,
-      });
+      await showLoginError(result.error);
       return;
     }
 
     const { user, token } = result;
+    const userType = await fetchUserType(idNumber);
+    if (!userType) return;
 
-    // fetch user-type flags you need (e.g., parish-secretary)
-    const { data: userType, error: userTypeError } = await supabase
-      .from("user-type")
-      .select("parish-secretary")
-      .eq("idNumber", idNumber)
-      .single();
-
-    if (userTypeError) {
-      await Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Error fetching user type.",
-      });
-      return;
-    }
-
-    // Persist session
     localStorage.setItem("authToken", token);
     localStorage.setItem("userData", JSON.stringify(user));
     localStorage.setItem("idNumber", idNumber);
     localStorage.setItem("userType", JSON.stringify(userType));
 
-    await Swal.fire({
-      icon: "success",
-      title: "Login successful!",
-      timer: 1200,
-      showConfirmButton: false,
-    });
+    await showLoginSuccess();
 
     if (userType["parish-secretary"] === 1) {
       navigate("/secretaryDashboard");
@@ -148,6 +96,7 @@ export default function Login() {
             >
               Login
             </h2>
+
             <form onSubmit={handleSubmit}>
               {/* ID Number */}
               <div className="mb-4">
@@ -191,6 +140,16 @@ export default function Login() {
                   }}
                   onClick={togglePasswordVisibility}
                 ></i>
+              </div>
+
+              {/* Forgot Password */}
+              <div className="text-end mb-4">
+                <span
+                  className="forgot-password-text"
+                  onClick={() => goToForgotPassword(navigate)}
+                >
+                  Forgot Password?
+                </span>
               </div>
 
               <button type="submit" className="btn btn-login">

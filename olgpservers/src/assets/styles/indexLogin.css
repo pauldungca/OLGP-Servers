@@ -90,3 +90,43 @@ body {
 .btn-cancel:hover {
   background-color: #f0f0f0;
 }
+
+.forgot-password-text {
+  font-size: 0.9rem;
+  color: #3454b4;
+  cursor: pointer;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+.forgot-password-text:hover {
+  color: #596ad9;
+  text-decoration: underline;
+}
+
+/* Make email input wider and centered */
+.verify-input {
+  width: 380px !important;
+  height: 45px;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+/* Center and space buttons evenly */
+.verify-form .btn-cancel,
+.verify-form .btn-verify {
+  width: 160px !important;
+}
+
+/* Optional: add spacing between buttons on smaller screens */
+@media (max-width: 576px) {
+  .verify-form {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .verify-form .btn-cancel,
+  .verify-form .btn-verify {
+    width: 100% !important;
+  }
+}

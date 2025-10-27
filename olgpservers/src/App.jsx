@@ -11,6 +11,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 // Login Pages
 import CreateAccoount from "./pages/login-pages/createAccoount";
 import Login from "./pages/login-pages/login";
+import VerifyEmail from "./pages/login-pages/verifyEmail.jsx";
 import VerifyOTP from "./pages/login-pages/verifyOTP";
 import ConfirmPassword from "./pages/login-pages/confirmPassword";
 
@@ -126,6 +127,7 @@ function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<Login />} />
+        <Route path="/verifyEmail" element={<VerifyEmail />} />
         <Route path="/verifyOTP" element={<VerifyOTP />} />
         <Route path="/confirmPassword" element={<ConfirmPassword />} />
         <Route path="/createAccoount" element={<CreateAccoount />} />

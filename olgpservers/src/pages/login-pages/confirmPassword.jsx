@@ -1,23 +1,26 @@
 import React, { useState } from "react";
-import images from "../../helper/images"; // adjust if needed
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import images from "../../helper/images";
+import { handleConfirmPassword } from "../../assets/scripts/login";
 import "../../assets/styles/indexLogin.css";
 
 export default function ConfirmPassword() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const email = location.state?.email || "";
   const [newPasswordVisible, setNewPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const navigate = useNavigate();
 
-  const toggleVisibility = (which) => {
-    if (which === "new") setNewPasswordVisible((v) => !v);
-    else setConfirmPasswordVisible((v) => !v);
+  const toggleVisibility = (type) => {
+    if (type === "new") setNewPasswordVisible(!newPasswordVisible);
+    else setConfirmPasswordVisible(!confirmPasswordVisible);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Add your password reset logic here
+    await handleConfirmPassword(newPassword, confirmPassword, email, navigate);
   };
 
   return (
@@ -38,7 +41,7 @@ export default function ConfirmPassword() {
           {/* Right Section */}
           <div
             className="right-section p-5 bg-white d-flex flex-column justify-content-center align-items-center"
-            style={{ borderRadius: 20, height: "100%" }}
+            style={{ borderRadius: 20 }}
           >
             <img
               src={images.securityLogo}
@@ -50,8 +53,8 @@ export default function ConfirmPassword() {
 
             <form
               onSubmit={handleSubmit}
-              className="w-100"
-              style={{ maxWidth: 300 }}
+              className="w-100 text-center"
+              style={{ maxWidth: 320 }}
             >
               {/* New Password */}
               <div className="mb-3 position-relative">
@@ -66,7 +69,7 @@ export default function ConfirmPassword() {
                 <i
                   className={`bi ${
                     newPasswordVisible ? "bi-eye" : "bi-eye-slash"
-                  } toggle-password`}
+                  }`}
                   onClick={() => toggleVisibility("new")}
                   style={{
                     position: "absolute",
@@ -91,7 +94,7 @@ export default function ConfirmPassword() {
                 <i
                   className={`bi ${
                     confirmPasswordVisible ? "bi-eye" : "bi-eye-slash"
-                  } toggle-password`}
+                  }`}
                   onClick={() => toggleVisibility("confirm")}
                   style={{
                     position: "absolute",
@@ -104,15 +107,15 @@ export default function ConfirmPassword() {
               </div>
 
               {/* Buttons */}
-              <div className="d-flex justify-content-between w-100">
+              <div className="d-flex justify-content-center gap-3">
                 <button
                   type="button"
-                  className="btn btn-cancel d-flex align-items-center justify-content-center"
+                  className="btn btn-cancel"
                   onClick={() => navigate("/")}
                 >
                   <i className="bi bi-x-circle me-1"></i> Cancel
                 </button>
-                <button type="submit" className="btn btn-primary btn-verify">
+                <button type="submit" className="btn btn-verify">
                   Confirm
                 </button>
               </div>

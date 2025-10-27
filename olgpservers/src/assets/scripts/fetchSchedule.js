@@ -2152,3 +2152,11 @@ function normalizeMassLabel(label) {
   if (!label) return label;
   return String(label).replace("(No. ", "- ").replace(")", "").trim();
 }
+
+export const canGoToPreviousMonth = (currentYear, currentMonth) => {
+  const now = new Date();
+  return (
+    currentYear > now.getFullYear() ||
+    (currentYear === now.getFullYear() && currentMonth > now.getMonth())
+  );
+};

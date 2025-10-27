@@ -43,6 +43,14 @@ export default function SelectTime() {
     });
   }
 
+  const isPastMonth = (monthIndex, year) => {
+    const now = new Date();
+    return (
+      year < now.getFullYear() ||
+      (year === now.getFullYear() && monthIndex < now.getMonth())
+    );
+  };
+
   return (
     <div className="schedule-page-container">
       <div className="schedule-header">
@@ -90,8 +98,13 @@ export default function SelectTime() {
             {months.map((month, index) => (
               <div key={index} className="col-6 col-md-3">
                 <button
-                  className="month-card"
-                  onClick={() => handleNavigate(index)}
+                  className={`month-card ${
+                    isPastMonth(index, year) ? "disabled" : ""
+                  }`}
+                  onClick={() => {
+                    if (!isPastMonth(index, year)) handleNavigate(index);
+                  }}
+                  disabled={isPastMonth(index, year)}
                 >
                   {month}
                 </button>

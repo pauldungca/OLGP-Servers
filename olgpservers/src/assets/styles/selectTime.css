@@ -50,3 +50,9 @@
   background-color: #1c2c5b;
   color: white;
 }
+
+.month-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}

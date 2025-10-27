@@ -123,6 +123,7 @@ export default function UseTemplate() {
               <TimePicker
                 use12Hours
                 format="h:mm A"
+                minuteStep={30}
                 className="w-100 form-control"
                 popupClassName="timepicker-down"
                 placement="bottomLeft"

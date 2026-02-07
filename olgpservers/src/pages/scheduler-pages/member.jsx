@@ -58,7 +58,7 @@ export default function Member() {
           {isAltarServer && (
             <ButtonCard
               department="Altar Server"
-              parish="Pass the admin controls to a member from the Altar Server Department."
+              parish="Manage the Members in the Altar Server Department."
               toPage="/membersList"
               icon={icons.altarServerIcon}
             />
@@ -68,7 +68,7 @@ export default function Member() {
           {isLectorCommentator && (
             <ButtonCard
               department="Lector Commentator"
-              parish="Pass the admin controls to a member from the Lector Commentator Department."
+              parish="Manage the Members in the Lector Commentator Department."
               toPage="/membersList"
               icon={icons.lectorCommentatorIcon}
             />

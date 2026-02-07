@@ -27,9 +27,8 @@ export default function Group() {
       if (storedIdNumber) {
         setIdNumber(storedIdNumber);
 
-        const eucharisticMinisterStatus = await isEucharisticMinisterScheduler(
-          storedIdNumber
-        );
+        const eucharisticMinisterStatus =
+          await isEucharisticMinisterScheduler(storedIdNumber);
         const choirStatus = await isChoirScheduler(storedIdNumber);
 
         setIsEucharisticMinister(eucharisticMinisterStatus);
@@ -58,7 +57,7 @@ export default function Group() {
           {isEucharisticMinister && (
             <ButtonCard
               department="Eucharistic Minister"
-              parish="Pass the admin controls to a member from the Eucharistic Minister Department."
+              parish="Manage the Members in the Eucharistic Minister Department."
               toPage="/selectGroup"
               icon={icons.eucharisticMinisterIcon}
             />
@@ -68,7 +67,7 @@ export default function Group() {
           {isChoir && (
             <ButtonCard
               department="Choir"
-              parish="Pass the admin controls to a member from the Choir Department."
+              parish="Manage the Members in the Choir Department."
               toPage="/selectGroup"
               icon={icons.choirIcon}
             />

@@ -236,7 +236,7 @@ export const handleConfirmPassword = async (
   newPassword,
   confirmPassword,
   email,
-  navigate
+  navigate,
 ) => {
   const { valid, message } = validateNewPassword(newPassword, confirmPassword);
   if (!valid) {
@@ -286,22 +286,33 @@ export const validateLoginFields = async (idNumber, password) => {
 /** Perform login check and return result */
 export const performLogin = async (idNumber, plainPassword) => {
   try {
-    const { data, error } = await supabase
+    // Check if input is email or ID number
+    const isEmail = idNumber.includes("@");
+
+    let query = supabase
       .from("authentication")
-      .select("idNumber, password")
-      .eq("idNumber", idNumber)
-      .single();
+      .select("idNumber, email, password");
+
+    if (isEmail) {
+      query = query.eq("email", idNumber);
+    } else {
+      query = query.eq("idNumber", idNumber);
+    }
+
+    const { data, error } = await query.single();
 
     if (error || !data) {
-      return { error: "Invalid ID number or password." };
+      return { error: "Invalid Credentials" };
     }
 
     const isMatch = await bcrypt.compare(plainPassword, data.password);
     if (!isMatch) {
-      return { error: "Invalid ID number or password." };
+      return { error: "Invalid Credentials" };
     }
 
-    return { user: { idNumber: data.idNumber }, token: data.token };
+    const token = btoa(`${data.idNumber}:${Date.now()}`);
+
+    return { user: { idNumber: data.idNumber }, token: token };
   } catch (err) {
     return { error: "Error during login: " + err.message };
   }

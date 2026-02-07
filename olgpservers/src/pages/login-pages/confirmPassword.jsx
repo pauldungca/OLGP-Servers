@@ -34,8 +34,18 @@ export default function ConfirmPassword() {
       <div className="d-flex justify-content-center align-items-center vh-100">
         <div className="card login-card d-flex flex-row overflow-hidden">
           {/* Left Section */}
-          <div className="left-section d-flex justify-content-center align-items-center h-100">
-            <img src={images.OLGPlogo} alt="Logo" className="logo" />
+          <div className="left-section d-flex flex-column justify-content-center align-items-center h-100">
+            <img
+              src={images.OLGPlogo}
+              alt="Our Lady of Guadalupe Logo"
+              className="logo"
+            />
+            <h3
+              className="mt-3 text-white text-center"
+              style={{ fontWeight: "600", fontSize: "1.5rem" }}
+            >
+              OLGP Servers
+            </h3>
           </div>
 
           {/* Right Section */}
@@ -110,7 +120,7 @@ export default function ConfirmPassword() {
               <div className="d-flex justify-content-center gap-3">
                 <button
                   type="button"
-                  className="btn btn-cancel"
+                  className="btn btn-cancel d-flex align-items-center justify-content-center"
                   onClick={() => navigate("/")}
                 >
                   <i className="bi bi-x-circle me-1"></i> Cancel

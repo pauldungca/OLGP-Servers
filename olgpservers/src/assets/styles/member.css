@@ -1,3 +1,10 @@
+/* =========================================================
+   MEMBER PAGE - ENHANCED RESPONSIVE STYLES
+   Maintains search bar horizontal layout on all devices
+   ========================================================= */
+
+/* ===== BASE STYLES ===== */
+
 .member-header {
   color: #0a2471;
   padding: 1rem;
@@ -40,6 +47,7 @@
   flex-direction: column;
   height: 100%;
   position: relative;
+  overflow-x: hidden;
 }
 
 /* Content Area */
@@ -47,17 +55,15 @@
   flex: 1;
   padding: 1rem;
   padding-bottom: 3%;
+  overflow-x: hidden;
 }
 
 /* Member Card Button Styles */
 .member-card {
-  /* Button Reset */
   background: #d5f6fa;
   border: none;
   outline: none;
   cursor: pointer;
-
-  /* Layout */
   display: flex;
   width: 80%;
   margin-left: 10%;
@@ -65,51 +71,11 @@
   padding: 20px;
   align-items: center;
   text-align: left;
-
-  /* Visual Styling */
   border-radius: 10px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
 }
 
-/* Custom Table Wrapper */
-.table-container {
-  width: 90%;
-  min-width: 600px;
-  margin: 2rem auto;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow-x: auto; /* Enable horizontal scroll if needed */
-}
-
-/* Ensure table inside container can expand */
-.table-container table {
-  min-width: 600px; /* Prevent table from squishing too much */
-  width: 100%;
-  border-collapse: collapse;
-}
-
-/* Responsive Adjustments */
-@media (max-width: 992px) {
-  .table-container {
-    width: 100%;
-    margin: 1rem auto;
-  }
-}
-
-@media (max-width: 768px) {
-  .table-container {
-    width: 100%;
-    min-width: unset; /* Remove the 600px limit */
-    overflow-x: auto; /* Allow horizontal scroll */
-  }
-
-  .table-container table {
-    min-width: 500px; /* force scrollbar instead of text breaking */
-  }
-}
-
-/* Hover & Focus States */
 .member-card:hover,
 .member-card:focus {
   transform: scale(1.05);
@@ -117,12 +83,10 @@
   background: #c2eef5;
 }
 
-/* Active State */
 .member-card:active {
   transform: scale(1.02);
 }
 
-/* Image Styles */
 .member-card img {
   height: 80px;
   width: 80px;
@@ -132,7 +96,6 @@
   padding: 5px;
 }
 
-/* Text Content Styles */
 .member-card-title {
   font-size: 1.25rem;
   font-weight: 600;
@@ -146,32 +109,16 @@
   opacity: 0.9;
 }
 
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-  .member-card {
-    padding: 15px;
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .member-card img {
-    margin-right: 0;
-    margin-bottom: 15px;
-    height: 70px;
-    width: 70px;
-  }
-}
-
-/* Focus styles for accessibility */
 .member-card:focus-visible {
   outline: 2px solid #4a6baf;
   outline-offset: 2px;
 }
 
-/* Force breadcrumb styles */
+/* ===== BREADCRUMB STYLES ===== */
+
 .customized-breadcrumb {
   font-size: 15px;
-  line-height: "1.5";
+  line-height: 1.5;
   font-weight: 520;
 }
 
@@ -189,7 +136,6 @@
   color: #717171 !important;
 }
 
-/* Ensure item colors stay applied */
 .customized-breadcrumb .ant-breadcrumb-link {
   color: inherit;
 }
@@ -198,14 +144,104 @@
   color: inherit;
 }
 
-/* Custom Table Wrapper */
+/* ===== SEARCH BAR CONTAINER - ALWAYS HORIZONTAL ===== */
+
+.search-bar-container {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+/* Search Input */
+.search-bar-container .form-control {
+  width: 40%;
+  padding: 8px 12px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  flex-shrink: 1;
+  min-width: 150px;
+  order: 1; /* Search comes first */
+}
+
+.search-bar-container .form-control:focus {
+  outline: none;
+  border-color: #2e4a9e;
+  box-shadow: 0 0 0 3px rgba(46, 74, 158, 0.1);
+}
+
+/* Search Button (if exists) */
+.search-bar-container button {
+  padding: 8px 12px;
+  background-color: #d9d9d9;
+  color: black;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.search-bar-container button:hover {
+  background-color: #c5c5c5;
+}
+
+/* Add Member & Import Member Buttons */
+.search-bar-container .btn-blue {
+  padding: 8px 12px;
+  font-size: 16px;
+  background-color: #2e4a9e;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Ensure Add button comes second */
+.search-bar-container .btn-blue:nth-of-type(1) {
+  order: 2;
+}
+
+/* Ensure Import button comes third */
+.search-bar-container .btn-blue:nth-of-type(2) {
+  order: 3;
+}
+
+.search-bar-container .btn-blue:hover {
+  background-color: #1e3d8a;
+  color: white;
+}
+
+.icon-btn {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* ===== TABLE CONTAINER ===== */
+
 .table-container {
   width: 90%;
   min-width: 600px;
   margin: 2rem auto;
-  overflow: hidden;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-container table {
+  min-width: 600px;
+  width: 100%;
+  border-collapse: collapse;
 }
 
 /* Table Header */
@@ -240,69 +276,16 @@
   font-weight: 500;
 }
 
-/* Search Bar Container */
-.search-bar-container {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Search Input */
-.search-bar-container .form-control {
-  width: 40%;
-  padding: 8px 12px;
-  border-radius: 5px;
-  border: 1px solid #ccc;
-  order: 1;
-}
-
-/* Search Button */
-.search-bar-container button {
-  padding: 8px 12px;
-  background-color: #d9d9d9;
-  width: 10%;
-  color: black;
-  border: none;
-  cursor: pointer;
-  border-radius: 5px;
-  order: 2;
-}
-
-.search-bar-container button:hover {
-  background-color: #c5c5c5;
-}
-
-/* Add Member & Import Member Buttons */
-.search-bar-container .btn-blue {
-  padding: 8px 12px;
-  font-size: 16px;
-  background-color: #2e4a9e;
-  color: white;
-  border: none;
-  cursor: pointer;
-  border-radius: 5px;
-  width: 15%;
-  order: 3;
-}
-
-.search-bar-container .btn-blue:hover,
-.action-buttons .btn-blue:hover {
-  background-color: #1e3d8a;
-  color: white;
-}
-
-.icon-btn {
-  width: 20px;
-  margin-right: 10px;
-}
+/* ===== ACTION BUTTONS ===== */
 
 .action-buttons {
   display: flex;
+  flex-direction: row; /* Horizontal by default */
   gap: 15px;
   margin-top: 1rem;
   margin-left: auto;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
 .action-buttons .btn-blue {
@@ -313,8 +296,8 @@
   border: none;
   cursor: pointer;
   border-radius: 5px;
-  display: inline-flex;
-  width: 50%;
+  flex: 0 0 auto; /* Don't grow or shrink */
+  min-width: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -322,7 +305,13 @@
   text-align: center;
 }
 
-/* Export Options (PDF and PNG) */
+.action-buttons .btn-blue:hover {
+  background-color: #1e3d8a;
+  color: white;
+}
+
+/* ===== EXPORT DROPDOWN ===== */
+
 .export-options {
   background-color: #fff;
   padding: 0;
@@ -331,17 +320,20 @@
   border-radius: 5px;
   text-decoration: none;
   font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .export-options .menu-item {
   padding: 8px 12px;
+  min-width: 100px;
 }
 
 .export-options .menu-item:hover {
   background-color: #b3b3ff !important;
 }
 
-.export-options .menu-item a {
+.export-options .menu-item a,
+.export-options .menu-item button {
   color: black;
   text-decoration: none;
   display: block;
@@ -350,7 +342,9 @@
 
 .arrow-icon-btn {
   width: 20px;
-  transition: transform 0.5s ease;
+  height: 20px;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
 }
 
 .btn-blue:hover .arrow-icon-btn {
@@ -361,161 +355,381 @@
   transform: rotate(90deg);
 }
 
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-  .table-container {
-    width: 95%;
-    min-width: unset;
-  }
+/* ===== SCROLLBAR STYLING ===== */
 
-  .ant-table-thead .ant-table-cell,
-  .ant-table-tbody .ant-table-cell {
-    padding: 8px 12px;
-  }
+.ant-table-body::-webkit-scrollbar,
+.table-container::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
 }
 
-/* Scrollbar Styling */
-.ant-table-body::-webkit-scrollbar {
-  height: 6px;
-}
-
-.ant-table-body::-webkit-scrollbar-thumb {
+.ant-table-body::-webkit-scrollbar-thumb,
+.table-container::-webkit-scrollbar-thumb {
   background-color: #4169e1;
-  border-radius: 3px;
+  border-radius: 4px;
+}
+
+.ant-table-body::-webkit-scrollbar-track,
+.table-container::-webkit-scrollbar-track {
+  background-color: #f0f4f8;
 }
 
 /* =========================================================
-   Responsive Add-On: Members List (non-destructive)
-   Desktop: unchanged. Tablet/Mobile only.
+   RESPONSIVE BREAKPOINTS
    ========================================================= */
 
-/* Let the table wrapper scroll horizontally on small screens */
-.table-container {
-  overflow-x: auto;
+/* ===== TABLET (768px - 1024px) ===== */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .table-container {
+    width: 95%;
+  }
+
+  .search-bar-container .form-control {
+    width: 35%;
+    min-width: 140px;
+  }
+
+  .search-bar-container .btn-blue {
+    font-size: 15px;
+    padding: 8px 10px;
+  }
+
+  .action-buttons {
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .action-buttons .btn-blue {
+    min-width: 180px;
+  }
 }
 
-/* ----------------------------
-   MOBILE (<= 640px)
-   ---------------------------- */
-@media (max-width: 640px) {
-  /* Page padding tighter */
+/* ===== SMALL TABLET (641px - 768px) ===== */
+@media (max-width: 768px) and (min-width: 641px) {
   .member-content {
-    padding: 0.75rem 1rem;
+    padding: 0.875rem;
+  }
+
+  .search-bar-container {
+    gap: 8px;
+  }
+
+  .search-bar-container .form-control {
+    width: 35%;
+    min-width: 120px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+
+  .search-bar-container .btn-blue {
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+
+  .icon-btn {
+    width: 18px;
+    height: 18px;
+  }
+
+  .table-container {
+    width: 100%;
+    margin: 1.5rem auto;
+  }
+
+  .ant-table-thead .ant-table-cell,
+  .ant-table-tbody .ant-table-cell {
+    padding: 10px 12px;
+    font-size: 0.875rem;
+  }
+
+  .action-buttons {
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .action-buttons .btn-blue {
+    min-width: 160px;
+  }
+
+  .member-card {
+    width: 85%;
+    margin-left: 7.5%;
+    margin-right: 7.5%;
+  }
+}
+
+/* ===== MOBILE (481px - 640px) ===== */
+@media (max-width: 640px) and (min-width: 481px) {
+  .member-header {
+    padding: 0.75rem;
+  }
+
+  .header-text-with-line h3 {
+    font-size: 1.3rem;
+  }
+
+  .member-content {
+    padding: 0.75rem;
     padding-bottom: 1rem;
   }
 
-  /* Search bar → stacked, full-width controls */
   .search-bar-container {
-    display: grid !important;
-    grid-template-columns: 1fr;
-    gap: 10px !important;
-    justify-content: stretch !important;
+    gap: 6px;
+    margin-bottom: 15px;
   }
 
   .search-bar-container .form-control {
-    width: 100% !important;
-    min-height: 44px;
-    order: 1;
+    width: 35%;
+    min-width: 100px;
+    padding: 7px 8px;
+    font-size: 14px;
   }
 
-  .search-bar-container button,
   .search-bar-container .btn-blue {
-    width: 100% !important;
-    min-height: 46px;
-    font-size: 16px;
+    padding: 7px 8px;
+    font-size: 13px;
+    gap: 4px;
   }
 
-  /* Table wrapper fits viewport; remove min-width */
+  .search-bar-container .btn-blue span {
+    display: none;
+  }
+
+  /* Show icons only */
+  .icon-btn {
+    width: 20px;
+    height: 20px;
+    margin-right: 0;
+  }
+
   .table-container {
-    width: 100% !important;
-    min-width: unset !important;
-    margin: 1rem 0 !important;
-    border-radius: 10px;
+    width: 100%;
+    min-width: unset;
+    margin: 1rem 0;
   }
 
-  /* Slightly denser table padding on phones */
+  .table-container table {
+    min-width: 480px;
+  }
+
   .ant-table-thead .ant-table-cell,
   .ant-table-tbody .ant-table-cell {
-    padding: 8px 12px;
+    padding: 8px 10px;
+    font-size: 0.8125rem;
   }
 
-  /* Footer actions → stacked full-width */
   .action-buttons {
-    display: grid !important;
-    grid-template-columns: 1fr;
-    gap: 10px !important;
-    margin: 1rem 0 0 0 !important;
+    flex-direction: column;
+    gap: 10px;
+    margin-left: 0;
   }
 
-  .action-buttons .btn-blue,
-  .action-buttons .ant-btn,
-  .action-buttons > * {
-    width: 100% !important;
-    min-height: 46px;
-    justify-content: center;
-    font-size: 16px;
-  }
-
-  /* Avoid horizontal overflow anywhere */
-  .member-page-container,
-  .member-content,
-  .table-container {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-}
-
-/* ----------------------------
-   TABLET (641–1024px)
-   ---------------------------- */
-@media (min-width: 641px) and (max-width: 1024px) {
-  /* Search bar → 2fr / 1fr / 1fr grid */
-  .search-bar-container {
-    display: grid !important;
-    grid-template-columns: 2fr 1fr 1fr;
-    gap: 12px !important;
-    justify-content: center;
-    align-items: stretch;
-  }
-
-  .search-bar-container .form-control {
-    width: 100% !important;
+  .action-buttons .btn-blue {
+    width: 100%;
     min-height: 44px;
   }
 
-  .search-bar-container button,
-  .search-bar-container .btn-blue {
-    width: 100% !important;
-    min-height: 46px;
-    font-size: 16px;
+  .customized-breadcrumb {
+    font-size: 13px;
   }
 
-  /* Table wrapper room, but no forced min-width */
-  .table-container {
-    width: 95%;
-    min-width: unset !important;
-    margin: 1.25rem auto;
+  .customized-breadcrumb .ant-breadcrumb-separator {
+    margin: 0 6px;
   }
 
-  /* Footer actions → two equal columns */
-  .action-buttons {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px !important;
-    margin-left: 0 !important;
-  }
-
-  .action-buttons .btn-blue,
-  .action-buttons .ant-btn {
-    width: 100% !important;
-    min-height: 46px;
-    justify-content: center;
+  .member-card {
+    width: 90%;
+    margin-left: 5%;
+    margin-right: 5%;
+    padding: 15px;
   }
 }
 
-/* ----------------------------
-   ACCESSIBILITY
-   ---------------------------- */
+/* ===== SMALL MOBILE (320px - 480px) ===== */
+@media (max-width: 480px) {
+  .member-header {
+    padding: 0.625rem;
+  }
+
+  .header-text-with-line h3 {
+    font-size: 1.1rem;
+    word-break: break-word;
+  }
+
+  .member-content {
+    padding: 0.625rem;
+    padding-bottom: 1rem;
+  }
+
+  .search-bar-container {
+    gap: 5px;
+    margin-bottom: 12px;
+  }
+
+  .search-bar-container .form-control {
+    width: 40%;
+    min-width: 80px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .search-bar-container .btn-blue {
+    padding: 6px 8px;
+    font-size: 0;
+    min-width: 40px;
+    gap: 0;
+  }
+
+  /* Icons only, no text */
+  .search-bar-container .btn-blue span {
+    display: none;
+  }
+
+  .icon-btn {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+  }
+
+  .table-container {
+    width: 100%;
+    min-width: unset;
+    margin: 0.75rem 0;
+  }
+
+  .table-container table {
+    min-width: 400px;
+  }
+
+  .ant-table-thead .ant-table-cell,
+  .ant-table-tbody .ant-table-cell {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+
+  .ant-table-cell .ant-btn {
+    width: 80px;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: 8px;
+    margin: 0.75rem 0 0 0;
+  }
+
+  .action-buttons .btn-blue {
+    width: 100%;
+    min-height: 42px;
+    font-size: 14px;
+  }
+
+  .customized-breadcrumb {
+    font-size: 12px;
+  }
+
+  .customized-breadcrumb .ant-breadcrumb-separator {
+    margin: 0 4px;
+  }
+
+  .customized-breadcrumb img {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  .member-card {
+    width: 95%;
+    margin-left: 2.5%;
+    margin-right: 2.5%;
+    padding: 12px;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .member-card img {
+    margin-right: 0;
+    margin-bottom: 10px;
+    height: 60px;
+    width: 60px;
+  }
+
+  .member-card-title {
+    font-size: 1rem;
+  }
+
+  .member-card-subtitle {
+    font-size: 0.8125rem;
+  }
+}
+
+/* ===== VERY SMALL DEVICES (up to 320px) ===== */
+@media (max-width: 320px) {
+  .header-text-with-line h3 {
+    font-size: 1rem;
+  }
+
+  .search-bar-container .form-control {
+    width: 45%;
+    min-width: 70px;
+    font-size: 12px;
+  }
+
+  .search-bar-container .btn-blue {
+    min-width: 36px;
+    padding: 5px 6px;
+  }
+
+  .icon-btn {
+    width: 18px;
+    height: 18px;
+  }
+
+  .table-container table {
+    min-width: 320px;
+  }
+
+  .ant-table-thead .ant-table-cell,
+  .ant-table-tbody .ant-table-cell {
+    padding: 4px 6px;
+    font-size: 0.7rem;
+  }
+
+  .ant-table-cell .ant-btn {
+    width: 70px;
+    font-size: 0.7rem;
+  }
+}
+
+/* ===== LANDSCAPE ORIENTATION ===== */
+@media (max-height: 500px) and (orientation: landscape) {
+  .member-content {
+    padding: 0.5rem;
+  }
+
+  .table-container {
+    margin: 0.5rem auto;
+  }
+
+  .search-bar-container {
+    margin-bottom: 10px;
+  }
+
+  .action-buttons {
+    margin-top: 0.5rem;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+
+button:focus-visible,
+.form-control:focus-visible,
+.btn-blue:focus-visible {
+  outline: 2px solid #4169e1;
+  outline-offset: 2px;
+}
+
+/* Reduce motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -524,5 +738,23 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  .search-bar-container,
+  .action-buttons {
+    display: none;
+  }
+
+  .table-container {
+    box-shadow: none;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .member-page-container {
+    overflow: visible;
   }
 }

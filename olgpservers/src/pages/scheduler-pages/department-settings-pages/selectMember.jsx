@@ -16,7 +16,7 @@ import {
 
 import { handleBasicSearchChange } from "../../../assets/scripts/departmentSettings";
 
-import "../../../assets/styles/departmentSettings.css";
+//import "../../../assets/styles/departmentSettings.css";
 import "../../../assets/styles/assignMember.css";
 
 export default function SelectMember() {
@@ -58,7 +58,7 @@ export default function SelectMember() {
             await Swal.fire(
               "Unsupported",
               `Importing from "${department}" isn't wired yet.`,
-              "info"
+              "info",
             );
             membersData = [];
             break;
@@ -132,7 +132,7 @@ export default function SelectMember() {
                 e,
                 members,
                 setSearchQuery,
-                setFilteredMembers
+                setFilteredMembers,
               )
             }
           />

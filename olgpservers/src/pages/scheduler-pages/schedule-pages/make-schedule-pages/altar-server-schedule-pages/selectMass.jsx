@@ -46,10 +46,7 @@ export default function SelectMass() {
     () => isSundayFor({ passedIsSunday, source, selectedISO }),
     [passedIsSunday, source, selectedISO]
   );
-
-  /** ---------------------------
-   * Load all template uses for this date
-   * -------------------------- */
+  
   const [templateUses, setTemplateUses] = useState([]); // [{templateID,time}]
   const [massTypes, setMassTypes] = useState({}); // {templateID: "High Mass"}
   const [loadingTemplates, setLoadingTemplates] = useState(false);

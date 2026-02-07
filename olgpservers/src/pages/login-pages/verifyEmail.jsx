@@ -24,8 +24,15 @@ export default function VerifyEmail() {
       <div className="d-flex justify-content-center align-items-center vh-100">
         <div className="card login-card d-flex flex-row overflow-hidden">
           <div className="left-section d-flex flex-column justify-content-center align-items-center h-100">
-            <img src={images.OLGPlogo} alt="OLGP" className="logo" />
-            <h3 className="mt-3 text-white text-center fw-semibold">
+            <img
+              src={images.OLGPlogo}
+              alt="Our Lady of Guadalupe Logo"
+              className="logo"
+            />
+            <h3
+              className="mt-3 text-white text-center"
+              style={{ fontWeight: "600", fontSize: "1.5rem" }}
+            >
               OLGP Servers
             </h3>
           </div>
@@ -53,7 +60,7 @@ export default function VerifyEmail() {
               <div className="d-flex justify-content-center gap-3 w-100">
                 <button
                   type="button"
-                  className="btn btn-cancel"
+                  className="btn btn-cancel d-flex align-items-center justify-content-center"
                   onClick={() => navigate("/")}
                 >
                   <i className="bi bi-x-circle me-1"></i> Cancel

@@ -57,7 +57,7 @@ export default function VerifyOTP() {
     timerHandle.current = createOtpCountdown(
       120,
       (sec) => setCountdown(sec),
-      () => setOtpEnabled(false)
+      () => setOtpEnabled(false),
     );
   };
 
@@ -76,8 +76,18 @@ export default function VerifyOTP() {
     >
       <div className="d-flex justify-content-center align-items-center vh-100">
         <div className="card login-card d-flex flex-row overflow-hidden">
-          <div className="left-section d-flex justify-content-center align-items-center h-100">
-            <img src={images.OLGPlogo} alt="Logo" className="logo" />
+          <div className="left-section d-flex flex-column justify-content-center align-items-center h-100">
+            <img
+              src={images.OLGPlogo}
+              alt="Our Lady of Guadalupe Logo"
+              className="logo"
+            />
+            <h3
+              className="mt-3 text-white text-center"
+              style={{ fontWeight: "600", fontSize: "1.5rem" }}
+            >
+              OLGP Servers
+            </h3>
           </div>
           <div
             className="right-section p-5 bg-white d-flex flex-column justify-content-between align-items-center"
@@ -111,7 +121,10 @@ export default function VerifyOTP() {
               ))}
             </div>
             <div className="d-flex justify-content-center gap-3 w-100 mb-3">
-              <button className="btn btn-cancel" onClick={() => navigate("/")}>
+              <button
+                className="btn btn-cancel d-flex align-items-center justify-content-center"
+                onClick={() => navigate("/")}
+              >
                 <i className="bi bi-x-circle me-1"></i> Cancel
               </button>
               <button

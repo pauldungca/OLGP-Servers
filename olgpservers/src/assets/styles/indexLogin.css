@@ -84,7 +84,9 @@ body {
   border-radius: 4px;
   font-weight: 500;
   color: #3454b4;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .btn-cancel:hover {
@@ -95,7 +97,9 @@ body {
   font-size: 0.9rem;
   color: #3454b4;
   cursor: pointer;
-  transition: color 0.2s ease, text-decoration 0.2s ease;
+  transition:
+    color 0.2s ease,
+    text-decoration 0.2s ease;
 }
 
 .forgot-password-text:hover {

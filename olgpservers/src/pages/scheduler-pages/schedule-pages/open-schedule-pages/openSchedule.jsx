@@ -35,9 +35,8 @@ export default function OpenSchedule() {
       if (storedIdNumber) {
         setIdNumber(storedIdNumber);
 
-        const eucharisticMinisterStatus = await isEucharisticMinisterMember(
-          storedIdNumber
-        );
+        const eucharisticMinisterStatus =
+          await isEucharisticMinisterMember(storedIdNumber);
         const serverStatus = await isAltarServerMember(storedIdNumber);
         const lectorStatus = await isLectorCommentatorMember(storedIdNumber);
 
@@ -68,7 +67,7 @@ export default function OpenSchedule() {
           {isAltarServer && (
             <ButtonCard
               department="Altar Server"
-              parish="Manage the schedules in the Altar Server Department."
+              parish="Manage your Schedules in the Altar Server Department."
               toPage={{
                 pathname: "/selectTime",
                 state: { department: "Altar Server" },
@@ -80,7 +79,7 @@ export default function OpenSchedule() {
           {isEucharisticMinister && (
             <ButtonCard
               department="Eucharistic Minister"
-              parish="Manage the schedules in the Eucharistic Minister Department."
+              parish="Manage your Schedules in the Eucharistic Minister Department."
               toPage={{
                 pathname: "/selectTime",
                 state: { department: "Altar Server" },
@@ -92,7 +91,7 @@ export default function OpenSchedule() {
           {isLectorCommentator && (
             <ButtonCard
               department="Lector Commentator"
-              parish="Manage the schedules in the Lector Commentator Department."
+              parish="Manage your Schedules in the Lector Commentator Department."
               toPage={{
                 pathname: "/selectTime",
                 state: { department: "Altar Server" },

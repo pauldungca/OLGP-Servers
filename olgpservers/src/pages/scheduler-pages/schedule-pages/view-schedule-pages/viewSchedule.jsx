@@ -37,9 +37,8 @@ export default function ViewSchedule() {
       if (storedIdNumber) {
         setIdNumber(storedIdNumber);
 
-        const eucharisticMinisterStatus = await isEucharisticMinisterMember(
-          storedIdNumber
-        );
+        const eucharisticMinisterStatus =
+          await isEucharisticMinisterMember(storedIdNumber);
         const choirStatus = await isChoirMember(storedIdNumber);
         const serverStatus = await isAltarServerMember(storedIdNumber);
         const lectorStatus = await isLectorCommentatorMember(storedIdNumber);
@@ -73,7 +72,7 @@ export default function ViewSchedule() {
           {isAltarServer && (
             <ButtonCard
               department="Altar Server"
-              parish="Manage the schedules in the Altar Server Department."
+              parish="View the schedules in the Altar Server Department."
               toPage="/updateSchedule"
               icon={icons.altarServerIcon}
             />
@@ -82,7 +81,7 @@ export default function ViewSchedule() {
           {isEucharisticMinister && (
             <ButtonCard
               department="Eucharistic Minister"
-              parish="Manage the schedules in the Eucharistic Minister Department."
+              parish="View the schedules in the Eucharistic Minister Department."
               toPage="/updateSchedule"
               icon={icons.eucharisticMinisterIcon}
             />
@@ -91,7 +90,7 @@ export default function ViewSchedule() {
           {isChoir && (
             <ButtonCard
               department="Choir"
-              parish="Manage the schedules in the Choir Department."
+              parish="View the schedules in the Choir Department."
               toPage="/updateSchedule"
               icon={icons.choirIcon}
             />
@@ -100,7 +99,7 @@ export default function ViewSchedule() {
           {isLectorCommentator && (
             <ButtonCard
               department="Lector Commentator"
-              parish="Manage the schedules in the Lector Commentator Department."
+              parish="View the schedules in the Lector Commentator Department."
               toPage="/updateSchedule"
               icon={icons.lectorCommentatorIcon}
             />

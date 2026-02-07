@@ -44,9 +44,9 @@ export default function SelectMass() {
   const department = "Altar Server";
   const isSunday = useMemo(
     () => isSundayFor({ passedIsSunday, source, selectedISO }),
-    [passedIsSunday, source, selectedISO]
+    [passedIsSunday, source, selectedISO],
   );
-  
+
   const [templateUses, setTemplateUses] = useState([]); // [{templateID,time}]
   const [massTypes, setMassTypes] = useState({}); // {templateID: "High Mass"}
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -66,11 +66,11 @@ export default function SelectMass() {
 
         // fetch each mass-type once
         const uniqueIds = Array.from(
-          new Set((uses || []).map((u) => u.templateID))
+          new Set((uses || []).map((u) => u.templateID)),
         );
 
         const entries = await Promise.all(
-          uniqueIds.map(async (id) => [id, await getTemplateMassType(id)])
+          uniqueIds.map(async (id) => [id, await getTemplateMassType(id)]),
         );
         if (!cancel) {
           const map = {};
@@ -115,11 +115,11 @@ export default function SelectMass() {
   /** Precompute default (Sunday) rules */
   const sundayCounts = useMemo(
     () => roleCountsFor({ flags: null, isSunday: true }),
-    []
+    [],
   );
   const sundayVisible = useMemo(
     () => roleVisibilityFor({ flags: null, isSunday: true }),
-    []
+    [],
   );
 
   /** Cache flags per templateID so we don’t refetch for each card */
@@ -171,7 +171,7 @@ export default function SelectMass() {
 
       const totalAssigned = Object.values(grouped || {}).reduce(
         (s, a) => s + (Array.isArray(a) ? a.length : 0),
-        0
+        0,
       );
       if (totalAssigned === 0) return "empty";
 
@@ -187,7 +187,7 @@ export default function SelectMass() {
       }
       return allComplete ? "complete" : "incomplete";
     },
-    [selectedISO, templateCards, tmplFlags, sundayCounts, sundayVisible]
+    [selectedISO, templateCards, tmplFlags, sundayCounts, sundayVisible],
   );
 
   const [massStatus, setMassStatus] = useState({});
@@ -275,7 +275,7 @@ export default function SelectMass() {
 
   const allMassesComplete = useMemo(
     () => masses.every((label) => massStatus[label] === "complete"),
-    [masses, massStatus]
+    [masses, massStatus],
   );
 
   return (

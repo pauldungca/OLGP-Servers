@@ -92,11 +92,181 @@
   height: 24px;
   flex: 0 0 auto;
   display: block; /* avoids inline baseline weirdness */
-  margin-right: 0; /* gap is handled by the button’s gap */
+  margin-right: 0; /* gap is handled by the button's gap */
+  object-fit: contain; /* prevents stretching */
 }
 
 .assign-right-scroll {
   max-height: 200px;
   overflow-y: auto;
   padding-right: 10px;
+}
+
+/* ========== RESPONSIVE STYLES ========== */
+
+/* Tablets and below (Bootstrap md breakpoint - 768px) */
+@media (max-width: 767.98px) {
+  .assign-container {
+    padding: 0.75rem;
+  }
+
+  .assign-right {
+    border-left: none;
+    border-top: 2px solid #dcdcdc;
+    padding-left: 0;
+    padding-top: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .assign-title {
+    font-size: 1.1rem;
+  }
+
+  .bottom-buttons {
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 16px;
+  }
+
+  .action-buttons {
+    width: 100%;
+    font-size: 16px;
+    padding: 12px 16px;
+  }
+
+  .assign-right-scroll {
+    max-height: 300px;
+  }
+}
+
+/* Small mobile devices (Bootstrap sm breakpoint - 576px) */
+@media (max-width: 575.98px) {
+  .schedule-header h3 {
+    font-size: 1.2rem;
+  }
+
+  .schedule-content h4 {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  .assign-container {
+    padding: 0.5rem;
+  }
+
+  .assign-title {
+    font-size: 1rem;
+  }
+
+  .input-group {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .list-group-item {
+    font-size: 0.9rem;
+    padding: 0.75rem;
+  }
+
+  .badge {
+    font-size: 0.65em !important;
+  }
+
+  .action-buttons {
+    font-size: 15px;
+    padding: 10px 14px;
+  }
+
+  .img-btn {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+  }
+
+  /* Stack role info on mobile */
+  .list-group-item.d-flex {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+
+  .list-group-item .text-end {
+    width: 100% !important;
+    text-align: left !important;
+    margin-top: 0.5rem;
+    padding-left: 1.75rem; /* Align with text after checkbox */
+  }
+
+  .assign-right-scroll {
+    max-height: 250px;
+    padding-right: 5px;
+  }
+
+  .form-label {
+    font-size: 0.95rem;
+  }
+
+  .assigned-name {
+    font-size: 0.95rem;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 374.98px) {
+  .schedule-header h3 {
+    font-size: 1rem;
+  }
+
+  .schedule-content h4 {
+    font-size: 0.9rem;
+  }
+
+  .assign-title {
+    font-size: 0.95rem;
+  }
+
+  .list-group-item {
+    font-size: 0.85rem;
+    padding: 0.6rem;
+  }
+
+  .action-buttons {
+    font-size: 14px;
+    padding: 9px 12px;
+    gap: 6px;
+  }
+
+  .img-btn {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+  }
+}
+
+/* Landscape mobile phones */
+@media (max-width: 767.98px) and (orientation: landscape) {
+  .assign-right-scroll {
+    max-height: 150px;
+  }
+
+  .assign-member-list {
+    max-height: 200px;
+  }
+}
+
+/* Large screens - optimize space usage */
+@media (min-width: 1200px) {
+  .assign-container {
+    padding: 1.5rem;
+  }
+
+  .assign-right {
+    padding-left: 2.5rem;
+  }
+
+  .assign-member-list {
+    max-height: 400px;
+  }
+
+  .assign-right-scroll {
+    max-height: 300px;
+  }
 }

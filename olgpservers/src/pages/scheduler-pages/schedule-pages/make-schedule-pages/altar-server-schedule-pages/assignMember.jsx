@@ -42,13 +42,13 @@ export default function AssignMember() {
 
   const slotBaseLabel = useMemo(
     () => slotBaseLabelFor(selectedRoleKey, selectedRoleLabel),
-    [selectedRoleKey, selectedRoleLabel]
+    [selectedRoleKey, selectedRoleLabel],
   );
 
   // Does this role use gender filtering?
   const needsGenderFiltering = useMemo(
     () => selectedRoleKey === "candleBearer" || selectedRoleKey === "beller",
-    [selectedRoleKey]
+    [selectedRoleKey],
   );
 
   // -------- Members (left list) --------
@@ -77,7 +77,7 @@ export default function AssignMember() {
         {
           includeUnavailable: includeUnavailable || isTemplateMass, // Template masses always include all
           massLabel: selectedMass, // ⭐ PASS MASS LABEL to check same-mass assignments
-        }
+        },
       );
       if (!cancelled) {
         setMembers(normalized);
@@ -148,7 +148,7 @@ export default function AssignMember() {
     let filtered = members.filter((m) =>
       (m.fullName || "")
         .toLowerCase()
-        .includes((searchTerm || "").toLowerCase())
+        .includes((searchTerm || "").toLowerCase()),
     );
 
     const g = overrideSex || genderFilter;
@@ -189,7 +189,7 @@ export default function AssignMember() {
   // -------- Priority-only sublist --------
   const priorityOnlyMembers = useMemo(() => {
     return filteredMembers.filter(
-      (m) => (m.roleCount || 0) === 0 || (m.daysSinceLastRole || Infinity) > 30
+      (m) => (m.roleCount || 0) === 0 || (m.daysSinceLastRole || Infinity) > 30,
     );
   }, [filteredMembers]);
 
@@ -255,12 +255,12 @@ export default function AssignMember() {
       d === Infinity
         ? "Never"
         : d === 0
-        ? "Today"
-        : d === 1
-        ? "1 day ago"
-        : Number.isFinite(d)
-        ? `${d} days ago`
-        : "—";
+          ? "Today"
+          : d === 1
+            ? "1 day ago"
+            : Number.isFinite(d)
+              ? `${d} days ago`
+              : "—";
 
     return `${roleCount}x done • Last: ${dayText}`;
   };
@@ -358,16 +358,16 @@ export default function AssignMember() {
               {isTemplateMass
                 ? ", template mass - all members shown"
                 : includeUnavailable
-                ? ", showing all"
-                : ""}
+                  ? ", showing all"
+                  : ""}
               )
             </span>
           )}
         </div>
 
-        <div className="assign-container row">
+        <div className="assign-container row g-0">
           {/* LEFT: candidates */}
-          <div className="col-md-6 assign-left">
+          <div className="col-12 col-md-6 assign-left">
             <h5 className="assign-title">{selectedRoleLabel}</h5>
 
             <div className="input-group mb-3">
@@ -526,7 +526,7 @@ export default function AssignMember() {
           </div>
 
           {/* RIGHT: slots */}
-          <div className="col-md-6 assign-right">
+          <div className="col-12 col-md-6 assign-right">
             <div className="assign-right-scroll">
               {Array.from({ length: slotsCount }).map((_, i) => (
                 <div className="mb-4" key={i}>

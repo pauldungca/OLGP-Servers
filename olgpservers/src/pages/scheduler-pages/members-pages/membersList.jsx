@@ -25,14 +25,26 @@ export default function MembersList() {
   useEffect(() => {
     document.title = "OLGP Servers | Members";
   }, []);
+
   const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const navigate = useNavigate();
   const location = useLocation();
   const department = location.state?.department || "Members";
+
+  // Handle window resize for responsive behavior
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Fetch members once
   useEffect(() => {
@@ -73,6 +85,7 @@ export default function MembersList() {
 
   return (
     <div className="member-page-container">
+      {/* Header Section */}
       <div className="member-header">
         <div className="header-text-with-line">
           <h3>MEMBERS - {department.toUpperCase()}</h3>
@@ -105,7 +118,9 @@ export default function MembersList() {
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="member-content">
+        {/* Search and Action Buttons */}
         <div className="search-bar-container">
           <input
             type="text"
@@ -115,27 +130,37 @@ export default function MembersList() {
             onChange={(e) =>
               handleSearchChange(e, members, setSearchQuery, setFilteredMembers)
             }
+            aria-label="Search members"
           />
           <button
             className="btn btn-blue"
             onClick={navigationAddMember(navigate, { department })}
+            aria-label="Add new member"
           >
-            <img src={icon.addUserIcon} alt="Add Icon" className="icon-btn" />
-            Add Member
+            <img
+              src={icon.addUserIcon}
+              alt=""
+              className="icon-btn"
+              aria-hidden="true"
+            />
+            <span>{isMobile ? "Add" : "Add Member"}</span>
           </button>
           <button
             className="btn btn-blue"
             onClick={navigationSelectDepartment(navigate, { department })}
+            aria-label="Import member"
           >
             <img
               src={icon.importUserIcons}
-              alt="Import Icon"
+              alt=""
               className="icon-btn"
+              aria-hidden="true"
             />
-            Import Member
+            <span>{isMobile ? "Import" : "Import Member"}</span>
           </button>
         </div>
 
+        {/* Table Section */}
         <div className="table-container">
           <CustomTable
             data={filteredMembers}
@@ -146,21 +171,29 @@ export default function MembersList() {
           />
         </div>
 
+        {/* Action Buttons */}
         <div className="action-buttons">
           <DropDownButton
             onExportPNG={() => exportTableAsPNG(getExportData(), department)}
             onExportPDF={() => exportTableAsPDF(getExportData(), department)}
           />
           <button
-            className="btn btn-blue flex items-center gap-2"
+            className="btn btn-blue"
             onClick={() => printMemberList(getExportData(), department)}
+            aria-label="Print members list"
           >
-            <img src={icon.printIcon} alt="Print Icon" className="icon-btn" />
-            Print Members List
+            <img
+              src={icon.printIcon}
+              alt=""
+              className="icon-btn"
+              aria-hidden="true"
+            />
+            <span>Print Members List</span>
           </button>
         </div>
       </div>
 
+      {/* Footer */}
       <div>
         <Footer />
       </div>
